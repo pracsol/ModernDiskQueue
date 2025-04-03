@@ -13,7 +13,7 @@ namespace DiskQueue.Implementation
         /// </summary>
         /// <param name="value">The structure to serialize to a byte array.</param>
         /// <returns>The object serialized to a byte array, ready to write to a stream.</returns>
-        public static byte[] Serialize<T>(T value)
+        public static byte[] Serialize<T>(T value) where T : struct
         {
             // Get the size of our structure in bytes
             var structSize = Marshal.SizeOf(value);
@@ -60,7 +60,8 @@ namespace DiskQueue.Implementation
             try
             {
                 pinnedPacket = GCHandle.Alloc(data, GCHandleType.Pinned);
-                result = (T)Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), typeof(T)) ?? throw new Exception("Could not deserialise");
+                object? obj = Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), typeof(T));
+                result = obj != null ? (T)obj : throw new Exception("Could not deserialise");
             }
             finally
             {
