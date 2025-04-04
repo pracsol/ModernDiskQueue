@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace DiskQueue.Implementation
+namespace ModernDiskQueue.Implementation
 {
     /// <summary>
     /// Data related to the lock file.

@@ -2,7 +2,7 @@
 using NUnit.Framework;
 // ReSharper disable AssignNullToNotNullAttribute
 
-namespace DiskQueue.Tests
+namespace ModernDiskQueue.Tests
 {
     [TestFixture, SingleThreaded]
     public class GenericQueueTests

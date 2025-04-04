@@ -1,4 +1,4 @@
-﻿namespace DiskQueue.Implementation
+﻿namespace ModernDiskQueue.Implementation
 {
     /// <inheritdoc cref="IPersistentQueueSession{T}"/>
     public class PersistentQueueSession<T> : PersistentQueueSession, IPersistentQueueSession<T>

@@ -1,10 +1,10 @@
-﻿using DiskQueue.Implementation;
+﻿using ModernDiskQueue.Implementation;
 using NUnit.Framework;
 using System;
 using System.Diagnostics;
 using System.IO;
 
-namespace DiskQueue.Tests
+namespace ModernDiskQueue.Tests
 {
     [TestFixture]
     public class FileLockedQueueTest

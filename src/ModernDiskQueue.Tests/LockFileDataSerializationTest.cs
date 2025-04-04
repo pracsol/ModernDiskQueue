@@ -1,7 +1,7 @@
-﻿using DiskQueue.Implementation;
+﻿using ModernDiskQueue.Implementation;
 using NUnit.Framework;
 
-namespace DiskQueue.Tests
+namespace ModernDiskQueue.Tests
 {
     [TestFixture]
     internal class LockFileDataSerializationTest

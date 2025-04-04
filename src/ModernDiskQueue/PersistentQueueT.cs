@@ -1,7 +1,7 @@
 ﻿using System;
-using DiskQueue.Implementation;
+using ModernDiskQueue.Implementation;
 
-namespace DiskQueue
+namespace ModernDiskQueue
 {
     /// <inheritdoc cref="IPersistentQueue{T}" />
     public class PersistentQueue<T> : PersistentQueue, IPersistentQueue<T>

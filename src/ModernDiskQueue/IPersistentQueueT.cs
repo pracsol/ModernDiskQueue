@@ -1,4 +1,4 @@
-﻿namespace DiskQueue
+﻿namespace ModernDiskQueue
 {
 
     /// <inheritdoc />

@@ -1,6 +1,6 @@
-﻿using DiskQueue.Implementation;
+﻿using ModernDiskQueue.Implementation;
 
-namespace DiskQueue
+namespace ModernDiskQueue
 {
     /// <inheritdoc/>
     public interface IPersistentQueueSession<T> : IPersistentQueueSession

@@ -3,7 +3,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace DiskQueue.Implementation
+namespace ModernDiskQueue.Implementation
 {
     /// <summary>
     /// This class performs basic serialization from objects of Type T to byte arrays suitable for use in DiskQueue sessions.

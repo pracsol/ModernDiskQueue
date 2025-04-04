@@ -34,8 +34,5 @@
     <None Include="..\..\LICENSE">
       <Pack>True</Pack>
     </None>
-    <None Include="..\..\Logo-small.png">
-      <Pack>True</Pack>
-    </None>
   </ItemGroup>
 </Project>

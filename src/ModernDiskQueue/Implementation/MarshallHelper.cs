@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using System;
 
-namespace DiskQueue.Implementation
+namespace ModernDiskQueue.Implementation
 {
     /// <summary>
     /// Helper class used to help with serializing to bytes
