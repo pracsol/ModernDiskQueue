@@ -6,13 +6,13 @@
     <PackageIcon>MDQLogo-small.png</PackageIcon>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageTags>net8</PackageTags>
-    <PackageVersion>0.0.2</PackageVersion>
+    <PackageVersion>0.0.3</PackageVersion>
     <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
-    <Version>0.0.2</Version>
-    <AssemblyVersion>0.0.2</AssemblyVersion>
+    <Version>0.0.3</Version>
+    <AssemblyVersion>0.0.3</AssemblyVersion>
     <AssemblyName>ModernDiskQueue</AssemblyName>
-    <FileVersion>0.0.2</FileVersion>
-    <ApplicationVersion>0.0.2</ApplicationVersion>
+    <FileVersion>0.0.3</FileVersion>
+    <ApplicationVersion>0.0.3</ApplicationVersion>
     <LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
     <Nullable>enable</Nullable>
@@ -36,6 +36,6 @@
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="True" PackagePath=""/>
     <None Include="..\..\MDQLogo-small.png" Pack="True" PackagePath=""/>
-    <None Include="..\..\README.md" Pack="True" PackagePath="" PackageReadmeFile="True"/>
+    <None Include="..\..\README.md" Pack="True" PackagePath="" PackageReadmeFile="true"/>
   </ItemGroup>
 </Project>
