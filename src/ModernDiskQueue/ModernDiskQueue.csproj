@@ -2,22 +2,24 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PackageId>ModernDiskQueue</PackageId>
+    <Description>Placeholder for ModernDiskQueue, A fork of DiskQueue, updated for the current LTS .net runtime</Description>
     <PackageIcon>MDQLogo-small.png</PackageIcon>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageTags>net8</PackageTags>
-    <PackageVersion>0.0.1</PackageVersion>
-    <Version>0.0.1</Version>
-    <AssemblyVersion>0.0.1</AssemblyVersion>
-    <FileVersion>0.0.1</FileVersion>
-    <ApplicationVersion>0.0.1</ApplicationVersion>
+    <PackageVersion>0.0.2</PackageVersion>
+    <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
+    <Version>0.0.2</Version>
+    <AssemblyVersion>0.0.2</AssemblyVersion>
+    <AssemblyName>ModernDiskQueue</AssemblyName>
+    <FileVersion>0.0.2</FileVersion>
+    <ApplicationVersion>0.0.2</ApplicationVersion>
     <LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
     <Nullable>enable</Nullable>
-    <Copyright>2013-2025 Iain Ballard, 2025 Stephen Shephard</Copyright>
-    <Description>An fork of DiskQueue, updated for the current LTS .net runtime</Description>
+    <Copyright>2005-2008 Ayende Rahien, 2013-2022 Iain Ballard, 2025 Stephen Shephard</Copyright>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <DocumentationFile>bin\Debug\DiskQueue.xml</DocumentationFile>
+    <DocumentationFile>bin\Debug\ModernDiskQueue.xml</DocumentationFile>
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Optimize>false</Optimize>
@@ -29,11 +31,11 @@
     <Optimize>true</Optimize>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DebugSymbols>true</DebugSymbols>
-    <DocumentationFile>bin\Release\DiskQueue.xml</DocumentationFile>
+    <DocumentationFile>bin\Release\ModernDiskQueue.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="..\..\LICENSE">
-      <Pack>True</Pack>
-    </None>
+    <None Include="..\..\LICENSE" Pack="True" PackagePath=""/>
+    <None Include="..\..\MDQLogo-small.png" Pack="True" PackagePath=""/>
+    <None Include="..\..\README.md" Pack="True" PackagePath="" PackageReadmeFile="True"/>
   </ItemGroup>
 </Project>
