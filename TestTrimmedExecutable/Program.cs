@@ -13,7 +13,6 @@
         public static void Main(string[] args)
         {
             int exitCode = 0;
-            string? testToRun, inputArgument;
             try
             {
                 var arguments = new Dictionary<string, string>();
@@ -30,9 +29,9 @@
                         arguments[splitted[0]] = splitted[1];
                     }
                 }
-                if (arguments.TryGetValue("test", out testToRun))
+                if (arguments.TryGetValue("test", out string? testToRun))
                 {
-                    if (arguments.TryGetValue("value", out inputArgument))
+                    if (arguments.TryGetValue("value", out string? inputArgument))
                     {
                         if (!string.IsNullOrEmpty(testToRun) && !string.IsNullOrEmpty(inputArgument))
                         {
@@ -47,7 +46,7 @@
                                     {
                                         throw new ArgumentOutOfRangeException(nameof(args), "Input integer for simple object test could not be parsed.");
                                     }
-                                        break;
+                                    break;
                                 case "2":
                                     if (DateTimeOffset.TryParse(inputArgument, out DateTimeOffset inputDate))
                                     {
@@ -57,7 +56,7 @@
                                     {
                                         throw new ArgumentOutOfRangeException(nameof(args), "Input DateTimeOffset for complex object test could not be parsed.");
                                     }
-                                        break;
+                                    break;
                             }
                         }
                         else
