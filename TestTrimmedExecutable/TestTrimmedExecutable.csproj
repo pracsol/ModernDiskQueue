@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -10,10 +9,9 @@
     <SelfContained>true</SelfContained>
     <TrimMode>full</TrimMode>
   </PropertyGroup>
-
   <ItemGroup>
     <Reference Include="ModernDiskQueue">
-      <HintPath>../src/ModernDiskQueue/bin/Release/net8.0/ModernDiskQueue.dll</HintPath>
+      <HintPath>$(ProjectDir)..\src\ModernDiskQueue\bin\$(Configuration)\net8.0\ModernDiskQueue.dll</HintPath>
     </Reference>
   </ItemGroup>
 
