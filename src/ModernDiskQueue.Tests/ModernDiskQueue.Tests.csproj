@@ -5,8 +5,8 @@
     <LangVersion>9</LangVersion>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <AssemblyVersion>1.25.4.0</AssemblyVersion>
-    <FileVersion>1.25.4.0</FileVersion>
+    <AssemblyVersion>1.25.4.1</AssemblyVersion>
+    <FileVersion>1.25.4.1</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
