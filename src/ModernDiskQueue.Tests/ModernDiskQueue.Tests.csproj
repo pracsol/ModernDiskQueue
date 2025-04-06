@@ -1,8 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
+  <Target Name="PublishTrimmedExecutable" AfterTargets="Build">
+    <Exec Command="dotnet publish $(SolutionDir)TestTrimmedExecutable\TestTrimmedExecutable.csproj -c Release -p:PublishTrimmed=true -o $(ProjectDir)bin\$(Configuration)\net8.0\TrimmedHost" />
+  </Target>
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <LangVersion>9</LangVersion>
+    <LangVersion>12</LangVersion>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyVersion>1.25.4.1</AssemblyVersion>
