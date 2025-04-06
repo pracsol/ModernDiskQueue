@@ -1,13 +1,17 @@
 ModernDiskQueue
 =========
 
-* https://github.com/pracsol/ModernDiskQueue
+NuGet Package: https://nuget.org/packages/ModernDiskQueue
 
-A fork of DiskQueue, updated for current LTS version of the .NET runtime. DiskQueue is a robust, thread-safe, and multi-process persistent queue.
+Source Repository: https://github.com/pracsol/ModernDiskQueue
+
+Original DiskQueue project is at: https://github.com/i-e-b/DiskQueue
+
+ModernDiskQueue is a fork of DiskQueue, updated for current LTS version of the .NET runtime. DiskQueue is a robust, thread-safe, and multi-process persistent queue.
+
 
 Based very heavily on  http://ayende.com/blog/3479/rhino-queues-storage-disk
 
-Original DiskQueue repo is at: https://github.com/i-e-b/DiskQueue
 
 Requirements and Environment
 ----------------------------

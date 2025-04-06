@@ -2,17 +2,16 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PackageId>ModernDiskQueue</PackageId>
-    <Description>Placeholder for ModernDiskQueue, A fork of DiskQueue, updated for the current LTS .net runtime</Description>
+    <Description>A fork of DiskQueue, updated for the current LTS .net runtime</Description>
     <PackageIcon>MDQLogo-small.png</PackageIcon>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>net8</PackageTags>
-    <PackageVersion>0.0.3</PackageVersion>
     <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
-    <Version>0.0.3</Version>
-    <AssemblyVersion>0.0.3</AssemblyVersion>
+    <Version>0.0.8</Version>
+    <AssemblyVersion>0.0.8.0</AssemblyVersion>
     <AssemblyName>ModernDiskQueue</AssemblyName>
-    <FileVersion>0.0.3</FileVersion>
-    <ApplicationVersion>0.0.3</ApplicationVersion>
+    <FileVersion>0.0.8.0</FileVersion>
     <LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
     <Nullable>enable</Nullable>
@@ -33,9 +32,23 @@
     <DebugSymbols>true</DebugSymbols>
     <DocumentationFile>bin\Release\ModernDiskQueue.xml</DocumentationFile>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <ShouldCreateLogs>True</ShouldCreateLogs>
+    <AdvancedSettingsExpanded>False</AdvancedSettingsExpanded>
+    <UpdateAssemblyVersion>True</UpdateAssemblyVersion>
+    <UpdateAssemblyFileVersion>True</UpdateAssemblyFileVersion>
+    <UpdateAssemblyInfoVersion>False</UpdateAssemblyInfoVersion>
+    <UpdatePackageVersion>True</UpdatePackageVersion>
+    <PackageVersionSettings>AssemblyVersion.IncrementWithAutoReset.None</PackageVersionSettings>
+    <AssemblyInfoVersionType>SettingsVersion</AssemblyInfoVersionType>
+    <InheritWinAppVersionFrom>None</InheritWinAppVersionFrom>
+    <AssemblyVersionSettings>None.None.IncrementWithResetOnIncrease.None</AssemblyVersionSettings>
+    <AssemblyFileVersionSettings>None.None.IncrementWithResetOnIncrease.None</AssemblyFileVersionSettings>
+    <PrimaryVersionType>AssemblyVersionAttribute</PrimaryVersionType>
+  </PropertyGroup>
   <ItemGroup>
-    <None Include="..\..\LICENSE" Pack="True" PackagePath=""/>
-    <None Include="..\..\MDQLogo-small.png" Pack="True" PackagePath=""/>
-    <None Include="..\..\README.md" Pack="True" PackagePath="" PackageReadmeFile="true"/>
+    <None Include="..\..\LICENSE" Pack="True" PackagePath="" />
+    <None Include="..\..\MDQLogo-small.png" Pack="True" PackagePath="" />
+    <None Include="..\..\README.md" Pack="True" PackagePath=""/>
   </ItemGroup>
 </Project>
