@@ -8,10 +8,10 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>net8</PackageTags>
     <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
-    <Version>0.0.8</Version>
-    <AssemblyVersion>0.0.8.0</AssemblyVersion>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <AssemblyName>ModernDiskQueue</AssemblyName>
-    <FileVersion>0.0.8.0</FileVersion>
+    <FileVersion>1.0.0.0</FileVersion>
     <LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
     <Nullable>enable</Nullable>
@@ -31,34 +31,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DebugSymbols>true</DebugSymbols>
     <DocumentationFile>bin\Release\ModernDiskQueue.xml</DocumentationFile>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <ShouldCreateLogs>True</ShouldCreateLogs>
-    <AdvancedSettingsExpanded>True</AdvancedSettingsExpanded>
-    <UpdateAssemblyVersion>True</UpdateAssemblyVersion>
-    <UpdateAssemblyFileVersion>True</UpdateAssemblyFileVersion>
-    <UpdateAssemblyInfoVersion>False</UpdateAssemblyInfoVersion>
-    <UpdatePackageVersion>True</UpdatePackageVersion>
-    <PackageVersionSettings>AssemblyVersion.IncrementWithAutoReset.None</PackageVersionSettings>
-    <AssemblyInfoVersionType>SettingsVersion</AssemblyInfoVersionType>
-    <InheritWinAppVersionFrom>None</InheritWinAppVersionFrom>
-    <AssemblyVersionSettings>None.None.IncrementWithResetOnIncrease.None</AssemblyVersionSettings>
-    <AssemblyFileVersionSettings>None.None.IncrementWithResetOnIncrease.None</AssemblyFileVersionSettings>
-    <PrimaryVersionType>AssemblyVersionAttribute</PrimaryVersionType>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <ShouldCreateLogs>True</ShouldCreateLogs>
-    <AdvancedSettingsExpanded>True</AdvancedSettingsExpanded>
-    <UpdateAssemblyVersion>True</UpdateAssemblyVersion>
-    <UpdateAssemblyFileVersion>True</UpdateAssemblyFileVersion>
-    <UpdateAssemblyInfoVersion>False</UpdateAssemblyInfoVersion>
-    <AssemblyVersionSettings>None.None.IncrementWithResetOnIncrease.None</AssemblyVersionSettings>
-    <UpdatePackageVersion>True</UpdatePackageVersion>
-    <AssemblyInfoVersionType>SettingsVersion</AssemblyInfoVersionType>
-    <InheritWinAppVersionFrom>None</InheritWinAppVersionFrom>
-    <AssemblyFileVersionSettings>None.None.IncrementWithResetOnIncrease.None</AssemblyFileVersionSettings>
-    <PackageVersionSettings>AssemblyVersion.IncrementWithAutoReset.None</PackageVersionSettings>
-    <PrimaryVersionType>AssemblyVersionAttribute</PrimaryVersionType>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="True" PackagePath="" />
