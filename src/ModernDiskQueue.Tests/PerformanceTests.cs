@@ -233,7 +233,7 @@ namespace ModernDiskQueue.Tests
 				{
 					for (int i = 0; i < SmallCount; i++)
 					{
-						Assert.AreEqual(itemsSizes[i], session.Dequeue()?.Length ?? -1);
+						Assert.That(itemsSizes[i], Is.EqualTo(session.Dequeue()?.Length ?? -1));
 					}
 
 					session.Flush();

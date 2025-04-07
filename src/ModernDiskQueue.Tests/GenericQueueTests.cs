@@ -22,7 +22,7 @@ namespace ModernDiskQueue.Tests
             session.Flush();
             var testNumber = session.Dequeue();
             session.Flush();
-            Assert.AreEqual(7, testNumber);
+            Assert.That(7, Is.EqualTo(testNumber));
         }
 
         [TestCase("Test")]
@@ -45,7 +45,7 @@ namespace ModernDiskQueue.Tests
             session.Flush();
             var returnValue = session.Dequeue();
             session.Flush();
-            Assert.AreEqual(valueToTest, returnValue);
+            Assert.That(valueToTest, Is.EqualTo(returnValue));
         }
 
         [Test]
@@ -60,7 +60,7 @@ namespace ModernDiskQueue.Tests
             var testObject2 = session.Dequeue();
             session.Flush();
             Assert.IsNotNull(testObject2);
-            Assert.AreEqual(testObject,testObject2);
+            Assert.That(testObject, Is.EqualTo(testObject2));
 
             testObject = new TestClass(7, "TestString", -5);
             session.Enqueue(testObject);
@@ -68,7 +68,7 @@ namespace ModernDiskQueue.Tests
             testObject2 = session.Dequeue();
             session.Flush();
             Assert.IsNotNull(testObject2);
-            Assert.AreEqual(testObject, testObject2);
+            Assert.That(testObject, Is.EqualTo(testObject2));
         }
 
         [Test]
@@ -83,7 +83,7 @@ namespace ModernDiskQueue.Tests
             var testObject2 = session.Dequeue();
             session.Flush();
             Assert.IsNotNull(testObject2);
-            Assert.AreEqual(testObject,testObject2);
+            Assert.That(testObject, Is.EqualTo(testObject2));
         }
     }
 

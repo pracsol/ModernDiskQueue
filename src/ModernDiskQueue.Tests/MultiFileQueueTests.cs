@@ -14,7 +14,7 @@ namespace ModernDiskQueue.Tests
 		{
 			using (IPersistentQueue queue = new PersistentQueue(Path, 10))
 			{
-                Assert.AreEqual(10, queue.MaxFileSize);
+                Assert.That(10, Is.EqualTo(queue.MaxFileSize));
 			}
 		}
 
@@ -31,7 +31,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(11, queue.EstimatedCountOfItemsInQueue);
+				Assert.That(11, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
 			}
 		}
 
@@ -48,7 +48,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(1, queue.Internals.CurrentFileNumber);
+				Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
 			}
 		}
 
@@ -65,7 +65,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(1, queue.Internals.CurrentFileNumber);
+				Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
 			}
 			using (var queue = new PersistentQueue(Path, 10))
 			{
@@ -77,7 +77,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(1, queue.Internals.CurrentFileNumber);
+				Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
 			}
 		}
 
@@ -94,7 +94,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(1, queue.Internals.CurrentFileNumber);
+				Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
 			}
 
 			using (var queue = new PersistentQueue(Path, 10))
@@ -103,7 +103,7 @@ namespace ModernDiskQueue.Tests
 				{
 					using (var session = queue.OpenSession())
 					{
-						Assert.AreEqual(i, session.Dequeue()?[0]);
+						Assert.That(i, Is.EqualTo(session.Dequeue()?[0]));
 						session.Flush();
 					}
 				}
@@ -123,7 +123,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(1, queue.Internals.CurrentFileNumber);
+				Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
 			}
 
 			using (var queue = new PersistentQueue(Path, 10))
@@ -136,7 +136,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(1, queue.Internals.CurrentFileNumber);
+				Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
 			}
 
 
@@ -146,13 +146,13 @@ namespace ModernDiskQueue.Tests
 				{
 					for (byte i = 0; i < 12; i++)
 					{
-						Assert.AreEqual(i, session.Dequeue()?[0]);
+						Assert.That(i, Is.EqualTo(session.Dequeue()?[0]));
 						session.Flush();
 					}
 
 					for (byte i = 0; i < 3; i++)
 					{
-						Assert.AreEqual(i, session.Dequeue()?[0]);
+						Assert.That(i, Is.EqualTo(session.Dequeue()?[0]));
 						session.Flush();
 					}
 				}
@@ -172,7 +172,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(1, queue.Internals.CurrentFileNumber);
+				Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
 			}
 
 			using (var queue = new PersistentQueue(Path, 10))
@@ -181,7 +181,7 @@ namespace ModernDiskQueue.Tests
 				{
 					using (var session = queue.OpenSession())
 					{
-						Assert.AreEqual(i, session.Dequeue()?[0]);
+						Assert.That(i, Is.EqualTo(session.Dequeue()?[0]));
 						session.Flush();
 					}
 				}

@@ -26,7 +26,7 @@ namespace ModernDiskQueue.Tests
             var actual = MarshallHelper.Serialize(data);
             for (var i = 0; i < expected.Length && i < actual.Length; i++)
             {
-                Assert.AreEqual(expected[i], actual[i]);
+                Assert.That(expected[i], Is.EqualTo(actual[i]));
             }
         }
 
@@ -41,9 +41,9 @@ namespace ModernDiskQueue.Tests
             };
 
             var actual = MarshallHelper.Deserialize<LockFileData>(input);
-            Assert.AreEqual(8 + 256 * 1, actual.ProcessId);
-            Assert.AreEqual(16 + 256 * 2, actual.ThreadId);
-            Assert.AreEqual(0, actual.ProcessStart);
+            Assert.That(8 + 256 * 1, Is.EqualTo(actual.ProcessId));
+            Assert.That(16 + 256 * 2, Is.EqualTo(actual.ThreadId));
+            Assert.That(0, Is.EqualTo(actual.ProcessStart));
         }
 
         [Test]
@@ -57,9 +57,9 @@ namespace ModernDiskQueue.Tests
             };
 
             var actual = MarshallHelper.Deserialize<LockFileData>(input);
-            Assert.AreEqual(8 + 256 * 1, actual.ProcessId);
-            Assert.AreEqual(16 + 256 * 2, actual.ThreadId);
-            Assert.AreEqual(32 + 256 * 4, actual.ProcessStart);
+            Assert.That(8 + 256 * 1, Is.EqualTo(actual.ProcessId));
+            Assert.That(16 + 256 * 2, Is.EqualTo(actual.ThreadId));
+            Assert.That(32 + 256 * 4, Is.EqualTo(actual.ProcessStart));
         }
     }
 }
