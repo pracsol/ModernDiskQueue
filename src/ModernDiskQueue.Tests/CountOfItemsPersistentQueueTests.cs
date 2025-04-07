@@ -13,7 +13,7 @@ namespace ModernDiskQueue.Tests
 		{
 			using (var queue = new PersistentQueue(Path))
 			{
-				Assert.AreEqual(0, queue.EstimatedCountOfItemsInQueue);
+				Assert.That(0, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
 			}
 		}
 
@@ -30,7 +30,7 @@ namespace ModernDiskQueue.Tests
 						session.Flush();
 					}
 				}
-				Assert.AreEqual(5, queue.EstimatedCountOfItemsInQueue);
+				Assert.That(5, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
 			}
 		}
 
@@ -52,7 +52,7 @@ namespace ModernDiskQueue.Tests
 
 			using (var queue = new PersistentQueue(Path))
 			{
-				Assert.AreEqual(5, queue.EstimatedCountOfItemsInQueue);
+				Assert.That(5, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
 			}
 		}
 	}

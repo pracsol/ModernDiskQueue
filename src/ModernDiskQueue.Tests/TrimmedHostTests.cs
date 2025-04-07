@@ -44,7 +44,7 @@ namespace ModernDiskQueue.Tests
                 CreateNoWindow = true,
             };
 
-            Assert.IsTrue(File.Exists(path), "Checking that file exists: TestTrimmedExecutable.exe.");
+            Assert.That(File.Exists(path), Is.True, "Checking that file exists: TestTrimmedExecutable.exe.");
 
             try
             {
@@ -67,8 +67,8 @@ namespace ModernDiskQueue.Tests
                         Assert.Pass($"Executable returned an error: {stdErr}");
                     }
 
-                    Assert.IsNotEmpty(stdOut, "Executable did not return any data.");
-                    Assert.IsTrue(DateTimeOffset.TryParse(stdOut, out DateTimeOffset returnedValue), "Could not parse returned value.");
+                    Assert.That(stdOut, Is.Not.Empty, "Executable did not return any data.");
+                    Assert.That(DateTimeOffset.TryParse(stdOut, out DateTimeOffset returnedValue), Is.True, "Could not parse returned value.");
                     Assert.That(inputDate, Is.EqualTo(returnedValue), "Returned value did not match input.");
                 }
             }
@@ -103,7 +103,7 @@ namespace ModernDiskQueue.Tests
                 CreateNoWindow = true,
             };
 
-            Assert.IsTrue(File.Exists(path), "Checking that file exists: TestTrimmedExecutable.exe.");
+            Assert.That(File.Exists(path), Is.True, "Checking that file exists: TestTrimmedExecutable.exe.");
 
             try
             {
@@ -126,8 +126,8 @@ namespace ModernDiskQueue.Tests
                         Assert.Fail($"Executable returned an error: {stdErr}");
                     }
 
-                    Assert.IsNotEmpty(stdOut, "Executable did not return any data.");
-                    Assert.IsTrue(int.TryParse(stdOut, out int returnedValue), "Could not parse output value from executable.");
+                    Assert.That(stdOut, Is.Not.Empty, "Executable did not return any data.");
+                    Assert.That(int.TryParse(stdOut, out int returnedValue), Is.True, "Could not parse output value from executable.");
                     Assert.That(argument, Is.EqualTo(returnedValue), "Return value did not match input.");
                 }
             }

@@ -41,7 +41,7 @@ namespace ModernDiskQueue.Tests
 				txSizeWhenOpen = txLogInfo.Length;
 			}
 			txLogInfo.Refresh();
-			Assert.Less(txLogInfo.Length, txSizeWhenOpen);
+			Assert.That(txLogInfo.Length, Is.LessThan(txSizeWhenOpen));
 		}
 
 		[Test]
@@ -65,14 +65,14 @@ namespace ModernDiskQueue.Tests
 					{
 						session.Dequeue();
 					}
-					Assert.IsNull(session.Dequeue());
+					Assert.That(session.Dequeue(), Is.Null);
 
 					//	session.Flush(); explicitly removed
 				}
 			}
 			using (var queue = new PersistentQueue(Path))
 			{
-				Assert.AreEqual(10, queue.EstimatedCountOfItemsInQueue);
+				Assert.That(10, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
 			}
 		}
 
@@ -96,7 +96,7 @@ namespace ModernDiskQueue.Tests
 					{
 						session.Dequeue();
 					}
-					Assert.IsNull(session.Dequeue());
+					Assert.That(session.Dequeue(), Is.Null);
 
 					//	session.Flush(); explicitly removed
 				}
@@ -109,7 +109,7 @@ namespace ModernDiskQueue.Tests
 					{
 						session.Dequeue();
 					}
-					Assert.IsNull(session.Dequeue());
+					Assert.That(session.Dequeue(), Is.Null);
 					session.Flush();
 				}
 			}
@@ -143,12 +143,12 @@ namespace ModernDiskQueue.Tests
 				{
 					session.Dequeue();
 				}
-				Assert.IsNull(session.Dequeue());
+				Assert.That(session.Dequeue(), Is.Null);
 
 				session.Flush();
 			}
 			txLogInfo.Refresh();
-			Assert.Less(txLogInfo.Length, txSizeWhenOpen);
+			Assert.That(txLogInfo.Length, Is.LessThan(txSizeWhenOpen));
 		}
 
 		[Test]
@@ -185,9 +185,9 @@ namespace ModernDiskQueue.Tests
 					for (int j = 0; j < 19; j++)
 					{
 						var bytes = session.Dequeue() ?? throw new Exception("read failed");
-						Assert.AreEqual(j, BitConverter.ToInt32(bytes, 0));
+						Assert.That(j, Is.EqualTo(BitConverter.ToInt32(bytes, 0)));
 					}
-					Assert.IsNull(session.Dequeue());// the last transaction was corrupted
+					Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
 					session.Flush();
 				}
 			}
@@ -222,7 +222,7 @@ namespace ModernDiskQueue.Tests
 			{
 				using (var session = queue.OpenSession())
 				{
-					Assert.IsNull(session.Dequeue());// the last transaction was corrupted
+					Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
 					session.Flush();
 				}
 			}
@@ -257,7 +257,7 @@ namespace ModernDiskQueue.Tests
 	        {
 	            using (var session = queue.OpenSession())
 	            {
-	                Assert.IsNull(session.Dequeue());// the last transaction was corrupted
+	                Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
 	                session.Flush();
 	            }
 	        }
@@ -292,7 +292,7 @@ namespace ModernDiskQueue.Tests
 	        {
 	            using (var session = queue.OpenSession())
 	            {
-	                Assert.IsNull(session.Dequeue());// the last transaction was corrupted
+	                Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
 	                session.Flush();
 	            }
 	        }
@@ -311,7 +311,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 20; j++)
 	                {
-	                    session.Enqueue(new byte[0]);
+	                    session.Enqueue([]);
 	                    session.Flush();
 	                }
 	            }
@@ -323,9 +323,9 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 20; j++)
 	                {
-	                    Assert.IsEmpty(session.Dequeue());
+	                    Assert.That(session.Dequeue(), Is.Empty);
 	                }
-	                Assert.IsNull(session.Dequeue());
+	                Assert.That(session.Dequeue(), Is.Null);
 	                session.Flush();
 	            }
 	        }
@@ -353,7 +353,7 @@ namespace ModernDiskQueue.Tests
 	        {
 	            using (var session = queue.OpenSession())
 	            {
-	                Assert.AreEqual(Constants.EndTransactionSeparator, session.Dequeue());
+	                Assert.That(Constants.EndTransactionSeparator, Is.EqualTo(session.Dequeue()));
 	                session.Flush();
 	            }
 	        }
@@ -381,7 +381,7 @@ namespace ModernDiskQueue.Tests
 	        {
 	            using (var session = queue.OpenSession())
 	            {
-	                Assert.AreEqual(Constants.StartTransactionSeparator, session.Dequeue());
+	                Assert.That(Constants.StartTransactionSeparator, Is.EqualTo(session.Dequeue()));
 	                session.Flush();
 	            }
 	        }
@@ -396,11 +396,11 @@ namespace ModernDiskQueue.Tests
 		        queue.TrimTransactionLogOnDispose = false;
 		        using (var session = queue.OpenSession())
 	            {
-	                session.Enqueue(new byte[0]);
+	                session.Enqueue([]);
 	                session.Flush();
 	                for (int j = 0; j < 19; j++)
 	                {
-	                    session.Enqueue(new byte[] {1});
+	                    session.Enqueue([1]);
 	                    session.Flush();
 	                }
 	            }
@@ -412,7 +412,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 20; j++)
 	                {
-	                    Assert.IsNotNull(session.Dequeue());
+	                    Assert.That(session.Dequeue(), Is.Not.Null);
 	                    session.Flush();
 	                }
 	            }
@@ -431,10 +431,10 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 19; j++)
 	                {
-	                    session.Enqueue(new byte[] {1});
+	                    session.Enqueue([1]);
 	                    session.Flush();
 	                }
-	                session.Enqueue(new byte[0]);
+	                session.Enqueue([]);
 	                session.Flush();
 	            }
 	        }
@@ -445,7 +445,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 20; j++)
 	                {
-	                    Assert.IsNotNull(session.Dequeue());
+	                    Assert.That(session.Dequeue(), Is.Not.Null);
 	                    session.Flush();
 	                }
 	            }
@@ -465,7 +465,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 5; j++)
 	                {
-	                    session.Enqueue(new[]{(byte)(j+1)});
+	                    session.Enqueue([(byte)(j+1)]);
 	                }
                     session.Flush();
                 }
@@ -475,7 +475,7 @@ namespace ModernDiskQueue.Tests
 	        {
                 var buf = new byte[(int)txLog.Length];
 	            var actual = txLog.Read(buf, 0, (int)txLog.Length);
-	            Assert.AreEqual(txLog.Length, actual);
+	            Assert.That(txLog.Length, Is.EqualTo(actual));
 	            txLog.Write(buf, 0, buf.Length);        // a 'good' extra session
 	            txLog.Write(buf, 0, buf.Length / 2);    // a 'bad' extra session
 	            txLog.Flush();
@@ -487,16 +487,16 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 5; j++)
 	                {
-	                    Assert.That(session.Dequeue(), Is.EquivalentTo(new[]{(byte)(j+1)}));
+	                    Assert.That(session.Dequeue(), Is.EquivalentTo([(byte)(j+1)]));
 	                    session.Flush();
 	                }
 	                for (int j = 0; j < 5; j++)
 	                {
-		                Assert.That(session.Dequeue(), Is.EquivalentTo(new[]{(byte)(j+1)}));
+		                Assert.That(session.Dequeue(), Is.EquivalentTo([(byte)(j+1)]));
 		                session.Flush();
 	                }
 	                
-	                Assert.IsNull(session.Dequeue());
+	                Assert.That(session.Dequeue(), Is.Null);
 	                session.Flush();
 	            }
 	        }
@@ -514,7 +514,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 5; j++)
 	                {
-	                    session.Enqueue(Array.Empty<byte>());
+	                    session.Enqueue([]);
 	                }
 	                session.Flush();
 	            }
@@ -524,7 +524,7 @@ namespace ModernDiskQueue.Tests
 	        {
 	            var buf = new byte[(int)txLog.Length];
 	            var actual = txLog.Read(buf, 0, (int)txLog.Length);
-	            Assert.AreEqual(txLog.Length, actual);
+	            Assert.That(txLog.Length, Is.EqualTo(actual));
 	            txLog.Write(buf, 0, buf.Length - 16); // new session, but with missing end marker
 	            txLog.Write(Constants.StartTransactionSeparator, 0, 16);
 	            txLog.Flush();
@@ -536,9 +536,9 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 5; j++) // first 5 should be OK
 	                {
-	                    Assert.IsNotNull(session.Dequeue());
+	                    Assert.That(session.Dequeue(), Is.Not.Null);
 	                }
-	                Assert.IsNull(session.Dequeue()); // duplicated 5 should be silently lost.
+	                Assert.That(session.Dequeue(), Is.Null); // duplicated 5 should be silently lost.
 	                session.Flush();
 	            }
 	        }
@@ -571,7 +571,7 @@ namespace ModernDiskQueue.Tests
 
 			txLogInfo.Refresh();
 
-			Assert.AreEqual(36, txLogInfo.Length);//empty transaction size
+			Assert.That(36, Is.EqualTo(txLogInfo.Length));//empty transaction size
 		}
 
 		[Test]
@@ -633,7 +633,7 @@ namespace ModernDiskQueue.Tests
 			{
 				if (expected == 19)
 					continue;
-				Assert.AreEqual(expected, data[i]);
+				Assert.That(expected, Is.EqualTo(data[i]));
 				expected++;
 			}
 		}

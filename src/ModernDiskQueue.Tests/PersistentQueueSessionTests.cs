@@ -150,7 +150,7 @@ namespace ModernDiskQueue.Tests
             
             Console.WriteLine(string.Join(", ", corruptBytes.OrEmpty().Select(b=>b.ToString())));
             Console.WriteLine(string.Join(", ", bytes.OrEmpty().Select(b=>b.ToString())));
-            CollectionAssert.AreEqual(new byte[] { 5,6,7,8 }, bytes!);
+            Assert.That(bytes!, Is.EqualTo(new byte[] { 5, 6, 7, 8 }));
         }
 
         private static IPersistentQueueImpl PersistentQueueWithMemoryStream(IFileStream limitedSizeStream)

@@ -75,7 +75,7 @@ namespace ModernDiskQueue.Tests
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				Assert.IsNull(session.Dequeue());
+				Assert.That(session.Dequeue(), Is.Null);
 			}
 		}
 
@@ -98,7 +98,7 @@ namespace ModernDiskQueue.Tests
 			{
 				session.Enqueue(new byte[] { 1, 2, 3, 4 });
 				session.Flush();
-				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session.Dequeue());
+				Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
 			}
 		}
 
@@ -110,7 +110,7 @@ namespace ModernDiskQueue.Tests
 			{
 				session.Enqueue(new byte[0]);
 				session.Flush();
-				CollectionAssert.AreEqual(new byte[0], session.Dequeue());
+				Assert.That(session.Dequeue(), Is.EqualTo(Array.Empty<byte>()));
 			}
 		}
 
@@ -127,7 +127,7 @@ namespace ModernDiskQueue.Tests
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session.Dequeue());
+				Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
 				session.Flush();
 			}
 		}
@@ -145,8 +145,8 @@ namespace ModernDiskQueue.Tests
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session.Dequeue());
-				Assert.IsNull(session.Dequeue());
+				Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+				Assert.That(session.Dequeue(), Is.Null);
 				session.Flush();
 			}
 		}
@@ -164,14 +164,14 @@ namespace ModernDiskQueue.Tests
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session.Dequeue());
+				Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
 				session.Flush();
 			}
 
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				Assert.IsNull(session.Dequeue());
+				Assert.That(session.Dequeue(), Is.Null);
 				session.Flush();
 			}
 		}
@@ -189,14 +189,14 @@ namespace ModernDiskQueue.Tests
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session.Dequeue());
+				Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
 				//Explicitly omitted: session.Flush();
 			}
 
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session.Dequeue());
+				Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
 				session.Flush();
 			}
 		}
@@ -233,10 +233,10 @@ namespace ModernDiskQueue.Tests
 			{
 				using (var session1 = queue.OpenSession())
 				{
-					CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session1.Dequeue());
+					Assert.That(session1.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
 					//Explicitly omitted: session.Flush();
 				}
-				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session2.Dequeue());
+				Assert.That(session2.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
 				session2.Flush();
 			}
 		}
@@ -255,8 +255,8 @@ namespace ModernDiskQueue.Tests
 			using (var session2 = queue.OpenSession())
 			using (var session1 = queue.OpenSession())
 			{
-				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, session1.Dequeue());
-				Assert.IsNull(session2.Dequeue());
+				Assert.That(session1.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+				Assert.That(session2.Dequeue(), Is.Null);
 			}
 		}
 
@@ -278,9 +278,9 @@ namespace ModernDiskQueue.Tests
                 using (var queue = new PersistentQueue(Path))
                 using (var session = queue.OpenSession())
                 {
-                    CollectionAssert.AreEqual(new byte[] { 1 }, session.Dequeue(), "Incorrect order on turn " + (i + 1));
-                    CollectionAssert.AreEqual(new byte[] { 2 }, session.Dequeue(), "Incorrect order on turn " + (i + 1));
-                    CollectionAssert.AreEqual(new byte[] { 3 }, session.Dequeue(), "Incorrect order on turn " + (i + 1));
+                    Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1 }), $"Incorrect order on turn {i + 1}");
+					Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 2 }), $"Incorrect order on turn {i + 1}");
+                    Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 3 }), $"Incorrect order on turn {i + 1}");
                     // Dispose without `session.Flush();`
                 }
             }
