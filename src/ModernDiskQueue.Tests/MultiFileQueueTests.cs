@@ -187,8 +187,8 @@ namespace ModernDiskQueue.Tests
 				}
 			}
 
-			Assert.IsFalse(
-				File.Exists(System.IO.Path.Combine(Path, "data.0"))
+			Assert.That(
+				File.Exists(System.IO.Path.Combine(Path, "data.0")), Is.False
 				);
 		}
 	}

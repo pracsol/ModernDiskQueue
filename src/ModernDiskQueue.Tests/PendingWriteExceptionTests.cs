@@ -18,8 +18,8 @@ namespace ModernDiskQueue.Tests
 			catch (Exception e)
 			{
 				var s = new PendingWriteException(new []{e}).ToString();
-				Assert.IsTrue(
-					s.Contains(e.ToString())
+				Assert.That(
+					s.Contains(e.ToString()), Is.True
 					);
 			}
 		}
@@ -34,8 +34,8 @@ namespace ModernDiskQueue.Tests
 			catch (Exception e)
 			{
 				var s = new PendingWriteException(new [] { e });
-				Assert.IsTrue(
-					s.PendingWritesExceptions.Contains(e)
+				Assert.That(
+					s.PendingWritesExceptions.Contains(e), Is.True
 					);
 			}
 		}
