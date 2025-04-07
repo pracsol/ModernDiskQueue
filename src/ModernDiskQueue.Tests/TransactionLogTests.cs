@@ -65,7 +65,7 @@ namespace ModernDiskQueue.Tests
 					{
 						session.Dequeue();
 					}
-					Assert.IsNull(session.Dequeue());
+					Assert.That(session.Dequeue(), Is.Null);
 
 					//	session.Flush(); explicitly removed
 				}
@@ -96,7 +96,7 @@ namespace ModernDiskQueue.Tests
 					{
 						session.Dequeue();
 					}
-					Assert.IsNull(session.Dequeue());
+					Assert.That(session.Dequeue(), Is.Null);
 
 					//	session.Flush(); explicitly removed
 				}
@@ -109,7 +109,7 @@ namespace ModernDiskQueue.Tests
 					{
 						session.Dequeue();
 					}
-					Assert.IsNull(session.Dequeue());
+					Assert.That(session.Dequeue(), Is.Null);
 					session.Flush();
 				}
 			}
@@ -143,7 +143,7 @@ namespace ModernDiskQueue.Tests
 				{
 					session.Dequeue();
 				}
-				Assert.IsNull(session.Dequeue());
+				Assert.That(session.Dequeue(), Is.Null);
 
 				session.Flush();
 			}
@@ -187,7 +187,7 @@ namespace ModernDiskQueue.Tests
 						var bytes = session.Dequeue() ?? throw new Exception("read failed");
 						Assert.That(j, Is.EqualTo(BitConverter.ToInt32(bytes, 0)));
 					}
-					Assert.IsNull(session.Dequeue());// the last transaction was corrupted
+					Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
 					session.Flush();
 				}
 			}
@@ -222,7 +222,7 @@ namespace ModernDiskQueue.Tests
 			{
 				using (var session = queue.OpenSession())
 				{
-					Assert.IsNull(session.Dequeue());// the last transaction was corrupted
+					Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
 					session.Flush();
 				}
 			}
@@ -257,7 +257,7 @@ namespace ModernDiskQueue.Tests
 	        {
 	            using (var session = queue.OpenSession())
 	            {
-	                Assert.IsNull(session.Dequeue());// the last transaction was corrupted
+	                Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
 	                session.Flush();
 	            }
 	        }
@@ -292,7 +292,7 @@ namespace ModernDiskQueue.Tests
 	        {
 	            using (var session = queue.OpenSession())
 	            {
-	                Assert.IsNull(session.Dequeue());// the last transaction was corrupted
+	                Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
 	                session.Flush();
 	            }
 	        }
@@ -325,7 +325,7 @@ namespace ModernDiskQueue.Tests
 	                {
 	                    Assert.IsEmpty(session.Dequeue());
 	                }
-	                Assert.IsNull(session.Dequeue());
+	                Assert.That(session.Dequeue(), Is.Null);
 	                session.Flush();
 	            }
 	        }
@@ -412,7 +412,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 20; j++)
 	                {
-	                    Assert.IsNotNull(session.Dequeue());
+	                    Assert.That(session.Dequeue(), Is.Not.Null);
 	                    session.Flush();
 	                }
 	            }
@@ -445,7 +445,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 20; j++)
 	                {
-	                    Assert.IsNotNull(session.Dequeue());
+	                    Assert.That(session.Dequeue(), Is.Not.Null);
 	                    session.Flush();
 	                }
 	            }
@@ -496,7 +496,7 @@ namespace ModernDiskQueue.Tests
 		                session.Flush();
 	                }
 	                
-	                Assert.IsNull(session.Dequeue());
+	                Assert.That(session.Dequeue(), Is.Null);
 	                session.Flush();
 	            }
 	        }
@@ -536,9 +536,9 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 5; j++) // first 5 should be OK
 	                {
-	                    Assert.IsNotNull(session.Dequeue());
+	                    Assert.That(session.Dequeue(), Is.Not.Null);
 	                }
-	                Assert.IsNull(session.Dequeue()); // duplicated 5 should be silently lost.
+	                Assert.That(session.Dequeue(), Is.Null); // duplicated 5 should be silently lost.
 	                session.Flush();
 	            }
 	        }

@@ -75,7 +75,7 @@ namespace ModernDiskQueue.Tests
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				Assert.IsNull(session.Dequeue());
+				Assert.That(session.Dequeue(), Is.Null);
 			}
 		}
 
@@ -146,7 +146,7 @@ namespace ModernDiskQueue.Tests
 			using (var session = queue.OpenSession())
 			{
 				Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
-				Assert.IsNull(session.Dequeue());
+				Assert.That(session.Dequeue(), Is.Null);
 				session.Flush();
 			}
 		}
@@ -171,7 +171,7 @@ namespace ModernDiskQueue.Tests
 			using (var queue = new PersistentQueue(Path))
 			using (var session = queue.OpenSession())
 			{
-				Assert.IsNull(session.Dequeue());
+				Assert.That(session.Dequeue(), Is.Null);
 				session.Flush();
 			}
 		}
@@ -256,7 +256,7 @@ namespace ModernDiskQueue.Tests
 			using (var session1 = queue.OpenSession())
 			{
 				Assert.That(session1.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
-				Assert.IsNull(session2.Dequeue());
+				Assert.That(session2.Dequeue(), Is.Null);
 			}
 		}
 
