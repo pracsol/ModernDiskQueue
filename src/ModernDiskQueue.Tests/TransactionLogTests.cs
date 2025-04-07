@@ -41,7 +41,7 @@ namespace ModernDiskQueue.Tests
 				txSizeWhenOpen = txLogInfo.Length;
 			}
 			txLogInfo.Refresh();
-			Assert.Less(txLogInfo.Length, txSizeWhenOpen);
+			Assert.That(txLogInfo.Length, Is.LessThan(txSizeWhenOpen));
 		}
 
 		[Test]
@@ -148,7 +148,7 @@ namespace ModernDiskQueue.Tests
 				session.Flush();
 			}
 			txLogInfo.Refresh();
-			Assert.Less(txLogInfo.Length, txSizeWhenOpen);
+			Assert.That(txLogInfo.Length, Is.LessThan(txSizeWhenOpen));
 		}
 
 		[Test]
@@ -323,7 +323,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 20; j++)
 	                {
-	                    Assert.IsEmpty(session.Dequeue());
+	                    Assert.That(session.Dequeue(), Is.Empty);
 	                }
 	                Assert.That(session.Dequeue(), Is.Null);
 	                session.Flush();
