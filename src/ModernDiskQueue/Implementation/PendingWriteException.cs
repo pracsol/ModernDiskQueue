@@ -84,46 +84,6 @@ namespace ModernDiskQueue.Implementation
 			return sb.ToString();
 		}
 
-		/// <summary>
-		/// Serializes the exception to a JSON string.
-		/// </summary>
-		/// <returns>String representation of the exception.</returns>
-        public string ToJson()
-        {
-            return JsonSerializer.Serialize(new
-            {
-                BaseMessage = base.Message, // Store the base message explicitly
-                PendingWritesExceptions = _pendingWritesExceptions.Select(ex => new
-                {
-                    ex.Message,
-                    ex.StackTrace,
-                    InnerException = ex.InnerException?.ToJson() // Recursive serialization
-                }).ToArray()
-            });
-        }
-
-        /// <summary>
-        /// Deserializes a JSON string back into a PendingWriteException.
-        /// </summary>
-        /// <param name="json"></param>
-        /// <returns></returns>
-        public static PendingWriteException FromJson(string json)
-        {
-            var data = JsonSerializer.Deserialize<ExceptionData>(json);
-            if (data == null)
-            {
-                throw new ArgumentException("Invalid JSON data for deserialization.", nameof(json));
-            }
-
-            var pendingExceptions = data.PendingWritesExceptions?.Select(ex =>
-            {
-                var innerEx = ex.InnerException != null ? FromJson(ex.InnerException) : null;
-                return new Exception(ex.Message) { /* StackTrace can't be set directly */ };
-            }).ToArray() ?? Array.Empty<Exception>();
-
-            return new PendingWriteException(pendingExceptions);
-        }
-
         // Helper class for JSON structure
         private class ExceptionData
         {

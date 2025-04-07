@@ -35,3 +35,6 @@ build
 *.ncrunchproject
 *.ncrunchsolution.user
 *ncrunch*
+*.user
+publish/
+publishprofiles/
