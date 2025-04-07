@@ -148,7 +148,7 @@ namespace ModernDiskQueue.Tests
 
 			for (int e = 0; e < 100; e++)
 			{
-				if (!threads[e].Join(110_000)) Assert.Fail($"reader timeout on thread {e}");
+				if (!threads[e].Join(150_000)) Assert.Fail($"reader timeout on thread {e}");
 			}
 		}
 

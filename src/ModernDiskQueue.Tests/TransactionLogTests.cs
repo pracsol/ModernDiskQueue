@@ -311,7 +311,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 20; j++)
 	                {
-	                    session.Enqueue(new byte[0]);
+	                    session.Enqueue([]);
 	                    session.Flush();
 	                }
 	            }
@@ -396,11 +396,11 @@ namespace ModernDiskQueue.Tests
 		        queue.TrimTransactionLogOnDispose = false;
 		        using (var session = queue.OpenSession())
 	            {
-	                session.Enqueue(new byte[0]);
+	                session.Enqueue([]);
 	                session.Flush();
 	                for (int j = 0; j < 19; j++)
 	                {
-	                    session.Enqueue(new byte[] {1});
+	                    session.Enqueue([1]);
 	                    session.Flush();
 	                }
 	            }
@@ -431,10 +431,10 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 19; j++)
 	                {
-	                    session.Enqueue(new byte[] {1});
+	                    session.Enqueue([1]);
 	                    session.Flush();
 	                }
-	                session.Enqueue(new byte[0]);
+	                session.Enqueue([]);
 	                session.Flush();
 	            }
 	        }
@@ -465,7 +465,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 5; j++)
 	                {
-	                    session.Enqueue(new[]{(byte)(j+1)});
+	                    session.Enqueue([(byte)(j+1)]);
 	                }
                     session.Flush();
                 }
@@ -487,12 +487,12 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 5; j++)
 	                {
-	                    Assert.That(session.Dequeue(), Is.EquivalentTo(new[]{(byte)(j+1)}));
+	                    Assert.That(session.Dequeue(), Is.EquivalentTo([(byte)(j+1)]));
 	                    session.Flush();
 	                }
 	                for (int j = 0; j < 5; j++)
 	                {
-		                Assert.That(session.Dequeue(), Is.EquivalentTo(new[]{(byte)(j+1)}));
+		                Assert.That(session.Dequeue(), Is.EquivalentTo([(byte)(j+1)]));
 		                session.Flush();
 	                }
 	                
@@ -514,7 +514,7 @@ namespace ModernDiskQueue.Tests
 	            {
 	                for (int j = 0; j < 5; j++)
 	                {
-	                    session.Enqueue(Array.Empty<byte>());
+	                    session.Enqueue([]);
 	                }
 	                session.Flush();
 	            }
