@@ -98,59 +98,90 @@ namespace ModernDiskQueue.Tests
 			}
 			Assert.That(count, Is.EqualTo(1000), "did not receive all messages");
 		}
-		
-		
-		[Test]
+
+        /// <summary>
+        /// This test simulates a read-heavy workload with multiple threads concurrenty dequeuing items from the queue.
+        /// </summary>
+        [Test]
 		public void read_heavy_multi_thread_workload()
 		{
+			DateTime testStartTime = DateTime.Now;
 			using (var queue = new PersistentQueue(Path)) { queue.HardDelete(false); }
-			
-			// dequeue single
-			new Thread(() =>
+			// shared counter for total dequeues
+			int totalDequeues = 0;
+
+			// enqueue 1000 items in a single thread.
+			var enqueueThread = new Thread(() =>
 			{
+				var enqueueStartTime = DateTime.Now;
 				for (int i = 0; i < 1000; i++)
 				{
 					using var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(50));
 					using var s = q.OpenSession();
-					s.Enqueue(Encoding.ASCII.GetBytes($"Enqueue {i}"));
+					s.Enqueue(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
 					s.Flush();
 				}
-			}).Start();
+                Console.WriteLine($"Enqueue thread finished, took {(DateTime.Now - enqueueStartTime).TotalSeconds} seconds.");
+            });
 
-			Thread.Sleep(1000);
+			enqueueThread.Start();
+			//enqueueThread.Join(); // wait for the enqueue thread to finish
+			// If we don't wait for the enqueue thread to complete, the dequeue thread will start over top of it. 
+			// The dequeue threads will quickly outpace the writing (enqueue) thread if enough head start isn't
+			// given (thread.sleep). This also depends greatly on disk performance. Instead of doing a single flush
+			// on the writes, a flush per enqueue is going to be very slow. But if this test is to simulate
+			// a very active concurrent environment with more readers than writers, this may be a good way to 
+			// understand the performance limitations and characteristics.
+
+            Thread.Sleep(18000);
 			var rnd = new Random();
 			var threads = new Thread[200];
-			
-			// dequeue threads
-			for (int i = 0; i < 100; i++)
+
+			DateTime dequeueStartTime = DateTime.Now;
+
+			try
 			{
-				threads[i] = new Thread(() => {
-					var count = 10;
-					while (count > 0)
+				// dequeue threads
+				for (int i = 0; i < 100; i++)
+				{
+					threads[i] = new Thread(() =>
 					{
-						Thread.Sleep(rnd.Next(5));
-						using (var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(50)))
+                        var count = 10;
+						while (count > 0)
 						{
-							using var s = q.OpenSession();
-							var data = s.Dequeue();
-							if (data != null)
+							Thread.Sleep(rnd.Next(5));
+							using (var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(80)))
 							{
-								count--;
-								Console.WriteLine(Encoding.ASCII.GetString(data));
+								using var s = q.OpenSession();
+								var data = s.Dequeue();
+								if (data != null)
+								{
+									count--;
+                                    int newCount = Interlocked.Increment(ref totalDequeues);
+                                    //Console.WriteLine($"Thread {Thread.CurrentThread.ManagedThreadId} dequeued: {Encoding.ASCII.GetString(data)}, Total: {newCount}");
+                                }
+
+								s.Flush();
 							}
-
-							s.Flush();
 						}
-					}
-				}){IsBackground = true};
-				threads[i].Start();
-			}
+					})
+					{ IsBackground = true };
+					threads[i].Start();
+				}
 
-			for (int e = 0; e < 100; e++)
+				for (int e = 0; e < 100; e++)
+				{
+					if (!threads[e].Join(80_000)) Assert.Fail($"reader timeout on thread {e}");
+				}
+            }
+			catch (SuccessException) { }
+			catch (Exception ex)
 			{
-				if (!threads[e].Join(150_000)) Assert.Fail($"reader timeout on thread {e}");
-			}
-		}
+				Assert.Fail($"Exception during read-heavy workload: {ex.GetType().Name} {ex.Message} {ex.StackTrace}; Dequeue counter was at: {totalDequeues}.");
+            }
+			Console.WriteLine($"All dequeue threads finished, took {(DateTime.Now - dequeueStartTime).TotalSeconds} seconds. Total dequeues: {totalDequeues}.");
+            Console.WriteLine($"Total test time took {(DateTime.Now - testStartTime).TotalSeconds} seconds.");
+        }
 
 		[Test]
 		public void Enqueue_and_dequeue_million_items_same_queue()
