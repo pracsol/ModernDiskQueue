@@ -101,6 +101,13 @@ namespace ModernDiskQueue.Tests
 
         /// <summary>
         /// This test simulates a read-heavy workload with multiple threads concurrenty dequeuing items from the queue.
+		/// Just as with the Enqueue_million_items_with_100_flushes test, this is heavily dependent on the host
+		/// system performance. To be able to complete in time, one may need to adjust the sleep duration before
+		/// the dequeue operation starts in order to give the enqueue operation more of a head start. One thread
+		/// performing 1000 write operations doesn't complete as quickly as 100 threads doing read operations.
+		/// To some extent the read_heavy and write_heavy tests can be used as performance profilers if you
+		/// know the demand that will be placed on the queue and can run the tests on a system with a similar
+		/// performance profile as your deployment target.
         /// </summary>
         [Test]
 		public void read_heavy_multi_thread_workload()
