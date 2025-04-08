@@ -81,7 +81,7 @@ namespace ModernDiskQueue.Implementation
                 var currentLockData = new LockFileData
                 {
                     ProcessId = currentProcess.Id,
-                    ThreadId = Thread.CurrentThread.ManagedThreadId,
+                    ThreadId = Environment.CurrentManagedThreadId,
                     ProcessStart = GetProcessStartAsUnixTimeMs(currentProcess),
                 };
                 var keyBytes = MarshallHelper.Serialize(currentLockData);
