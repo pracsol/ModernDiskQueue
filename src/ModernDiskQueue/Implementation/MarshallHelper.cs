@@ -19,9 +19,8 @@ namespace ModernDiskQueue.Implementation
             var size = Marshal.SizeOf<T>();
             var bytes = new byte[size];
 
-            // Use Span to avoid the allocation of unmanaged memory
-            var span = MemoryMarshal.Cast<byte, T>(bytes.AsSpan());
-            span[0] = value;
+            // Use direct memory write
+            MemoryMarshal.Write(bytes.AsSpan(), in value);
 
             return bytes;
         }
