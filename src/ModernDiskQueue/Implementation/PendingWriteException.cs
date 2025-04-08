@@ -37,6 +37,34 @@ namespace ModernDiskQueue.Implementation
         private readonly Exception[] _pendingWritesExceptions;
 
         /// <summary>
+        /// Initializes a new instance of the PendingWriteException class
+        /// </summary>
+        public PendingWriteException()
+            : base("Error during pending writes")
+        {
+            _pendingWritesExceptions = [];
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the PendingWriteException class with a specified error message
+        /// </summary>
+        public PendingWriteException(string message)
+            : base(message)
+        {
+            _pendingWritesExceptions = [];
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the PendingWriteException class with a specified error message
+        /// and a reference to the inner exception that is the cause of this exception
+        /// </summary>
+        public PendingWriteException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+            _pendingWritesExceptions = [innerException];
+        }
+
+        /// <summary>
         /// Aggregate causing exceptions
         /// </summary>
         public PendingWriteException(Exception[] pendingWritesExceptions)
