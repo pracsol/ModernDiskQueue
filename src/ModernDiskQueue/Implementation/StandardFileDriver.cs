@@ -73,7 +73,10 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Create and open a new file with no sharing between processes.
         /// </summary>
+#pragma warning disable IDE0079 // Suppress warning about suppressing warnings
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance
         private static ILockFile CreateNoShareFile(string path)
+#pragma warning restore CA1859, IDE0079
         {
             lock (_lock)
             {
