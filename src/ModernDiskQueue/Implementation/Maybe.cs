@@ -23,7 +23,7 @@ namespace ModernDiskQueue.Implementation
         /// Error if not successful.
         /// </summary>
         public Exception? Error { get; private set; }
-        
+
         /// <summary>
         /// True if a value is set
         /// </summary>
@@ -32,25 +32,27 @@ namespace ModernDiskQueue.Implementation
         /// True if no value is set
         /// </summary>
         public bool IsFailure => !IsSuccess;
-        
+
         /// <summary>
         /// Wrap a successful value
         /// </summary>
         public static Maybe<T> Success(T value)
         {
-            return new Maybe<T>{
+            return new Maybe<T>
+            {
                 Value = value,
                 IsSuccess = true,
                 Error = null
             };
         }
-        
+
         /// <summary>
         /// Wrap a failure condition
         /// </summary>
         public static Maybe<T> Fail(Exception error)
         {
-            return new Maybe<T>{
+            return new Maybe<T>
+            {
                 Value = default,
                 IsSuccess = false,
                 Error = error

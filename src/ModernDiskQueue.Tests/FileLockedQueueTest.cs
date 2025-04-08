@@ -14,7 +14,7 @@ namespace ModernDiskQueue.Tests
         private int _currentThread;
 
         [OneTimeSetUp]
-        public void OneTimeSetUp() 
+        public void OneTimeSetUp()
         {
             _currentProcess = Process.GetCurrentProcess();
             _currentThread = Environment.CurrentManagedThreadId;
@@ -53,7 +53,7 @@ namespace ModernDiskQueue.Tests
                 //ACT
                 using var queue = new PersistentQueue<string>(queueName);
             }
-            catch(InvalidOperationException ex)
+            catch (InvalidOperationException ex)
             {
                 //ASSERT
                 Assert.That(ex.InnerException?.Message, Is.EqualTo("This queue is locked by another thread in this process. Thread id = 555"));

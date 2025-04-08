@@ -1,4 +1,5 @@
 using ModernDiskQueue.Implementation;
+using ModernDiskQueue.Tests.Helpers;
 using NSubstitute;
 using NSubstitute.Core;
 using NUnit.Framework;
@@ -6,7 +7,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using ModernDiskQueue.Tests.Helpers;
 
 // ReSharper disable PossibleNullReferenceException
 
@@ -78,13 +78,13 @@ namespace ModernDiskQueue.Tests
                 }
             });
         }
-        
+
         [Test]
         public void If_data_stream_is_truncated_will_NOT_raise_error_if_truncated_entries_are_allowed_in_settings()
         {
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
             PersistentQueue.DefaultSettings.ParanoidFlushing = true;
-            
+
             using (var queue = new PersistentQueue(Path))
             {
                 using (var session = queue.OpenSession())
@@ -110,12 +110,12 @@ namespace ModernDiskQueue.Tests
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = false; // reset to default
             Assert.That(bytes, Is.Null);
         }
-        
+
         [Test]
         public void If_data_stream_is_truncated_the_queue_can_still_be_used()
         {
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
-            
+
             using (var queue = new PersistentQueue(Path))
             {
                 using (var session = queue.OpenSession())
@@ -133,7 +133,7 @@ namespace ModernDiskQueue.Tests
             {
                 using (var session = queue.OpenSession())
                 {
-                    session.Enqueue(new byte[] { 5,6,7,8 });
+                    session.Enqueue(new byte[] { 5, 6, 7, 8 });
                     session.Flush();
                 }
             }
@@ -147,9 +147,9 @@ namespace ModernDiskQueue.Tests
                     bytes = session.Dequeue();
                 }
             }
-            
-            Console.WriteLine(string.Join(", ", corruptBytes.OrEmpty().Select(b=>b.ToString())));
-            Console.WriteLine(string.Join(", ", bytes.OrEmpty().Select(b=>b.ToString())));
+
+            Console.WriteLine(string.Join(", ", corruptBytes.OrEmpty().Select(b => b.ToString())));
+            Console.WriteLine(string.Join(", ", bytes.OrEmpty().Select(b => b.ToString())));
             Assert.That(bytes!, Is.EqualTo(new byte[] { 5, 6, 7, 8 }));
         }
 

@@ -6,19 +6,19 @@ using System.Threading;
 
 namespace ModernDiskQueue.Implementation
 {
-	/// <summary>
+    /// <summary>
     /// A wrapper around System.IO.File to help with
     /// heavily multi-threaded and multi-process workflows
     /// </summary>
-    internal class StandardFileDriver: IFileDriver
+    internal class StandardFileDriver : IFileDriver
     {
-	    public const int RetryLimit = 10;
-	    
+        public const int RetryLimit = 10;
+
         private static readonly object _lock = new();
         private static readonly Queue<string> _waitingDeletes = new();
-        
+
         public string GetFullPath(string path) => Path.GetFullPath(path);
-        public string PathCombine(string a, string b) => Path.Combine(a,b);
+        public string PathCombine(string a, string b) => Path.Combine(a, b);
 
         /// <summary>
         /// Test for the existence of a directory
@@ -30,7 +30,7 @@ namespace ModernDiskQueue.Implementation
                 return Directory.Exists(path);
             }
         }
-        
+
         /// <summary>
         /// Moves a file to a temporary name and adds it to an internal
         /// delete list. Files are permanently deleted on a call to Finalise()
@@ -39,16 +39,16 @@ namespace ModernDiskQueue.Implementation
         {
             lock (_lock)
             {
-	            if (!FileExists(path)) return;
+                if (!FileExists(path)) return;
                 var dir = Path.GetDirectoryName(path) ?? "";
                 var file = Path.GetFileNameWithoutExtension(path);
                 var prefix = Path.GetRandomFileName();
-                
+
                 var deletePath = Path.Combine(dir, $"{file}_dc_{prefix}");
 
                 if (Move(path, deletePath))
                 {
-	                _waitingDeletes.Enqueue(deletePath);
+                    _waitingDeletes.Enqueue(deletePath);
                 }
             }
         }
@@ -128,24 +128,24 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private static bool IsRunning(LockFileData lockData)
         {
-	        try
-	        {
-		        var p = Process.GetProcessById(lockData.ProcessId);
-				var startTimeOffset = GetProcessStartAsUnixTimeMs(p);
-		        return startTimeOffset == lockData.ProcessStart;
-	        }
-	        catch (InvalidOperationException)
-	        {
-		        return false;
-	        }
-	        catch (ArgumentException)
-	        {
-		        return false;
-	        }
-	        catch
-	        {
-		        return true;
-	        }
+            try
+            {
+                var p = Process.GetProcessById(lockData.ProcessId);
+                var startTimeOffset = GetProcessStartAsUnixTimeMs(p);
+                return startTimeOffset == lockData.ProcessStart;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         private static long GetProcessStartAsUnixTimeMs(Process process)
@@ -164,34 +164,34 @@ namespace ModernDiskQueue.Implementation
 
         public void DeleteRecursive(string path)
         {
-	        lock (_lock)
-	        {
-		        if (Path.GetPathRoot(path) == Path.GetFullPath(path)) throw new Exception("Request to delete root directory rejected");
-		        if (string.IsNullOrWhiteSpace(Path.GetDirectoryName(path)!)) throw new Exception("Request to delete root directory rejected");
-		        if (File.Exists(path)) throw new Exception("Tried to recursively delete a single file.");
+            lock (_lock)
+            {
+                if (Path.GetPathRoot(path) == Path.GetFullPath(path)) throw new Exception("Request to delete root directory rejected");
+                if (string.IsNullOrWhiteSpace(Path.GetDirectoryName(path)!)) throw new Exception("Request to delete root directory rejected");
+                if (File.Exists(path)) throw new Exception("Tried to recursively delete a single file.");
 
-		        Directory.Delete(path, true);
-	        }
+                Directory.Delete(path, true);
+            }
         }
 
         public Maybe<ILockFile> CreateLockFile(string path)
         {
-	        try
-	        {
-		        return CreateNoShareFile(path).Success();
-	        }
-	        catch (Exception ex)
-	        {
-		        return Maybe<ILockFile>.Fail(ex);
-	        }
+            try
+            {
+                return CreateNoShareFile(path).Success();
+            }
+            catch (Exception ex)
+            {
+                return Maybe<ILockFile>.Fail(ex);
+            }
         }
-        
+
         public void ReleaseLock(ILockFile fileLock)
         {
-	        lock (_lock)
-	        {
-		        fileLock.Dispose();
-	        }
+            lock (_lock)
+            {
+                fileLock.Dispose();
+            }
         }
 
         /// <summary>
@@ -212,112 +212,113 @@ namespace ModernDiskQueue.Implementation
         {
             lock (_lock)
             {
-	            for (var i = 0; i < RetryLimit; i++)
-	            {
-		            try
-		            {
-			            File.Move(oldPath, newPath);
-			            return true;
-		            }
-		            catch
-		            {
-			            Thread.Sleep(i * 100);
-		            }
-	            }
+                for (var i = 0; i < RetryLimit; i++)
+                {
+                    try
+                    {
+                        File.Move(oldPath, newPath);
+                        return true;
+                    }
+                    catch
+                    {
+                        Thread.Sleep(i * 100);
+                    }
+                }
             }
             return false;
         }
 
         public IFileStream OpenTransactionLog(string path, int bufferLength)
         {
-	        lock (_lock)
-	        {
-		        var stream = new FileStream(path,
-			        FileMode.Append,
-			        FileAccess.Write,
-			        FileShare.None,
-			        bufferLength,
-			        FileOptions.SequentialScan | FileOptions.WriteThrough);
+            lock (_lock)
+            {
+                var stream = new FileStream(path,
+                    FileMode.Append,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferLength,
+                    FileOptions.SequentialScan | FileOptions.WriteThrough);
 
-		        return new FileStreamWrapper(stream);
-	        }
+                return new FileStreamWrapper(stream);
+            }
         }
 
         public IFileStream OpenReadStream(string path)
         {
-	        lock (_lock)
-	        {
-		        var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite);
-		        return new FileStreamWrapper(stream);
-	        }
+            lock (_lock)
+            {
+                var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite);
+                return new FileStreamWrapper(stream);
+            }
         }
 
         public IFileStream OpenWriteStream(string dataFilePath)
         {
-	        lock (_lock)
-	        {
-		        var stream = new FileStream(
-			        dataFilePath,
-			        FileMode.OpenOrCreate,
-			        FileAccess.Write,
-			        FileShare.ReadWrite,
-			        0x10000,
-			        FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
+            lock (_lock)
+            {
+                var stream = new FileStream(
+                    dataFilePath,
+                    FileMode.OpenOrCreate,
+                    FileAccess.Write,
+                    FileShare.ReadWrite,
+                    0x10000,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
 
-		        SetPermissions.TryAllowReadWriteForAll(dataFilePath);
-		        return new FileStreamWrapper(stream);
-	        }
+                SetPermissions.TryAllowReadWriteForAll(dataFilePath);
+                return new FileStreamWrapper(stream);
+            }
         }
 
         public bool AtomicRead(string path, Action<IBinaryReader> action)
         {
-	        for (int i = 1; i <= RetryLimit; i++)
-	        {
-		        try
-		        {
-			        AtomicReadInternal(path, fileStream =>
-			        {
-				        var wrapper = new FileStreamWrapper(fileStream);
-				        action(wrapper);
-			        });
-			        return true;
-		        }
-		        catch (UnrecoverableException)
-		        {
-			        throw;
-		        }
-		        catch (Exception)
-		        {
-			        if (i >= RetryLimit)
-			        {
-				        PersistentQueue.Log("Exceeded retry limit during read");
-				        return false;
-			        }
+            for (int i = 1; i <= RetryLimit; i++)
+            {
+                try
+                {
+                    AtomicReadInternal(path, fileStream =>
+                    {
+                        var wrapper = new FileStreamWrapper(fileStream);
+                        action(wrapper);
+                    });
+                    return true;
+                }
+                catch (UnrecoverableException)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    if (i >= RetryLimit)
+                    {
+                        PersistentQueue.Log("Exceeded retry limit during read");
+                        return false;
+                    }
 
-			        Thread.Sleep(i * 100);
-		        }
-	        }
-	        return false;
+                    Thread.Sleep(i * 100);
+                }
+            }
+            return false;
         }
 
         public void AtomicWrite(string path, Action<IBinaryWriter> action)
         {
-	        for (int i = 1; i <= RetryLimit; i++)
-	        {
-		        try
-		        {
-			        AtomicWriteInternal(path, fileStream => { 
-				        var wrapper = new FileStreamWrapper(fileStream);
-				        action(wrapper);
-			        });
-			        return;
-		        }
-		        catch (Exception)
-		        {
-			        if (i >= RetryLimit) throw;
-			        Thread.Sleep(i * 100);
-		        }
-	        }
+            for (int i = 1; i <= RetryLimit; i++)
+            {
+                try
+                {
+                    AtomicWriteInternal(path, fileStream =>
+                    {
+                        var wrapper = new FileStreamWrapper(fileStream);
+                        action(wrapper);
+                    });
+                    return;
+                }
+                catch (Exception)
+                {
+                    if (i >= RetryLimit) throw;
+                    Thread.Sleep(i * 100);
+                }
+            }
         }
 
         /// <summary>
@@ -328,97 +329,97 @@ namespace ModernDiskQueue.Implementation
 		/// <param name="path">File path to read</param>
 		/// <param name="action">Action to consume file stream. You do not need to close the stream yourself.</param>
         private void AtomicReadInternal(string path, Action<FileStream> action)
-		{
-			lock (_lock)
-			{
-				if (FileExists(path + ".old_copy")) WaitDelete(path);
+        {
+            lock (_lock)
+            {
+                if (FileExists(path + ".old_copy")) WaitDelete(path);
 
-				using var stream = new FileStream(path,
-					FileMode.OpenOrCreate,
-					FileAccess.Read,
-					FileShare.ReadWrite,
-					0x10000,
-					FileOptions.SequentialScan);
-				
-				SetPermissions.TryAllowReadWriteForAll(path);
-				action(stream);
-			}
-		}
+                using var stream = new FileStream(path,
+                    FileMode.OpenOrCreate,
+                    FileAccess.Read,
+                    FileShare.ReadWrite,
+                    0x10000,
+                    FileOptions.SequentialScan);
 
-		/// <summary>
-		/// Run a write action to a file.
-		/// This will always rewrite the file (no appending).
-		/// </summary>
-		/// <param name="path">File path to write</param>
-		/// <param name="action">Action to write into file stream. You do not need to close the stream yourself.</param>
-		private void AtomicWriteInternal(string path, Action<FileStream> action)
-		{
-			lock (_lock)
-			{
-				// if the old copy file exists, this means that we have
-				// a previous corrupt write, so we will not overwrite it, but 
-				// rather overwrite the current file and keep it as our backup.
-				if (FileExists(path) && !FileExists(path + ".old_copy"))
-					Move(path, path + ".old_copy");
-				
-				var dir = Path.GetDirectoryName(path);
-				if (dir is not null && !DirectoryExists(dir)) CreateDirectory(dir);
+                SetPermissions.TryAllowReadWriteForAll(path);
+                action(stream);
+            }
+        }
 
-				using var stream = new FileStream(path,
-					FileMode.Create,
-					FileAccess.Write,
-					FileShare.ReadWrite,
-					0x10000,
-					FileOptions.WriteThrough | FileOptions.SequentialScan);
-				
-				SetPermissions.TryAllowReadWriteForAll(path);
-				action(stream);
-				HardFlush(stream);
+        /// <summary>
+        /// Run a write action to a file.
+        /// This will always rewrite the file (no appending).
+        /// </summary>
+        /// <param name="path">File path to write</param>
+        /// <param name="action">Action to write into file stream. You do not need to close the stream yourself.</param>
+        private void AtomicWriteInternal(string path, Action<FileStream> action)
+        {
+            lock (_lock)
+            {
+                // if the old copy file exists, this means that we have
+                // a previous corrupt write, so we will not overwrite it, but 
+                // rather overwrite the current file and keep it as our backup.
+                if (FileExists(path) && !FileExists(path + ".old_copy"))
+                    Move(path, path + ".old_copy");
 
-				WaitDelete(path + ".old_copy");
-			}
-		}
+                var dir = Path.GetDirectoryName(path);
+                if (dir is not null && !DirectoryExists(dir)) CreateDirectory(dir);
 
-		/// <summary>
-		/// Flush a stream, checking to see if its a file -- in which case it will ask for a flush-to-disk.
-		/// </summary>
-		private static void HardFlush(Stream? stream)
-		{
-			if (stream == null) return;
-			if (stream is FileStream fs) fs.Flush(true);
-			stream.Flush();
-		}
+                using var stream = new FileStream(path,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.ReadWrite,
+                    0x10000,
+                    FileOptions.WriteThrough | FileOptions.SequentialScan);
 
-		private void WaitDelete(string s)
-		{
-			for (var i = 0; i < RetryLimit; i++)
-			{
-				try
-				{
-					lock (_lock)
-					{
-						PrepareDelete(s);
-						Finalise();
-					}
+                SetPermissions.TryAllowReadWriteForAll(path);
+                action(stream);
+                HardFlush(stream);
 
-					return;
-				}
-				catch
-				{
-					Thread.Sleep(100);
-				}
-			}
-		}
+                WaitDelete(path + ".old_copy");
+            }
+        }
+
+        /// <summary>
+        /// Flush a stream, checking to see if its a file -- in which case it will ask for a flush-to-disk.
+        /// </summary>
+        private static void HardFlush(Stream? stream)
+        {
+            if (stream == null) return;
+            if (stream is FileStream fs) fs.Flush(true);
+            stream.Flush();
+        }
+
+        private void WaitDelete(string s)
+        {
+            for (var i = 0; i < RetryLimit; i++)
+            {
+                try
+                {
+                    lock (_lock)
+                    {
+                        PrepareDelete(s);
+                        Finalise();
+                    }
+
+                    return;
+                }
+                catch
+                {
+                    Thread.Sleep(100);
+                }
+            }
+        }
     }
 
-	/// <summary>
-	/// Strict mode exceptions that can't be retried
-	/// </summary>
-	public class UnrecoverableException : Exception
-	{
-		/// <summary>
-		/// Create an unrecoverable exception with a message
-		/// </summary>
-		public UnrecoverableException(string msg):base (msg) { }
-	}
+    /// <summary>
+    /// Strict mode exceptions that can't be retried
+    /// </summary>
+    public class UnrecoverableException : Exception
+    {
+        /// <summary>
+        /// Create an unrecoverable exception with a message
+        /// </summary>
+        public UnrecoverableException(string msg) : base(msg) { }
+    }
 }

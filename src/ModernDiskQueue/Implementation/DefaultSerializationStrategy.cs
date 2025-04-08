@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
 
@@ -18,13 +17,14 @@ namespace ModernDiskQueue.Implementation
 
         public DefaultSerializationStrategy()
         {
-            var set = new DataContractSerializerSettings{
+            var set = new DataContractSerializerSettings
+            {
                 PreserveObjectReferences = true,
                 SerializeReadOnlyTypes = true
             };
             _serialiser = new DataContractSerializer(typeof(T), set);
         }
-        
+
         /// <inheritdoc />
         public T? Deserialize(byte[]? bytes)
         {
@@ -32,7 +32,7 @@ namespace ModernDiskQueue.Implementation
             {
                 return default;
             }
-            
+
             if (typeof(T) == typeof(string)) return (T)((object)Encoding.UTF8.GetString(bytes));
 
             using MemoryStream ms = new(bytes);
@@ -51,7 +51,7 @@ namespace ModernDiskQueue.Implementation
             {
                 return null;
             }
-            
+
             if (typeof(T) == typeof(string)) return Encoding.UTF8.GetBytes(obj.ToString() ?? string.Empty);
 
             using MemoryStream ms = new();

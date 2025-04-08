@@ -1,8 +1,8 @@
 ﻿namespace TestTrimmedExecutable
 {
     using ModernDiskQueue;
-    using System.Runtime.Serialization;
     using System.IO;
+    using System.Runtime.Serialization;
 
     public static class Program
     {
@@ -163,7 +163,7 @@
             DirectoryInfo dirInfo = new(folderName);
             if (dirInfo.Exists)
             {
-                foreach(var dir in dirInfo.EnumerateDirectories())
+                foreach (var dir in dirInfo.EnumerateDirectories())
                 {
                     DeleteFolderAndFiles(dir.FullName);
                 }

@@ -1,5 +1,5 @@
-﻿using System;
-using NUnit.Framework;
+﻿using NUnit.Framework;
+using System;
 // ReSharper disable AssignNullToNotNullAttribute
 
 namespace ModernDiskQueue.Tests
@@ -11,11 +11,11 @@ namespace ModernDiskQueue.Tests
         // are correctly closing down the queue (i.e. the `Dispose()` call works)
         // If not, one of the files will fail complaining that the lock is still held.
         private const string QueueName = "./GenericQueueTest";
-        
+
         [Test]
         public void Round_trip_value_type()
         {
-            using var queue = new PersistentQueue<int>(QueueName+"int"); 
+            using var queue = new PersistentQueue<int>(QueueName+"int");
             using var session = queue.OpenSession();
 
             session.Enqueue(7);
@@ -53,7 +53,7 @@ namespace ModernDiskQueue.Tests
         {
             using var queue = new PersistentQueue<TestClass>(QueueName+"TC");
             using var session = queue.OpenSession();
-            
+
             var testObject = new TestClass(7, "TestString", null);
             session.Enqueue(testObject);
             session.Flush();

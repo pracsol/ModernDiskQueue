@@ -25,64 +25,59 @@
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Security.Permissions;
 using System.Text;
-using System.Text.Json;
 
 namespace ModernDiskQueue.Implementation
 {
-	/// <summary>
-	/// Exception thrown when data can't be persisted
-	/// </summary>
-	public class PendingWriteException : Exception
-	{
-		private readonly Exception[] _pendingWritesExceptions;
+    /// <summary>
+    /// Exception thrown when data can't be persisted
+    /// </summary>
+    public class PendingWriteException : Exception
+    {
+        private readonly Exception[] _pendingWritesExceptions;
 
-		/// <summary>
-		/// Aggregate causing exceptions
-		/// </summary>
-		public PendingWriteException(Exception[] pendingWritesExceptions)
-			: base("Error during pending writes")
-		{
-			_pendingWritesExceptions = pendingWritesExceptions ?? throw new ArgumentNullException(nameof(pendingWritesExceptions));
-		}
+        /// <summary>
+        /// Aggregate causing exceptions
+        /// </summary>
+        public PendingWriteException(Exception[] pendingWritesExceptions)
+            : base("Error during pending writes")
+        {
+            _pendingWritesExceptions = pendingWritesExceptions ?? throw new ArgumentNullException(nameof(pendingWritesExceptions));
+        }
 
-		/// <summary>
-		/// Set of causing exceptions
-		/// </summary>
-		public Exception[] PendingWritesExceptions => _pendingWritesExceptions;
+        /// <summary>
+        /// Set of causing exceptions
+        /// </summary>
+        public Exception[] PendingWritesExceptions => _pendingWritesExceptions;
 
-		/// <summary>
-		/// Gets a message that describes the current exception.
-		/// </summary>
-		public override string Message
-		{
-			get
-			{
-				var sb = new StringBuilder(base.Message ?? "Error").Append(':');
-				foreach (var exception in _pendingWritesExceptions)
-				{
-					sb.AppendLine().Append(" - ").Append(exception.Message ?? "<unknown>");
-				}
-				return sb.ToString();
-			}
-		}
+        /// <summary>
+        /// Gets a message that describes the current exception.
+        /// </summary>
+        public override string Message
+        {
+            get
+            {
+                var sb = new StringBuilder(base.Message ?? "Error").Append(':');
+                foreach (var exception in _pendingWritesExceptions)
+                {
+                    sb.AppendLine().Append(" - ").Append(exception.Message ?? "<unknown>");
+                }
+                return sb.ToString();
+            }
+        }
 
-		/// <summary>
-		/// Creates and returns a string representation of the current exception.
-		/// </summary>
-		public override string ToString()
-		{
-			var sb = new StringBuilder(base.Message ?? "Error").Append(':');
-			foreach (var exception in _pendingWritesExceptions)
-			{
-				sb.AppendLine().Append(" - ").Append(exception);
-			}
-			return sb.ToString();
-		}
+        /// <summary>
+        /// Creates and returns a string representation of the current exception.
+        /// </summary>
+        public override string ToString()
+        {
+            var sb = new StringBuilder(base.Message ?? "Error").Append(':');
+            foreach (var exception in _pendingWritesExceptions)
+            {
+                sb.AppendLine().Append(" - ").Append(exception);
+            }
+            return sb.ToString();
+        }
 
         // Helper class for JSON structure
         private class ExceptionData
