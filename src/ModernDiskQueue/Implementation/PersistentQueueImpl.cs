@@ -1,5 +1,6 @@
 // Copyright (c) 2005 - 2008 Ayende Rahien (ayende@ayende.com)
 // Extensions (c) 2008-2022 Iain Ballard
+// Partial (c) 2025 Stephen Shephard
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification,
@@ -25,15 +26,16 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace ModernDiskQueue.Implementation
 {
+	using System;
+	using System.Collections.Generic;
+	using System.Diagnostics.CodeAnalysis;
+	using System.IO;
+	using System.Linq;
+	using System.Threading;
+	using System.Threading.Tasks;
+	
 	internal class PersistentQueueImpl : IPersistentQueueImpl
 	{
 	    private readonly HashSet<Entry> _checkedOutEntries = [];
@@ -52,7 +54,6 @@ namespace ModernDiskQueue.Implementation
 		private ILockFile? _fileLock;
 
 		public int SuggestedReadBuffer { get; set; }
-		// ReSharper disable once MemberCanBeProtected.Global
 		public int SuggestedWriteBuffer { get; set; }
 		public long SuggestedMaxTransactionLogSize { get; set; }
 		
@@ -66,7 +67,6 @@ namespace ModernDiskQueue.Implementation
 		/// </summary>
 		public bool ParanoidFlushing { get; set; }
 		public bool AllowTruncatedEntries { get; set; }
-		// ReSharper disable once MemberCanBeProtected.Global
 		public int FileTimeoutMilliseconds { get; set; }
 		
 		
@@ -110,8 +110,11 @@ namespace ModernDiskQueue.Implementation
 				_disposed = false;
 			}
 		}
-
-		private void LockAndReadQueue()
+#pragma warning disable IDE0079 // Suppress warning to remove unnecessary suppression
+        [SuppressMessage("Microsoft.Usage", "CA1816:CallGCSuppressFinalizeCorrectly",
+		Justification = "Intentionally suppressing finalization for failed queue initialization to prevent lock file zombies")]
+#pragma warning restore IDE0079 // Remove unnecessary suppression
+        private void LockAndReadQueue()
 		{
 			try
 			{
@@ -121,8 +124,8 @@ namespace ModernDiskQueue.Implementation
 				var result = LockQueue();
 				if (result.IsFailure)
 				{
-					GC.SuppressFinalize(this); //avoid finalizing invalid instance
-					throw new InvalidOperationException("Another instance of the queue is already in action, or directory does not exist", result.Error ?? new Exception());
+                    GC.SuppressFinalize(this); //avoid finalizing invalid instance
+                    throw new InvalidOperationException("Another instance of the queue is already in action, or directory does not exist", result.Error ?? new Exception());
 				}
 			}
 			catch (UnauthorizedAccessException)
@@ -138,7 +141,11 @@ namespace ModernDiskQueue.Implementation
 			}
 		}
 
-		private void ReadExistingQueue()
+#pragma warning disable IDE0079 // Suppress warning to remove unnecessary suppression
+        [SuppressMessage("Microsoft.Usage", "CA1816:CallGCSuppressFinalizeCorrectly",
+		Justification = "Intentionally suppressing finalization for failed queue initialization to prevent lock file zombies")]
+#pragma warning restore IDE0079 // Remove unnecessary suppression
+        private void ReadExistingQueue()
 		{
 			try
 			{
@@ -147,8 +154,8 @@ namespace ModernDiskQueue.Implementation
 			}
 			catch (Exception)
 			{
-				GC.SuppressFinalize(this); //avoid finalizing invalid instance
-				UnlockQueue();
+                GC.SuppressFinalize(this); //avoid finalizing invalid instance
+                UnlockQueue();
 				throw;
 			}
 		}
@@ -195,7 +202,6 @@ namespace ModernDiskQueue.Implementation
 			SetPermissions.TryAllowReadWriteForAll(s);
 		}
 
-		// ReSharper disable once IntroduceOptionalParameters.Global
 		public PersistentQueueImpl(string path) : this(path, Constants._32Megabytes, true) { }
 
 		public int EstimatedCountOfItemsInQueue
