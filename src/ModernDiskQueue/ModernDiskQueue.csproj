@@ -40,4 +40,10 @@
     <None Include="..\..\MDQLogo-small.png" Pack="True" PackagePath="" />
     <None Include="..\..\README.md" Pack="True" PackagePath="" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Roslynator.Analyzers" Version="4.13.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 </Project>
