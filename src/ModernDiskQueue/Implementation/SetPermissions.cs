@@ -34,7 +34,7 @@ namespace ModernDiskQueue.Implementation
 		{
 			if (!OperatingSystem.IsWindows())
 			{
-				UnsafeNativeMethods.chmod(path, UnixFilePermissions.ACCESSPERMS);
+				UnsafeNativeMethods.Chmod(path, UnixFilePermissions.ACCESSPERMS);
 			}
 			else
 			{
@@ -51,7 +51,7 @@ namespace ModernDiskQueue.Implementation
 		{
 			if (!OperatingSystem.IsWindows())
 			{
-				UnsafeNativeMethods.chmod(path, UnixFilePermissions.ACCESSPERMS);
+				UnsafeNativeMethods.Chmod(path, UnixFilePermissions.ACCESSPERMS);
 			}
 			else
 			{
