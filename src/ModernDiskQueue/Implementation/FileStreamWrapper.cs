@@ -1,9 +1,10 @@
-﻿using System;
+﻿using ModernDiskQueue.PublicInterfaces;
+using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
-[assembly: InternalsVisibleTo("ModernDiskQueue.Tests")]
+[assembly:InternalsVisibleTo("ModernDiskQueue.Tests")]
 
 namespace ModernDiskQueue.Implementation
 {
@@ -62,7 +63,7 @@ namespace ModernDiskQueue.Implementation
             var b = _base.ReadByte();
             var a = _base.ReadByte();
             if (a < 0 || b < 0 || c < 0 || d < 0) throw new EndOfStreamException(); // truncated
-
+            
             return a << 24 | b << 16 | c << 8 | d;
         }
 

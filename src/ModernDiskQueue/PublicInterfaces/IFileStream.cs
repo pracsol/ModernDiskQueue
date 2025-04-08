@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ModernDiskQueue.PublicInterfaces;
+using System;
 using System.Threading.Tasks;
 
 namespace ModernDiskQueue
@@ -12,7 +13,7 @@ namespace ModernDiskQueue
         /// Write all bytes to a stream, returning new position
         /// </summary>
         long Write(byte[] bytes);
-
+        
         /// <summary>
         /// Write all bytes to a stream, returning new position
         /// </summary>
