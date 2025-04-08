@@ -9,10 +9,10 @@
     <PackageTags>net8</PackageTags>
     <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
     <PackageProjectUrl>https://github.com/pracsol/ModernDiskQueue</PackageProjectUrl>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <Version>1.0.2</Version>
+    <AssemblyVersion>1.0.2.0</AssemblyVersion>
     <AssemblyName>ModernDiskQueue</AssemblyName>
-    <FileVersion>1.0.1.0</FileVersion>
+    <FileVersion>1.0.2.0</FileVersion>
     <LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -39,5 +39,11 @@
     <None Include="..\..\LICENSE" Pack="True" PackagePath="" />
     <None Include="..\..\MDQLogo-small.png" Pack="True" PackagePath="" />
     <None Include="..\..\README.md" Pack="True" PackagePath="" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Roslynator.Analyzers" Version="4.13.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

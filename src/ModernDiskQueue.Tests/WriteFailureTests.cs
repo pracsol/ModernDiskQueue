@@ -1,7 +1,7 @@
-﻿using System;
-using System.IO;
-using ModernDiskQueue.Implementation;
+﻿using ModernDiskQueue.Implementation;
 using NUnit.Framework;
+using System;
+using System.IO;
 
 namespace ModernDiskQueue.Tests
 {
@@ -24,7 +24,7 @@ namespace ModernDiskQueue.Tests
                     session.Flush();
                 }
             }
-            
+
             using (var session = subject.OpenSession())
             {
                 // Switch to a file system that fails on write.
@@ -39,7 +39,7 @@ namespace ModernDiskQueue.Tests
                     Assert.Throws<IOException>(() => { session.Flush(); }, "should have thrown an exception when trying to write");
                 }
             }
-            
+
             // Restore driver so we can dispose correctly.
             subject.Internals.SetFileDriver(new StandardFileDriver());
         }
@@ -53,10 +53,10 @@ namespace ModernDiskQueue.Tests
         {
             _realDriver = new StandardFileDriver();
         }
-        
-        public string GetFullPath(string path)=> Path.GetFullPath(path);
+
+        public string GetFullPath(string path) => Path.GetFullPath(path);
         public bool DirectoryExists(string path) => Directory.Exists(path);
-        public string PathCombine(string a, string b) => Path.Combine(a,b);
+        public string PathCombine(string a, string b) => Path.Combine(a, b);
 
         public Maybe<ILockFile> CreateLockFile(string path)
         {

@@ -1,5 +1,5 @@
-﻿using System;
-using ModernDiskQueue.Implementation;
+﻿using ModernDiskQueue.Implementation;
+using System;
 
 namespace ModernDiskQueue
 {
@@ -23,7 +23,7 @@ namespace ModernDiskQueue
     /// <summary>
     /// Wrapper around BinaryReader
     /// </summary>
-    public interface IBinaryReader:IDisposable
+    public interface IBinaryReader : IDisposable
     {
         /// <summary>
         /// Read an Int32 from the current stream position
@@ -118,7 +118,7 @@ namespace ModernDiskQueue
         /// Open a data file for writing
         /// </summary>
         IFileStream OpenWriteStream(string dataFilePath);
-        
+
         /// <summary>
         /// Run a read action over a file by name.
         /// Access is optimised for sequential scanning.
