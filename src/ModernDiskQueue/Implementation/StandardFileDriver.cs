@@ -90,7 +90,6 @@ namespace ModernDiskQueue.Implementation
                 var lockBytes = File.ReadAllBytes(path); // will throw if OS considers the file locked
                 var fileLockData = MarshallHelper.Deserialize<LockFileData>(lockBytes);
 
-
                 if (fileLockData.ThreadId != currentLockData.ThreadId || fileLockData.ProcessId != currentLockData.ProcessId)
                 {
                     // The first two *should not* happen, but filesystems seem to have weird bugs.
@@ -313,9 +312,12 @@ namespace ModernDiskQueue.Implementation
                     });
                     return;
                 }
+                catch (Exception) when (i >= RetryLimit)
+                {
+                    throw;
+                }
                 catch (Exception)
                 {
-                    if (i >= RetryLimit) throw;
                     Thread.Sleep(i * 100);
                 }
             }
@@ -418,8 +420,28 @@ namespace ModernDiskQueue.Implementation
     public class UnrecoverableException : Exception
     {
         /// <summary>
-        /// Create an unrecoverable exception with a message
+        /// Initializes a new instance of the UnrecoverableException class
         /// </summary>
-        public UnrecoverableException(string msg) : base(msg) { }
+        public UnrecoverableException()
+            : base("An unrecoverable error occurred during file operation")
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the UnrecoverableException class with a specified error message
+        /// </summary>
+        public UnrecoverableException(string message)
+            : base(message)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the UnrecoverableException class with a specified error message
+        /// and a reference to the inner exception that is the cause of this exception
+        /// </summary>
+        public UnrecoverableException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
     }
 }
