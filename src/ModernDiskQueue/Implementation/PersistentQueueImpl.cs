@@ -36,9 +36,9 @@ namespace ModernDiskQueue.Implementation
 {
 	internal class PersistentQueueImpl : IPersistentQueueImpl
 	{
-	    private readonly HashSet<Entry> _checkedOutEntries = new();
+	    private readonly HashSet<Entry> _checkedOutEntries = [];
 
-		private readonly Dictionary<int, int> _countOfItemsPerFile = new();
+		private readonly Dictionary<int, int> _countOfItemsPerFile = [];
 
 		private readonly LinkedList<Entry> _entries = new();
 
@@ -561,7 +561,7 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
 	    private static Entry[] ToArray(LinkedList<Entry>? list)
         {
-            if (list == null) return Array.Empty<Entry>();
+            if (list == null) return [];
             var outp = new List<Entry>(25);
             var cur = list.First;
             while (cur != null)
@@ -598,7 +598,7 @@ namespace ModernDiskQueue.Implementation
 
         public int[] ApplyTransactionOperationsInMemory(IEnumerable<Operation>? operations)
 		{
-			if (operations == null) return Array.Empty<int>();
+			if (operations == null) return [];
 			
 			foreach (var operation in operations)
 			{
@@ -823,9 +823,9 @@ namespace ModernDiskQueue.Implementation
 		public static TResult Run<TResult>(Func<Task<TResult>> func)
 		{
 			if (_taskFactory == null) throw new Exception("Static init failed");
-			if (func == null) throw new ArgumentNullException(nameof(func));
+            ArgumentNullException.ThrowIfNull(func);
 
-			var rawTask = _taskFactory.StartNew(func).Unwrap();
+            var rawTask = _taskFactory.StartNew(func).Unwrap();
 			if (rawTask == null) throw new Exception("Invalid task");
 
 			return rawTask.GetAwaiter().GetResult();
