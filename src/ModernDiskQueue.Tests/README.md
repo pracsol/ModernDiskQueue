@@ -3,9 +3,9 @@
 This project contains the tests for ModernDiskQueue built using nUnit and nSubstitute.
 
 ## Performance Tests
-Both `read_heavy_multi_thread_workload` and `write_heavy_multi_thread_workload` are performance tests that simulate a high load on the disk queue. They measure the time taken to read from and write to the queue under heavy multi-threaded conditions.
+Both `read_heavy_multi_thread_workload` and `write_heavy_multi_thread_workload` are performance tests that simulate a high load on the disk queue. They measure the time taken to read from and write to the queue under heavy multi-threaded conditions. These are pass/fail tests, and they will fail unless you adjust the performance envelope by changing the thread.sleep duration between the Enqueueing thread starting and the dequeueing threads starting, and also the timeout value in the WaitFor method for the dequeue operations. Your system's IO performance greatly affects these tolerances, so understanding your anticipated load and deployment target performance characteristics are important to leveraging this test successfully.
 
-You may need to increase the timeout value for joining the threads depending on your system's performance.
+A test named `PerformanceProfiler_ReadHeavyMultiThread_StatsCollection` functions as a more comprehensive performance profiler if you don't know what your system can sustain. It should be given with generous timeouts to ensure completion, but it will output a report illustrating how many write and read operations can be performed per second on your test machine, helping you understand limitations.
 
 ## Testing Trimmed Executables
 If you build a self-contained and trimmed executable (e.g. console application or background service.)
