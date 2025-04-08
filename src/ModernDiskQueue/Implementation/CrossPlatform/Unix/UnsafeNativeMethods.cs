@@ -1,10 +1,6 @@
-﻿using System.Runtime.InteropServices;
-
-// ReSharper disable StringLiteralTypo
-// ReSharper disable InconsistentNaming
-
-namespace ModernDiskQueue.Implementation.CrossPlatform.Unix
+﻿namespace ModernDiskQueue.Implementation.CrossPlatform.Unix
 {
+	using System.Runtime.InteropServices;
 	/// <summary>
 	/// Unix calls
 	/// </summary>
