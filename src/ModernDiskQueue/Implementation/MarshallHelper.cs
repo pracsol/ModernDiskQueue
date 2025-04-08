@@ -16,59 +16,48 @@ namespace ModernDiskQueue.Implementation
         public static byte[] Serialize<T>(T value) where T : struct
         {
             // Get the size of our structure in bytes
-            var structSize = Marshal.SizeOf(value);
+            var size = Marshal.SizeOf<T>();
+            var bytes = new byte[size];
 
-            // This will contain the result, and be returned
-            var bytes = new byte[structSize];
+            // Use Span to avoid the allocation of unmanaged memory
+            var span = MemoryMarshal.Cast<byte, T>(bytes.AsSpan());
+            span[0] = value;
 
-            // Allocate some unmanaged memory for our structure
-            var pointer = IntPtr.Zero;
-
-            try
-            {
-                pointer = Marshal.AllocHGlobal(structSize);
-
-                // Write the structure to the unmanaged memory
-                Marshal.StructureToPtr(value, pointer, false);
-
-                // Copy the resulting bytes from unmanaged memory to our result array
-                Marshal.Copy(pointer, bytes, 0, structSize);
-
-                return bytes;
-            }
-            finally
-            {
-                if (pointer != IntPtr.Zero)
-                {
-                    // Free up our unmanaged memory
-                    Marshal.FreeHGlobal(pointer);
-                }
-            }
+            return bytes;
         }
 
         /// <summary>
         /// Deserializes a structure from a byte array.
         /// </summary>
-        /// <param name="data">The object binary data to deserialize from.</param>
+        /// <param name="data">The object binary data to deserialize.</param>
         /// <returns>The deserialized structure.</returns>
-        public static T Deserialize<T>(byte[] data)
+        public static T Deserialize<T>(byte[] data) where T : struct
         {
-            var pinnedPacket = new GCHandle();
+            var structSize = Marshal.SizeOf<T>();
 
-            T result;
+            // If we have complete data, use the fast path
+            if (data.Length >= structSize)
+            {
+                var span = MemoryMarshal.Cast<byte, T>(data.AsSpan());
+                return span[0];
+            }
 
+            // Slow path for partial data
+            var pointer = IntPtr.Zero;
             try
             {
-                pinnedPacket = GCHandle.Alloc(data, GCHandleType.Pinned);
-                object? obj = Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), typeof(T));
-                result = obj != null ? (T)obj : throw new Exception("Could not deserialise");
+                pointer = Marshal.AllocHGlobal(structSize);
+                Marshal.Copy(new byte[structSize], 0, pointer, structSize);
+                Marshal.Copy(data, 0, pointer, Math.Min(data.Length, structSize));
+                return Marshal.PtrToStructure<T>(pointer);
             }
             finally
             {
-                pinnedPacket.Free();
+                if (pointer != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(pointer);
+                }
             }
-
-            return result;
         }
     }
 }
