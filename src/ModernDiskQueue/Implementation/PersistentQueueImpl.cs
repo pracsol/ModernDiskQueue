@@ -714,9 +714,9 @@ namespace ModernDiskQueue.Implementation
 				}
 				catch (EndOfStreamException ex)
 				{
-					PersistentQueue.Log($"Truncation {ex}");
-				}
-			});
+                    PersistentQueue.Log($"Meta state file is empty or new - this is normal for a fresh queue. Technical details: {ex}");
+                }
+            });
 			if (!ok) PersistentQueue.Log("Could not access meta state");
 		}
 
