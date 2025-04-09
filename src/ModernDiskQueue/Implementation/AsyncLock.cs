@@ -41,6 +41,22 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
+        /// Asynchronously acquires the lock before the provided timeout expires. The returned IDisposable releases the lock when disposed.
+        /// </summary>
+        /// <param name="timeout">The maximum time to wait for the lock.</param>
+        /// <param name="cancellationToken">Optional cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation, with an IDisposable that releases the lock.</returns>
+        public async Task<IDisposable?> TryLockAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            if (await _semaphore.WaitAsync(timeout, cancellationToken).ConfigureAwait(false))
+            {
+                return _releaser.Result;
+            }
+            return null;
+        }
+
+
+        /// <summary>
         /// A disposable struct that releases the lock when disposed.
         /// </summary>
         private sealed class Releaser : IDisposable, IAsyncDisposable
