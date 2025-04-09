@@ -3,6 +3,7 @@ namespace ModernDiskQueue.Implementation
 {
     using ModernDiskQueue.PublicInterfaces;
     using System;
+    using System.Buffers;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading;
@@ -89,12 +90,16 @@ namespace ModernDiskQueue.Implementation
         {
             await _queue.AcquireWriterAsync(
                 _currentStream,
-                stream => WriteToStreamAsync(stream, cancellationToken),
+                async stream =>
+                {
+                    var data = ConcatenateBufferAndAddIndividualOperations(stream);
+                    return await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+                },
                 OnReplaceStream,
                 cancellationToken).ConfigureAwait(false);
         }
 
-        private void SyncFlushBuffer()
+        private void FlushBufferSync()
         {
             _queue.AcquireWriter(_currentStream, stream =>
             {
@@ -126,63 +131,38 @@ namespace ModernDiskQueue.Implementation
             return positionAfterWrite;
         }
 
-        // Updated async write method with cancellation support
-        private async Task<long> WriteToStreamAsync(IFileStream stream, CancellationToken cancellationToken)
-        {
-            var data = ConcatenateBufferAndAddIndividualOperations(stream);
-
-            // Use TaskCompletionSource for better async pattern
-            var tcs = new TaskCompletionSource<bool>();
-            var resetEvent = new ManualResetEvent(false);
-            _pendingWritesHandles.Add(resetEvent);
-
-            var positionAfterWrite = stream.GetPosition() + data.Length;
-            try
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                positionAfterWrite = await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
-                resetEvent.Set();
-                tcs.TrySetResult(true);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                resetEvent.Set();
-                tcs.TrySetCanceled(cancellationToken);
-                throw;
-            }
-            catch (Exception e)
-            {
-                lock (_pendingWritesFailures)
-                {
-                    _pendingWritesFailures.Add(e);
-                    resetEvent.Set();
-                    tcs.TrySetException(e);
-                }
-            }
-
-            return positionAfterWrite;
-        }
-
         private byte[] ConcatenateBufferAndAddIndividualOperations(IFileStream stream)
         {
-            var data = new byte[_bufferSize];
-            var start = (int)stream.GetPosition();
-            var index = 0;
-            foreach (var bytes in _buffer)
+            byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(_bufferSize);
+            try
             {
-                _operations.Add(new Operation(
-                    OperationType.Enqueue,
-                    _queue.CurrentFileNumber,
-                    start,
-                    bytes.Length
-                ));
-                Buffer.BlockCopy(bytes, 0, data, index, bytes.Length);
-                start += bytes.Length;
-                index += bytes.Length;
+                var start = (int)stream.GetPosition();
+                var index = 0;
+
+                foreach (var bytes in _buffer)
+                {
+                    _operations.Add(new Operation(
+                        OperationType.Enqueue,
+                        _queue.CurrentFileNumber,
+                        start,
+                        bytes.Length
+                    ));
+                    Buffer.BlockCopy(bytes, 0, rentedBuffer, index, bytes.Length);
+                    start += bytes.Length;
+                    index += bytes.Length;
+                }
+                _bufferSize = 0;
+                _buffer.Clear();
+
+                byte[] result = new byte[index];
+                Buffer.BlockCopy(rentedBuffer, 0, result, 0, index);
+                return result;
             }
-            _bufferSize = 0;
-            _buffer.Clear();
-            return data;
+            finally
+            {
+                // It's a rental, return it!
+                ArrayPool<byte>.Shared.Return(rentedBuffer, clearArray: false);
+            }
         }
 
         private void OnReplaceStream(IFileStream newStream)
@@ -243,7 +223,7 @@ namespace ModernDiskQueue.Implementation
 
             try
             {
-                SyncFlushBuffer();
+                FlushBufferSync();
             }
             finally
             {
