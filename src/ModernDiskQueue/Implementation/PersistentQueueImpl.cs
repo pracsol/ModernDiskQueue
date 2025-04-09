@@ -1029,17 +1029,17 @@ namespace ModernDiskQueue.Implementation
 
                 if (firstEntry.Length < 1)
                 {
-                    return new byte[0].Success();
+                    return Array.Empty<byte>().Success();
                 }
 
                 await using var reader = await _file.OpenReadStreamAsync(GetDataPath(firstEntry.FileNumber), cancellationToken).ConfigureAwait(false);
-                
+
                 reader.MoveTo(firstEntry.Start);
 
                 // Read the data with variable retry logic.
                 var totalRead = 0;
                 var failCount = 0;
-                int maxFailCount = 10;
+                const int MaxFailCount = 10;
 
                 do
                 {
@@ -1048,7 +1048,7 @@ namespace ModernDiskQueue.Implementation
                     int bytesRead = await reader.ReadAsync(rentedBuffer, totalRead, (int)currentBufferSize - totalRead, cancellationToken).ConfigureAwait(false);
                     if (bytesRead < 1)
                     {
-                        if (++failCount > maxFailCount)
+                        if (++failCount > MaxFailCount)
                         {
                             return Maybe<byte[]>.Fail(new InvalidOperationException("End of file reached while trying to read queue item. Exceeded retry count."));
                         }

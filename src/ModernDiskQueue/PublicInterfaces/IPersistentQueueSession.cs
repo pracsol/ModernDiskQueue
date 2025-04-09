@@ -1,5 +1,4 @@
-
-namespace ModernDiskQueue
+namespace ModernDiskQueue.PublicInterfaces
 {
     using System;
     using System.Threading;
@@ -19,7 +18,7 @@ namespace ModernDiskQueue
         /// <summary>
         /// Queue data for a later decode. Data is written on `Flush()`
         /// </summary>
-        Task EnqueueAsync(byte[] data, CancellationToken cancellationToken = default);
+        ValueTask EnqueueAsync(byte[] data, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Try to pull data from the queue. Data is removed from the queue on `Flush()`
@@ -29,7 +28,7 @@ namespace ModernDiskQueue
         /// <summary>
         /// Try to pull data from the queue. Data is removed from the queue on `Flush()`
         /// </summary>
-        Task<byte[]?> DequeueAsync(CancellationToken cancellationToken = default);
+        ValueTask<byte[]?> DequeueAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Commit actions taken in this session since last flush.

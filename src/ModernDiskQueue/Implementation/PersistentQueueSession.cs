@@ -63,7 +63,7 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Asynchronously queue data for a later decode. Data is written on `FlushAsync()`
         /// </summary>
-        public async Task EnqueueAsync(byte[] data, CancellationToken cancellationToken = default)
+        public async ValueTask EnqueueAsync(byte[] data, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -74,6 +74,46 @@ namespace ModernDiskQueue.Implementation
             {
                 await FlushBufferAsync(cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        /// <summary>
+        /// Try to pull data from the queue. Data is removed from the queue on `Flush()`
+        /// </summary>
+        public byte[]? Dequeue()
+        {
+            var entry = _queue.Dequeue();
+            if (entry == null)
+                return null;
+            _operations.Add(new Operation(
+                OperationType.Dequeue,
+                entry.FileNumber,
+                entry.Start,
+                entry.Length
+            ));
+            return entry.Data;
+        }
+
+        /// <summary>
+        /// Asynchronously dequeue data from the queue. Data is removed from the queue on `FlushAsync()`
+        /// </summary>
+        public async ValueTask<byte[]?> DequeueAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Use the async dequeue method in the queue implementation if available
+            Entry? entry = await _queue.DequeueAsync(cancellationToken).ConfigureAwait(false);
+
+            if (entry == null)
+                return null;
+
+            _operations.Add(new Operation(
+                OperationType.Dequeue,
+                entry.FileNumber,
+                entry.Start,
+                entry.Length
+            ));
+
+            return entry.Data;
         }
 
         /// <summary>
@@ -172,46 +212,6 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
-        /// Try to pull data from the queue. Data is removed from the queue on `Flush()`
-        /// </summary>
-        public byte[]? Dequeue()
-        {
-            var entry = _queue.Dequeue();
-            if (entry == null)
-                return null;
-            _operations.Add(new Operation(
-                OperationType.Dequeue,
-                entry.FileNumber,
-                entry.Start,
-                entry.Length
-            ));
-            return entry.Data;
-        }
-
-        /// <summary>
-        /// Asynchronously dequeue data from the queue. Data is removed from the queue on `FlushAsync()`
-        /// </summary>
-        public async Task<byte[]?> DequeueAsync(CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Use the async dequeue method in the queue implementation if available
-            Entry? entry = await _queue.DequeueAsync(cancellationToken).ConfigureAwait(false);
-
-            if (entry == null)
-                return null;
-
-            _operations.Add(new Operation(
-                OperationType.Dequeue,
-                entry.FileNumber,
-                entry.Start,
-                entry.Length
-            ));
-
-            return entry.Data;
-        }
-
-        /// <summary>
         /// Commit actions taken in this session since last flush.
         /// If the session is disposed with no flush, actions are not persisted
         /// to the queue (Enqueues are not written, dequeues are left on the queue)
@@ -270,7 +270,6 @@ namespace ModernDiskQueue.Implementation
                     {
                         await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
                         await stream.DisposeAsync().ConfigureAwait(false);
-                        
                     }
                     catch (Exception ex)
                     {
