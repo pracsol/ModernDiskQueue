@@ -1,12 +1,13 @@
-using ModernDiskQueue.PublicInterfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace ModernDiskQueue.Implementation
 {
+    using ModernDiskQueue.PublicInterfaces;
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     /// <summary>
     /// Default persistent queue session.
     /// <para>You should use <see cref="IPersistentQueue.OpenSession"/> to get a session.</para>
@@ -336,61 +337,6 @@ namespace ModernDiskQueue.Implementation
             _operations.Clear();
         }
 
-        // Helper method for async waiting
-        private async Task WaitForPendingWritesAsync(List<Exception> exceptions, CancellationToken cancellationToken)
-        {
-            var timeoutCount = 0;
-            var total = _pendingWritesHandles.Count;
-
-            while (_pendingWritesHandles.Count != 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var handles = _pendingWritesHandles.Take(32).ToArray();
-                foreach (var handle in handles)
-                {
-                    _pendingWritesHandles.Remove(handle);
-                }
-
-                // Convert WaitAll to async task with timeout
-                var waitTask = Task.Run(() => WaitHandle.WaitAll(handles, _timeoutLimitMilliseconds), cancellationToken);
-
-                try
-                {
-                    // Wait for completion with cancellation support
-                    var timeoutTask = Task.Delay(_timeoutLimitMilliseconds, cancellationToken);
-                    var completedTask = await Task.WhenAny(waitTask, timeoutTask).ConfigureAwait(false);
-
-                    if (completedTask == timeoutTask || !waitTask.Result)
-                        timeoutCount++;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception)
-                {
-                    timeoutCount++;
-                }
-
-                // Clean up handles
-                foreach (var handle in handles)
-                {
-                    try
-                    {
-                        handle.Close();
-                        handle.Dispose();
-                    }
-                    catch {/* ignore */}
-                }
-            }
-
-            AssertNoPendingWritesFailures(exceptions);
-
-            if (timeoutCount > 0)
-                exceptions.Add(new Exception($"File system async operations are timing out: {timeoutCount} of {total}"));
-        }
-
         private void WaitForPendingWrites(List<Exception> exceptions)
         {
             var timeoutCount = 0;
@@ -420,6 +366,71 @@ namespace ModernDiskQueue.Implementation
             if (timeoutCount > 0) exceptions.Add(new Exception($"File system async operations are timing out: {timeoutCount} of {total}"));
         }
 
+        // Helper method for async waiting
+        private async Task WaitForPendingWritesAsync(List<Exception> exceptions, CancellationToken cancellationToken)
+        {
+            var timeoutCount = 0;
+            var total = _pendingWritesHandles.Count;
+
+            // Create an AsyncLock instance for the waiting operation.
+            AsyncLock waitLock = new();
+
+            while (_pendingWritesHandles.Count != 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var handles = _pendingWritesHandles.Take(32).ToArray();
+                foreach (var handle in handles)
+                {
+                    _pendingWritesHandles.Remove(handle);
+                }
+
+                using (await waitLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    bool waitResult = false;
+
+                    var timeoutTask = Task.Delay(_timeoutLimitMilliseconds, cancellationToken);
+
+                    var handleTasks = handles.Select(h => WaitOneAsync(h, cancellationToken)).ToArray();
+
+                    if (await Task.WhenAny(Task.WhenAll(handleTasks), timeoutTask).ConfigureAwait(false) == timeoutTask)
+                    {
+                        // timeout occurred.
+                        timeoutCount++;
+                    }
+                    else
+                    {
+                        // All handles completed successfully
+                        waitResult = true;
+                    }
+
+                    // Clean up handles
+                    foreach (var handle in handles)
+                    {
+                        try
+                        {
+                            handle.Close();
+                            handle.Dispose();
+                        }
+                        catch
+                        {
+                            // swallow exception.
+                        }
+                    }
+
+                    if (!waitResult)
+                    {
+                        timeoutCount++;
+                    }
+                }
+            }
+
+            AssertNoPendingWritesFailures(exceptions);
+
+            if (timeoutCount > 0)
+                exceptions.Add(new Exception($"File system async operations are timing out: {timeoutCount} of {total}"));
+        }
+
         private void AssertNoPendingWritesFailures(List<Exception> exceptions)
         {
             lock (_pendingWritesFailures)
@@ -431,6 +442,38 @@ namespace ModernDiskQueue.Implementation
                 _pendingWritesFailures.Clear();
                 exceptions.Add(new PendingWriteException(array));
             }
+        }
+
+        // Helper method to convert WaitHandle.WaitOne to async Task
+        private Task WaitOneAsync(WaitHandle handle, CancellationToken cancellationToken)
+        {
+            // Short-circuit if already signaled
+            if (handle.WaitOne(0))
+            {
+                return Task.CompletedTask;
+            }
+
+            var tcs = new TaskCompletionSource<bool>();
+
+            // Register the handle for the wait
+            var registerWaitHandle = ThreadPool.RegisterWaitForSingleObject(
+                handle,
+                (state, timedOut) => ((TaskCompletionSource<bool>)state!).TrySetResult(!timedOut),
+                tcs,
+                _timeoutLimitMilliseconds,
+                true
+            );
+
+            // Link cancellation token
+            if (cancellationToken.CanBeCanceled)
+            {
+                cancellationToken.Register(() => {
+                    tcs.TrySetCanceled();
+                    registerWaitHandle.Unregister(null);
+                }, false);
+            }
+
+            return tcs.Task;
         }
 
         /// <summary>
