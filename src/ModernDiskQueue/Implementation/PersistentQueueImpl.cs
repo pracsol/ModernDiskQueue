@@ -1342,18 +1342,15 @@ namespace ModernDiskQueue.Implementation
 
         private static void WriteEntryToTransactionLog(Stream ms, Entry entry, OperationType operationType)
         {
-            ms.Write(Constants.OperationSeparatorBytes, 0, Constants.OperationSeparatorBytes.Length);
-
+            ms.Write(Constants.OperationSeparatorBytes);
             ms.WriteByte((byte)operationType);
 
-            var fileNumber = BitConverter.GetBytes(entry.FileNumber);
-            ms.Write(fileNumber, 0, fileNumber.Length);
+            Span<byte> buffer = stackalloc byte[12]; // for 3 int32 values
+            BitConverter.TryWriteBytes(buffer.Slice(0, 4), entry.FileNumber);
+            BitConverter.TryWriteBytes(buffer.Slice(4, 4), entry.Start);
+            BitConverter.TryWriteBytes(buffer.Slice(8, 4), entry.Length);
 
-            var start = BitConverter.GetBytes(entry.Start);
-            ms.Write(start, 0, start.Length);
-
-            var length = BitConverter.GetBytes(entry.Length);
-            ms.Write(length, 0, length.Length);
+            ms.Write(buffer);
         }
 
         private void AssertOperationSeparator(IBinaryReader reader)
@@ -1529,6 +1526,7 @@ namespace ModernDiskQueue.Implementation
 
         private static byte[] GenerateTransactionBuffer(ICollection<Operation> operations)
         {
+            // TODO: implement array pool and buffer rental here.
             using var ms = new MemoryStream();
             ms.Write(Constants.StartTransactionSeparator, 0, Constants.StartTransactionSeparator.Length);
 
