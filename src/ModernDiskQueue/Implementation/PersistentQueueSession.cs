@@ -14,17 +14,17 @@ namespace ModernDiskQueue.Implementation
     /// </summary>
     public class PersistentQueueSession : IPersistentQueueSession
     {
-        private readonly List<Operation> _operations = new();
-        private readonly List<Exception> _pendingWritesFailures = new();
-        private readonly List<WaitHandle> _pendingWritesHandles = new();
+        private readonly List<Operation> _operations = [];
+        private readonly List<Exception> _pendingWritesFailures = [];
+        private readonly List<WaitHandle> _pendingWritesHandles = [];
         private IFileStream _currentStream;
         private readonly int _writeBufferSize;
         private readonly int _timeoutLimitMilliseconds;
         private readonly IPersistentQueueImpl _queue;
-        private readonly List<IFileStream> _streamsToDisposeOnFlush = new();
+        private readonly List<IFileStream> _streamsToDisposeOnFlush = [];
         private volatile bool _disposed;
 
-        private readonly List<byte[]> _buffer = new();
+        private readonly List<byte[]> _buffer = [];
         private int _bufferSize;
 
         private const int MinSizeThatMakeAsyncWritePractical = 64 * 1024;
@@ -139,7 +139,7 @@ namespace ModernDiskQueue.Implementation
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                positionAfterWrite = await stream.WriteAsync(data).ConfigureAwait(false);
+                positionAfterWrite = await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
                 resetEvent.Set();
                 tcs.TrySetResult(true);
             }

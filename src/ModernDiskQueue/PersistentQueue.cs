@@ -16,7 +16,6 @@ namespace ModernDiskQueue
     /// <para>If you want to share the store between threads in one process, you may share the Persistent Queue and
     /// have each thread call `OpenSession` for itself.</para>
     /// </summary>
-    [SuppressMessage("ReSharper", "UnusedMember.Global")]
     public class PersistentQueue : IPersistentQueue
     {
         /// <summary>
@@ -123,10 +122,10 @@ namespace ModernDiskQueue
         /// </summary>
         /// <exception cref="TimeoutException">Lock on file could not be acquired</exception>
         /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist</param>
+        /// <param name="maxSize">Maximum size in bytes for each storage file. Files will be rotated after reaching this limit.
         /// <param name="throwOnConflict">When true, if data files are damaged, throw an InvalidOperationException. This will stop program flow.
         /// When false, damaged data files should result in silent data truncation</param>
         /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown</param>
-        /// <param name="maxSize">Maximum size in bytes for each storage file. Files will be rotated after reaching this limit.
         /// The entire queue is NOT limited by this value.</param>
         public static IPersistentQueue WaitFor(string storagePath, int maxSize, bool throwOnConflict, TimeSpan maxWait)
         {
@@ -154,10 +153,10 @@ namespace ModernDiskQueue
         /// </summary>
         /// <exception cref="TimeoutException">Lock on file could not be acquired</exception>
         /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist</param>
+        /// <param name="maxSize">Maximum size in bytes for each storage file. Files will be rotated after reaching this limit.
         /// <param name="throwOnConflict">When true, if data files are damaged, throw an InvalidOperationException. This will stop program flow.
         /// When false, damaged data files should result in silent data truncation</param>
         /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown</param>
-        /// <param name="maxSize">Maximum size in bytes for each storage file. Files will be rotated after reaching this limit.
         /// The entire queue is NOT limited by this value.</param>
         public static IPersistentQueue<T> WaitFor<T>(string storagePath, int maxSize, bool throwOnConflict, TimeSpan maxWait)
         {
@@ -194,7 +193,6 @@ namespace ModernDiskQueue
         /// <summary>
         /// Close this queue connection. Does not destroy flushed data.
         /// </summary>
-        [SuppressMessage("Microsoft.Usage", "CA2213:DisposableFieldsShouldBeDisposed", MessageId = "_queue", Justification = "Disposed in an interlock")]
         public void Dispose()
         {
             var local = Interlocked.Exchange(ref Queue, null);
@@ -260,7 +258,7 @@ namespace ModernDiskQueue
         public int MaxFileSize => Queue?.MaxFileSize ?? 0;
 
         /// <summary>
-        /// WARNING: 
+        /// WARNING:
         /// Attempt to delete the queue, all its data, and all support files.
         /// </summary>
         public void HardDelete(bool reset)

@@ -43,7 +43,7 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// A disposable struct that releases the lock when disposed.
         /// </summary>
-        private sealed class Releaser : IDisposable
+        private sealed class Releaser : IDisposable, IAsyncDisposable
         {
             private readonly AsyncLock _toRelease;
 
@@ -55,6 +55,12 @@ namespace ModernDiskQueue.Implementation
             public void Dispose()
             {
                 _toRelease._semaphore.Release();
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                _toRelease._semaphore.Release();
+                return ValueTask.CompletedTask;
             }
         }
     }

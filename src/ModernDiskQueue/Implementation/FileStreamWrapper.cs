@@ -83,6 +83,7 @@ namespace ModernDiskQueue.Implementation
         }
 
         public IBinaryReader GetBinaryReader() => this;
+
         public void SetLength(long length) => _base?.SetLength(length);
 
         public Task SetLengthAsync(long length, CancellationToken cancellationToken = default)

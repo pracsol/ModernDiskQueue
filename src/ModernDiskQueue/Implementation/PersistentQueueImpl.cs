@@ -26,13 +26,10 @@ namespace ModernDiskQueue.Implementation
         private readonly AsyncLock _checkoutLockAsync = new();
         private AsyncLock _disposeLockAsync = new();
         private readonly bool _throwOnConflict;
-        private readonly SemaphoreSlim _writerSemaphore = new(1, 1);
-        private readonly SemaphoreSlim _disposeSemaphore = new(1, 1);
         private static readonly object _configLock = new();
         private volatile bool _disposed;
         private ILockFile? _fileLock;
         private IFileDriver _file;
-
 
         public PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict)
         {
@@ -145,10 +142,7 @@ namespace ModernDiskQueue.Implementation
             if (_disposed)
                 return;
 
-            if (_disposeLockAsync == null)
-            {
-                _disposeLockAsync = new AsyncLock();
-            }
+            _disposeLockAsync ??= new AsyncLock();
 
             using (await _disposeLockAsync.LockAsync().ConfigureAwait(false))
             {
@@ -204,7 +198,7 @@ namespace ModernDiskQueue.Implementation
             Action<IFileStream> onReplaceStream, CancellationToken cancellationToken = default)
         {
             // We use a semaphore to allow async operations while maintaining the lock semantics
-            using (_writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 // Set position at current file position
                 stream.SetPosition(CurrentFilePosition);
@@ -226,7 +220,6 @@ namespace ModernDiskQueue.Implementation
                 writer.SetLength(CurrentFilePosition);
                 CurrentFilePosition = 0;
                 onReplaceStream(writer);
-                _writerSemaphore.Release();
             }
         }
 
@@ -343,7 +336,7 @@ namespace ModernDiskQueue.Implementation
 
             // Use SemaphoreSlim for thread-safe async access
             using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
-            { 
+            {
                 var first = _entries.First;
                 if (first == null) return null;
 
@@ -592,7 +585,10 @@ namespace ModernDiskQueue.Implementation
                 var result = LockQueue();
                 if (result.IsFailure)
                 {
+#pragma warning disable IDE0079 // Suppress warning about suppressing warnings
+#pragma warning disable CA1816 // Use concrete types when possible for improved performance
                     GC.SuppressFinalize(this); //avoid finalizing invalid instance
+#pragma warning restore CA1816, IDE0079
                     throw new InvalidOperationException("Another instance of the queue is already in action, or directory does not exist", result.Error ?? new Exception());
                 }
             }
@@ -628,7 +624,10 @@ namespace ModernDiskQueue.Implementation
                 var result = await LockQueueAsync(cancellationToken).ConfigureAwait(false);
                 if (result.IsFailure)
                 {
+#pragma warning disable IDE0079 // Suppress warning about suppressing warnings
+#pragma warning disable CA1816 // Use concrete types when possible for improved performance
                     GC.SuppressFinalize(this); // avoid finalizing invalid instance
+#pragma warning restore CA1859, IDE0079
                     throw new InvalidOperationException(
                         "Another instance of the queue is already in action, or directory does not exist",
                         result.Error ?? new Exception());
@@ -883,7 +882,6 @@ namespace ModernDiskQueue.Implementation
             return true;
         }
 
-
         private Maybe<byte[]> ReadEntriesFromFile(Entry firstEntry, long currentBufferSize)
         {
             try
@@ -930,7 +928,7 @@ namespace ModernDiskQueue.Implementation
                 var buffer = new byte[currentBufferSize];
                 if (firstEntry.Length < 1) return buffer.Success();
 
-                using var reader = await _file.OpenReadStreamAsync(GetDataPath(firstEntry.FileNumber), cancellationToken).ConfigureAwait(false);
+                await using var reader = await _file.OpenReadStreamAsync(GetDataPath(firstEntry.FileNumber), cancellationToken).ConfigureAwait(false);
                 reader.MoveTo(firstEntry.Start);
 
                 var totalRead = 0;
@@ -963,7 +961,6 @@ namespace ModernDiskQueue.Implementation
                 return Maybe<byte[]>.Fail(new InvalidOperationException("End of file reached while trying to read queue item", ex));
             }
         }
-
 
         private void ReadTransactionLog()
         {
