@@ -288,25 +288,9 @@ namespace ModernDiskQueue.Implementation
                 {
                     try
                     {
-                        // Try to use async flush if available
-                        if (stream is IFileStream asyncStream)
-                        {
-                            await asyncStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            stream.Flush();
-                        }
-
-                        // Try to use async dispose if available
-                        if (stream is IAsyncDisposable asyncDisposable)
-                        {
-                            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            stream.Dispose();
-                        }
+                        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                        await stream.DisposeAsync().ConfigureAwait(false);
+                        
                     }
                     catch (Exception ex)
                     {
@@ -322,15 +306,7 @@ namespace ModernDiskQueue.Implementation
                 throw new AggregateException(fails);
             }
 
-            // Flush the current stream
-            if (_currentStream is IFileStream asyncCurrentStream)
-            {
-                await asyncCurrentStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                _currentStream.Flush();
-            }
+            await _currentStream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
             // Commit transactions using async if available
             await _queue.CommitTransactionAsync(_operations, cancellationToken).ConfigureAwait(false);
