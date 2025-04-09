@@ -50,10 +50,17 @@ namespace ModernDiskQueue.Implementation
             return _base.Position;
         }
 
-        public async Task<long> WriteAsync(byte[] bytes, CancellationToken cancellationToken)
+        public async ValueTask<long> WriteAsync(byte[] bytes, CancellationToken cancellationToken)
         {
             if (_base is null) throw new Exception("Tried to write to a disposed FileStream");
             await _base.WriteAsync(bytes.AsMemory(0, bytes.Length), cancellationToken)!.ConfigureAwait(false);
+            return _base.Position;
+        }
+
+        public async ValueTask<long> WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        {
+            if (_base is null) throw new Exception("Tried to write to a disposed FileStream");
+            await _base.WriteAsync(bytes, cancellationToken)!.ConfigureAwait(false);
             return _base.Position;
         }
 
@@ -64,7 +71,7 @@ namespace ModernDiskQueue.Implementation
             else _base.Flush();
         }
 
-        public async Task FlushAsync(CancellationToken cancellationToken = default)
+        public async ValueTask FlushAsync(CancellationToken cancellationToken = default)
         {
             if (_base is null) throw new Exception("Tried to flush a disposed FileStream");
             if (_base is FileStream fs)
@@ -81,7 +88,7 @@ namespace ModernDiskQueue.Implementation
         public void MoveTo(long offset) => _base?.Seek(offset, SeekOrigin.Begin);
         public int Read(byte[] buffer, int offset, int length) => _base?.Read(buffer, offset, length) ?? 0;
 
-        public async Task<int> ReadAsync(byte[] buffer, int offset, int length, CancellationToken cancellationToken = default)
+        public async ValueTask<int> ReadAsync(byte[] buffer, int offset, int length, CancellationToken cancellationToken = default)
         {
             if (_base is null) throw new Exception("Tried to read from a disposed FileStream");
             return await _base.ReadAsync(buffer.AsMemory(offset, length), cancellationToken).ConfigureAwait(false);
@@ -123,7 +130,7 @@ namespace ModernDiskQueue.Implementation
             return a << 24 | b << 16 | c << 8 | d;
         }
 
-        public async Task<int> ReadInt32Async(CancellationToken cancellationToken = default)
+        public async ValueTask<int> ReadInt32Async(CancellationToken cancellationToken = default)
         {
             if (_base is null) throw new Exception("Tried to read from a disposed FileStream");
 
@@ -147,7 +154,7 @@ namespace ModernDiskQueue.Implementation
             return (byte)_base.ReadByte();
         }
 
-        public async Task<byte> ReadByteAsync(CancellationToken cancellationToken = default)
+        public async ValueTask<byte> ReadByteAsync(CancellationToken cancellationToken = default)
         {
             if (_base is null) throw new Exception("Tried to read from a disposed FileStream");
 
@@ -174,7 +181,7 @@ namespace ModernDiskQueue.Implementation
             return buffer;
         }
 
-        public async Task<byte[]> ReadBytesAsync(int count, CancellationToken cancellationToken = default)
+        public async ValueTask<byte[]> ReadBytesAsync(int count, CancellationToken cancellationToken = default)
         {
             if (_base is null) throw new Exception("Tried to read from a disposed FileStream");
 
