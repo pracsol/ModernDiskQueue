@@ -5,6 +5,7 @@ namespace ModernDiskQueue.Implementation
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+    using System.Net.Http.Headers;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -340,39 +341,48 @@ namespace ModernDiskQueue.Implementation
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Use SemaphoreSlim for thread-safe async access
+            Entry? entry;
+
+            // We need to be really careful about nested locks here.
             using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 var first = _entries.First;
-                if (first == null) return null;
-
-                var entry = first.Value ?? throw new Exception("Entry queue was in an invalid state: null entry");
-
-                // Use the async version of ReadAhead if data is null
-                if (entry.Data == null)
+                if (first == null)
                 {
-                    // Release lock during potentially long I/O operation
-                    using (var releaser = _entriesLockAsync.LockAsync(cancellationToken).Result)
-                    {
-                        var ok = await ReadAheadAsync(cancellationToken).ConfigureAwait(false);
-                        if (!ok) return null;
+                    return null;
+                }
 
-                        // Check again if state has changed
-                        if (_entries.First != first || _entries.First?.Value != entry)
-                        {
-                            // Queue state changed, restart
-                            return await DequeueAsync(cancellationToken).ConfigureAwait(false);
-                        }
+                entry = first.Value ?? throw new Exception("Entry queue was in an invalid state: null entry");
+
+                // If data is there, just complete the operation and get out.
+                if (entry.Data != null)
+                {
+                    _entries.RemoveFirst();
+
+                    // lock the checked out entries for addition of entry.
+                    using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _checkedOutEntries.Add(new Entry(entry.FileNumber, entry.Start, entry.Length));
+                        return entry;
                     }
                 }
 
-                _entries.RemoveFirst();
-
-                using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                // Data needs loading, so load it with method that can work with existing lock.
+                bool waspagingSuccessful = await ReadAheadAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+                if (waspagingSuccessful)
                 {
-                    _checkedOutEntries.Add(new Entry(entry.FileNumber, entry.Start, entry.Length));
-                    return entry;
+                    _entries.RemoveFirst();
                 }
+                else
+                {
+                    return null;
+                }
+            }
+
+            using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            {
+                _checkedOutEntries.Add(new Entry(entry.FileNumber, entry.Start, entry.Length));
+                return entry;
             }
         }
 
@@ -902,57 +912,73 @@ namespace ModernDiskQueue.Implementation
             return true;
         }
 
+        /// <summary>
+        /// Reads ahead to get entries from disk.
+        /// </summary>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
+        /// <returns>True if data read from successfully.</returns>
         private async Task<bool> ReadAheadAsync(CancellationToken cancellationToken)
         {
-            long currentBufferSize = 0;
-
             using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                var firstEntry = _entries.First?.Value ?? throw new Exception("Invalid queue state: first entry is null");
-                Entry lastEntry = firstEntry;
-                foreach (var entry in _entries)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    // we can't read ahead to another file or
-                    // if we have unordered queue, or sparse items
-                    if (entry != lastEntry &&
-                        (entry.FileNumber != lastEntry.FileNumber ||
-                        entry.Start != (lastEntry.Start + lastEntry.Length)))
-                    {
-                        break;
-                    }
-                    if (currentBufferSize + entry.Length > SuggestedReadBuffer)
-                    {
-                        break;
-                    }
-                    lastEntry = entry;
-                    currentBufferSize += entry.Length;
-                }
-                if (lastEntry == firstEntry)
-                {
-                    currentBufferSize = lastEntry.Length;
-                }
-
-                var buffer = await ReadEntriesFromFileAsync(firstEntry, currentBufferSize, cancellationToken).ConfigureAwait(false);
-                if (buffer.IsFailure)
-                {
-                    if (AllowTruncatedEntries) return false;
-                    throw buffer.Error!;
-                }
-
-                var index = 0;
-                foreach (var entry in _entries)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    entry.Data = new byte[entry.Length];
-                    Buffer.BlockCopy(buffer.Value!, index, entry.Data, 0, entry.Length);
-                    index += entry.Length;
-                    if (entry == lastEntry)
-                        break;
-                }
-
-                return true;
+                return await ReadAheadAsync_UnderLock(cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        /// <summary>
+        /// Reads ahead to get entries from disk without acquiring locks. The caller MUST hold _entriesLockAsync.
+        /// </summary>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
+        /// <returns>True if data has been read.</returns>
+        private async Task<bool> ReadAheadAsync_UnderLock(CancellationToken cancellationToken)
+        {
+            // IMPORTANT: Caller must hold _entriesLockAsync lock!
+            long currentBufferSize = 0;
+
+            var firstEntry = _entries.First?.Value ?? throw new Exception("Invalid queue state: first entry is null");
+            Entry lastEntry = firstEntry;
+            foreach (var entry in _entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                // we can't read ahead to another file or
+                // if we have unordered queue, or sparse items
+                if (entry != lastEntry &&
+                    (entry.FileNumber != lastEntry.FileNumber ||
+                    entry.Start != (lastEntry.Start + lastEntry.Length)))
+                {
+                    break;
+                }
+                if (currentBufferSize + entry.Length > SuggestedReadBuffer)
+                {
+                    break;
+                }
+                lastEntry = entry;
+                currentBufferSize += entry.Length;
+            }
+            if (lastEntry == firstEntry)
+            {
+                currentBufferSize = lastEntry.Length;
+            }
+
+            var buffer = await ReadEntriesFromFileAsync(firstEntry, currentBufferSize, cancellationToken).ConfigureAwait(false);
+            if (buffer.IsFailure)
+            {
+                if (AllowTruncatedEntries) return false;
+                throw buffer.Error!;
+            }
+
+            var index = 0;
+            foreach (var entry in _entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                entry.Data = new byte[entry.Length];
+                Buffer.BlockCopy(buffer.Value!, index, entry.Data, 0, entry.Length);
+                index += entry.Length;
+                if (entry == lastEntry)
+                    break;
+            }
+
+            return true;
         }
 
         private Maybe<byte[]> ReadEntriesFromFile(Entry firstEntry, long currentBufferSize)
