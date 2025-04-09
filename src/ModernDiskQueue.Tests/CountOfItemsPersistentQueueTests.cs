@@ -34,7 +34,6 @@ namespace ModernDiskQueue.Tests
             }
         }
 
-
         [Test]
         public void Can_get_count_of_items_after_queue_restart()
         {

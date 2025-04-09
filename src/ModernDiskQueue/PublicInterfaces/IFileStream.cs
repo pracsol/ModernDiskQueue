@@ -1,5 +1,6 @@
 ﻿using ModernDiskQueue.PublicInterfaces;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ModernDiskQueue
@@ -7,7 +8,7 @@ namespace ModernDiskQueue
     /// <summary>
     /// Wrapper for file activity
     /// </summary>
-    public interface IFileStream : IDisposable
+    public interface IFileStream : IDisposable, IAsyncDisposable
     {
         /// <summary>
         /// Write all bytes to a stream, returning new position
@@ -20,9 +21,19 @@ namespace ModernDiskQueue
         Task<long> WriteAsync(byte[] bytes);
 
         /// <summary>
+        /// Write all bytes to a stream, returning new position
+        /// </summary>
+        Task<long> WriteAsync(byte[] bytes, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Flush bytes from buffers to storage
         /// </summary>
         void Flush();
+
+        /// <summary>
+        /// Asynchronously flush bytes from buffers to storage
+        /// </summary>
+        Task FlushAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Move to a byte offset from the start of the stream
@@ -37,6 +48,11 @@ namespace ModernDiskQueue
         int Read(byte[] buffer, int offset, int length); //"End of file reached while trying to read queue item"
 
         /// <summary>
+        /// Asynchronously read from stream into buffer, returning number of bytes actually read.
+        /// </summary>
+        Task<int> ReadAsync(byte[] buffer, int offset, int length, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Return a binary reader for the given file stream
         /// </summary>
         /// <returns></returns>
@@ -46,6 +62,11 @@ namespace ModernDiskQueue
         /// Extend the underlying stream to the given length
         /// </summary>
         void SetLength(long length);
+
+        /// <summary>
+        /// Asynchronously extend the underlying stream to the given length
+        /// </summary>
+        Task SetLengthAsync(long length, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Set the read/write position of the underlying file

@@ -1,9 +1,11 @@
 ﻿using ModernDiskQueue.Implementation;
+using ModernDiskQueue.PublicInterfaces;
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ModernDiskQueue
 {
@@ -74,6 +76,43 @@ namespace ModernDiskQueue
         public static IPersistentQueue WaitFor(string storagePath, TimeSpan maxWait)
         {
             return WaitFor(() => new PersistentQueue(storagePath), maxWait, storagePath);
+        }
+
+        /// <summary>
+        /// Asynchronously waits a specified maximum time for exclusive access to a queue.
+        /// The queue is opened with default max file size (32MiB) and conflicts set to throw exceptions.
+        /// <para>If sharing storage between processes, the resulting queue should disposed
+        /// as soon as possible.</para>
+        /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
+        /// </summary>
+        /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist.</param>
+        /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown.</param>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/> to monitor for cancellation requests.</param>
+        /// <exception cref="TimeoutException">Lock on file could not be acquired</exception>
+        public static async Task<IPersistentQueue> WaitForAsync(string storagePath, TimeSpan maxWait, CancellationToken cancellationToken = default)
+        {
+            var deadline = DateTime.UtcNow.Add(maxWait);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                // Allow cancellation between attempts
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    // Attempt to create the queue
+                    // This is where a lock is acquired
+                    var queue = new PersistentQueue(storagePath);
+                    return queue;
+                }
+                catch (InvalidOperationException)
+                {
+                    // Lock acquisition failed, wait and retry
+                    await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            throw new TimeoutException($"Could not gain exclusive access to queue at '{storagePath}' within {maxWait}");
         }
 
         /// <summary>
@@ -185,6 +224,25 @@ namespace ModernDiskQueue
         }
 
         /// <summary>
+        /// Asynchronously opens a read/write session with the queue
+        /// </summary>
+        public async Task<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default)
+        {
+            // Ensuring the operation can be cancelled
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // This implementation runs on a background thread to avoid blocking
+            // We can't make this truly asynchronous without changing the internals,
+            // but this at least allows proper cancellation and thread management
+            return await Task.Run(() =>
+            {
+                if (Queue == null) throw new Exception("This queue has been disposed");
+                var session = Queue.OpenSession();
+                return session;
+            }, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Returns the number of items in the queue, but does not include items added or removed
         /// in currently open sessions.
         /// </summary>
@@ -209,6 +267,19 @@ namespace ModernDiskQueue
         {
             if (Queue is null) throw new Exception("This queue has been disposed");
             Queue.HardDelete(reset);
+        }
+
+        /// <summary>
+        /// Asynchronously deletes the queue files
+        /// </summary>
+        public async Task HardDeleteAsync(bool reset, CancellationToken cancellationToken = default)
+        {
+            await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (Queue is null) throw new Exception("This queue has been disposed");
+                Queue.HardDelete(reset);
+            }, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

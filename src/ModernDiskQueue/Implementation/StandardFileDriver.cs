@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ModernDiskQueue.Implementation
 {
@@ -33,6 +34,20 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
+        /// Asynchronously test for the existence of a directory
+        /// </summary>
+        public Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    return Directory.Exists(path);
+                }
+            }, cancellationToken);
+        }
+
+        /// <summary>
         /// Moves a file to a temporary name and adds it to an internal
         /// delete list. Files are permanently deleted on a call to Finalise()
         /// </summary>
@@ -55,6 +70,21 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
+        /// Asynchronously moves a file to a temporary name and adds it to an internal
+        /// delete list. Files are permanently deleted on a call to FinaliseAsync()
+        /// </summary>
+        public Task PrepareDeleteAsync(string path, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    PrepareDelete(path);
+                }
+            }, cancellationToken);
+        }
+
+        /// <summary>
         /// Commit any pending prepared operations.
         /// Each operation will happen in serial.
         /// </summary>
@@ -69,6 +99,21 @@ namespace ModernDiskQueue.Implementation
                     File.Delete(path);
                 }
             }
+        }
+
+        /// <summary>
+        /// Asynchronously commit any pending prepared operations.
+        /// Each operation will happen in serial.
+        /// </summary>
+        public Task FinaliseAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    Finalise();
+                }
+            }, cancellationToken);
         }
 
         /// <summary>
@@ -127,6 +172,67 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
+        /// Asynchronously create and open a new file with no sharing between processes.
+        /// </summary>
+        private static async Task<ILockFile> CreateNoShareFileAsync(string path, CancellationToken cancellationToken = default)
+        {
+            var result = await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    var currentProcess = Process.GetCurrentProcess();
+                    var currentLockData = new LockFileData
+                    {
+                        ProcessId = currentProcess.Id,
+                        ThreadId = Environment.CurrentManagedThreadId,
+                        ProcessStart = GetProcessStartAsUnixTimeMs(currentProcess),
+                    };
+                    var keyBytes = MarshallHelper.Serialize(currentLockData);
+
+                    if (!File.Exists(path))
+                    {
+                        File.WriteAllBytes(path, keyBytes);
+                    }
+
+                    var lockBytes = File.ReadAllBytes(path); // will throw if OS considers the file locked
+                    var fileLockData = MarshallHelper.Deserialize<LockFileData>(lockBytes);
+
+                    if (fileLockData.ThreadId != currentLockData.ThreadId || fileLockData.ProcessId != currentLockData.ProcessId)
+                    {
+                        // The first two *should not* happen, but filesystems seem to have weird bugs.
+                        // Is this for our own process?
+                        if (fileLockData.ProcessId == currentLockData.ProcessId)
+                        {
+                            throw new Exception($"This queue is locked by another thread in this process. Thread id = {fileLockData.ThreadId}");
+                        }
+
+                        // Is it for a running process?
+                        if (IsRunning(fileLockData))
+                        {
+                            throw new Exception($"This queue is locked by another running process. Process id = {fileLockData.ProcessId}");
+                        }
+
+                        // We have a lock from a dead process. Kill it.
+                        File.Delete(path);
+                        File.WriteAllBytes(path, keyBytes);
+                    }
+
+                    var lockStream = new FileStream(path,
+                        FileMode.Create,
+                        FileAccess.ReadWrite,
+                        FileShare.None);
+
+                    lockStream.Write(keyBytes, 0, keyBytes.Length);
+                    lockStream.Flush(true);
+
+                    return new LockFile(lockStream, path);
+                }
+            }, cancellationToken);
+
+            return result;
+        }
+
+        /// <summary>
         /// Return true if the processId matches a running process
         /// </summary>
         private static bool IsRunning(LockFileData lockData)
@@ -165,6 +271,24 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
+        /// <summary>
+        /// Asynchronously test for the existence of a file
+        /// </summary>
+        public Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    return File.Exists(path);
+                }
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Recursively deletes a directory and all its contents
+        /// </summary>
+        /// <param name="path">Path of the folder to delete.</param>
         public void DeleteRecursive(string path)
         {
             lock (_lock)
@@ -177,11 +301,35 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
+        /// <summary>
+        /// Try to get a lock on a file path.
+        /// </summary>
+        /// <param name="path">Path of the file to be locked.</param>
+        /// <returns><see cref="ILockFile"/>.</returns>
         public Maybe<ILockFile> CreateLockFile(string path)
         {
             try
             {
                 return CreateNoShareFile(path).Success();
+            }
+            catch (Exception ex)
+            {
+                return Maybe<ILockFile>.Fail(ex);
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously try to get a lock on a file path
+        /// </summary>
+        /// <param name="path">Path of the file to be locked.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> if different from default.</param>
+        /// <returns><see cref="ILockFile"/>.</returns>
+        public async Task<Maybe<ILockFile>> CreateLockFileAsync(string path, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var lockFile = await CreateNoShareFileAsync(path, cancellationToken);
+                return lockFile.Success();
             }
             catch (Exception ex)
             {
@@ -209,6 +357,20 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
+        /// Asynchronously attempt to create a directory. No error if the directory already exists.
+        /// </summary>
+        public Task CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    Directory.CreateDirectory(path);
+                }
+            }, cancellationToken);
+        }
+
+        /// <summary>
         /// Rename a file, including its path
         /// </summary>
         private static bool Move(string oldPath, string newPath)
@@ -231,6 +393,35 @@ namespace ModernDiskQueue.Implementation
             return false;
         }
 
+        /// <summary>
+        /// Asynchronously rename a file, including its path
+        /// </summary>
+        private static async Task<bool> MoveAsync(string oldPath, string newPath, CancellationToken cancellationToken = default)
+        {
+            return await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    for (var i = 0; i < RetryLimit; i++)
+                    {
+                        try
+                        {
+                            File.Move(oldPath, newPath);
+                            return true;
+                        }
+                        catch when (i < RetryLimit - 1)
+                        {
+                            Thread.Sleep(i * 100);
+                        }
+                    }
+                }
+                return false;
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Open a transaction log file as a stream.
+        /// </summary>
         public IFileStream OpenTransactionLog(string path, int bufferLength)
         {
             lock (_lock)
@@ -246,6 +437,30 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
+        /// <summary>
+        /// Asynchronously open a transaction log file as a stream
+        /// </summary>
+        public Task<IFileStream> OpenTransactionLogAsync(string path, int bufferLength, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    var stream = new FileStream(path,
+                        FileMode.Append,
+                        FileAccess.Write,
+                        FileShare.None,
+                        bufferLength,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
+
+                    return (IFileStream)new FileStreamWrapper(stream);
+                }
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Open a data file for reading
+        /// </summary>
         public IFileStream OpenReadStream(string path)
         {
             lock (_lock)
@@ -255,6 +470,31 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
+        /// <summary>
+        /// Asynchronously open a data file for reading
+        /// </summary>
+        public Task<IFileStream> OpenReadStreamAsync(string path, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    var stream = new FileStream(
+                        path,
+                        FileMode.OpenOrCreate,
+                        FileAccess.Read,
+                        FileShare.ReadWrite,
+                        bufferSize: 0x10000,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+                    return (IFileStream)new FileStreamWrapper(stream);
+                }
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Open a data file for writing
+        /// </summary>
         public IFileStream OpenWriteStream(string dataFilePath)
         {
             lock (_lock)
@@ -272,6 +512,34 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
+        /// <summary>
+        /// Asynchronously open a data file for writing
+        /// </summary>
+        public Task<IFileStream> OpenWriteStreamAsync(string dataFilePath, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    var stream = new FileStream(
+                        dataFilePath,
+                        FileMode.OpenOrCreate,
+                        FileAccess.Write,
+                        FileShare.ReadWrite,
+                        0x10000,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
+
+                    SetPermissions.TryAllowReadWriteForAll(dataFilePath);
+                    return (IFileStream)new FileStreamWrapper(stream);
+                }
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Run a read action over a file by name.
+        /// Access is optimised for sequential scanning.
+        /// No file share is permitted.
+        /// </summary>
         public bool AtomicRead(string path, Action<IBinaryReader> action)
         {
             for (int i = 1; i <= RetryLimit; i++)
@@ -303,6 +571,49 @@ namespace ModernDiskQueue.Implementation
             return false;
         }
 
+        /// <summary>
+        /// Asynchronously run a read action over a file by name.
+        /// Access is optimised for sequential scanning.
+        /// No file share is permitted.
+        /// </summary>
+        public async Task<bool> AtomicReadAsync(string path, Func<IBinaryReader, Task> action, CancellationToken cancellationToken = default)
+        {
+            for (int i = 1; i <= RetryLimit; i++)
+            {
+                try
+                {
+                    await AtomicReadInternalAsync(path, async (fileStream) =>
+                    {
+                        var wrapper = new FileStreamWrapper(fileStream);
+                        await action(wrapper).ConfigureAwait(false);
+                    }, cancellationToken).ConfigureAwait(false);
+
+                    return true;
+                }
+                catch (UnrecoverableException)
+                {
+                    throw;
+                }
+                catch (Exception) when (i < RetryLimit && !cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(i * 100, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    if (i >= RetryLimit)
+                    {
+                        PersistentQueue.Log("Exceeded retry limit during async read");
+                        return false;
+                    }
+
+                    // Rethrow if we're cancelled
+                    if (cancellationToken.IsCancellationRequested)
+                        throw;
+                }
+            }
+            return false;
+        }
+
         public void AtomicWrite(string path, Action<IBinaryWriter> action)
         {
             for (int i = 1; i <= RetryLimit; i++)
@@ -323,6 +634,41 @@ namespace ModernDiskQueue.Implementation
                 catch (Exception)
                 {
                     Thread.Sleep(i * 100);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously run a write action over a file by name.
+        /// No file share is permitted.
+        /// </summary>
+        public async Task AtomicWriteAsync(string path, Func<IBinaryWriter, Task> action, CancellationToken cancellationToken = default)
+        {
+            for (int i = 1; i <= RetryLimit; i++)
+            {
+                try
+                {
+                    await AtomicWriteInternalAsync(path, async (fileStream) =>
+                    {
+                        var wrapper = new FileStreamWrapper(fileStream);
+                        await action(wrapper).ConfigureAwait(false);
+                    }, cancellationToken).ConfigureAwait(false);
+
+                    return;
+                }
+                catch (Exception) when (i >= RetryLimit)
+                {
+                    throw;
+                }
+                catch (Exception) when (i < RetryLimit && !cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(i * 100, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    // Rethrow if we're cancelled
+                    if (cancellationToken.IsCancellationRequested)
+                        throw;
                 }
             }
         }
@@ -349,6 +695,52 @@ namespace ModernDiskQueue.Implementation
 
                 SetPermissions.TryAllowReadWriteForAll(path);
                 action(stream);
+            }
+        }
+
+        /// <summary>
+		/// Asynchronously run a read action over a file by name.
+		/// Access is optimised for sequential scanning.
+		/// No file share is permitted.
+		/// </summary>
+		/// <param name="path">File path to read</param>
+		/// <param name="action">Action to consume file stream. You do not need to close the stream yourself.</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        private async Task AtomicReadInternalAsync(string path, Func<FileStream, Task> action, CancellationToken cancellationToken)
+        {
+            var fileExists = await FileExistsAsync(path + ".old_copy", cancellationToken);
+            if (fileExists)
+            {
+                await WaitDeleteAsync(path, cancellationToken);
+            }
+
+            FileStream? stream = null;
+
+            try
+            {
+                await Task.Run(() =>
+                {
+                    lock (_lock)
+                    {
+                        stream = new FileStream(path,
+                            FileMode.OpenOrCreate,
+                            FileAccess.Read,
+                            FileShare.ReadWrite,
+                            0x10000,
+                            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+                        SetPermissions.TryAllowReadWriteForAll(path);
+                    }
+                }, cancellationToken);
+
+                await action(stream!).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (stream != null)
+                {
+                    await stream.DisposeAsync().ConfigureAwait(false);
+                }
             }
         }
 
@@ -387,6 +779,80 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
+        /// Asynchronously run a write action to a file.
+        /// This will always rewrite the file (no appending).
+        /// </summary>
+        /// <param name="path">File path to write</param>
+        /// <param name="action">Action to write into file stream. You do not need to close the stream yourself.</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        private async Task AtomicWriteInternalAsync(string path, Func<FileStream, Task> action, CancellationToken cancellationToken)
+        {
+            bool needsBackup = false;
+
+            // Check if we need to create a backup first
+            await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    needsBackup = FileExists(path) && !FileExists(path + ".old_copy");
+                }
+            }, cancellationToken);
+
+            // Create backup if needed
+            if (needsBackup)
+            {
+                await MoveAsync(path, path + ".old_copy", cancellationToken);
+            }
+
+            // Ensure directory exists
+            var dir = Path.GetDirectoryName(path);
+            if (dir is not null)
+            {
+                bool dirExists = await DirectoryExistsAsync(dir, cancellationToken);
+                if (!dirExists)
+                {
+                    await CreateDirectoryAsync(dir, cancellationToken);
+                }
+            }
+
+            // Open stream for writing
+            FileStream? stream = null;
+            try
+            {
+                await Task.Run(() =>
+                {
+                    lock (_lock)
+                    {
+                        stream = new FileStream(path,
+                            FileMode.Create,
+                            FileAccess.Write,
+                            FileShare.ReadWrite,
+                            0x10000,
+                            FileOptions.Asynchronous | FileOptions.WriteThrough | FileOptions.SequentialScan);
+
+                        SetPermissions.TryAllowReadWriteForAll(path);
+                    }
+                }, cancellationToken);
+
+                // Execute the write action
+                await action(stream!).ConfigureAwait(false);
+
+                // Ensure data is flushed
+                await HardFlushAsync(stream!, cancellationToken).ConfigureAwait(false);
+
+                // Clean up old backup
+                await WaitDeleteAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (stream != null)
+                {
+                    await stream.DisposeAsync().ConfigureAwait(false);
+                }
+            }
+        }
+
+        /// <summary>
         /// Flush a stream, checking to see if its a file -- in which case it will ask for a flush-to-disk.
         /// </summary>
         private static void HardFlush(Stream? stream)
@@ -394,6 +860,23 @@ namespace ModernDiskQueue.Implementation
             if (stream == null) return;
             if (stream is FileStream fs) fs.Flush(true);
             stream.Flush();
+        }
+
+        /// <summary>
+        /// Asynchronously flush a stream, checking to see if its a file -- in which case it will ask for a flush-to-disk.
+        /// </summary>
+        private static async Task HardFlushAsync(Stream stream, CancellationToken cancellationToken)
+        {
+            if (stream == null) return;
+            if (stream is FileStream fs)
+            {
+                // FileStream.FlushAsync doesn't support flushToDisk parameter, so we use Task.Run for the synchronous call
+                await Task.Run(() => fs.Flush(true), cancellationToken);
+            }
+            else
+            {
+                await stream.FlushAsync(cancellationToken);
+            }
         }
 
         private void WaitDelete(string s)
@@ -413,6 +896,33 @@ namespace ModernDiskQueue.Implementation
                 catch
                 {
                     Thread.Sleep(100);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously delete a file with retries
+        /// </summary>
+        private async Task WaitDeleteAsync(string path, CancellationToken cancellationToken)
+        {
+            for (var i = 0; i < RetryLimit; i++)
+            {
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        lock (_lock)
+                        {
+                            PrepareDelete(path);
+                            Finalise();
+                        }
+                    }, cancellationToken);
+
+                    return;
+                }
+                catch when (i < RetryLimit - 1 && !cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(100, cancellationToken);
                 }
             }
         }

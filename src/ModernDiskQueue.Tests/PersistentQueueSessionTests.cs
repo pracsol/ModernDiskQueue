@@ -1,4 +1,5 @@
 using ModernDiskQueue.Implementation;
+using ModernDiskQueue.PublicInterfaces;
 using ModernDiskQueue.Tests.Helpers;
 using NSubstitute;
 using NSubstitute.Core;

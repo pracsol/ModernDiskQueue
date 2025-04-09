@@ -1,7 +1,11 @@
-using System;
-
 namespace ModernDiskQueue
 {
+    using System;
+    using System.Threading.Tasks;
+
+    using System.Threading;
+    using ModernDiskQueue.PublicInterfaces;
+
     /// <summary>
     /// A queue tied to a specific persistent storage backing.
     /// Enqueue and dequeue operations happen within sessions.
@@ -14,6 +18,13 @@ namespace ModernDiskQueue
         /// Open an read/write session
         /// </summary>
         IPersistentQueueSession OpenSession();
+
+        /// <summary>
+        /// Asynchronously opens a read/write session with the queue
+        /// </summary>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+        /// <returns>A persistent queue session that can be used to read from and write to the queue</returns>
+        Task<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Returns the number of items in the queue, but does not include items added or removed
@@ -40,5 +51,14 @@ namespace ModernDiskQueue
         /// If reset is true, the queue's directory and lock file will be restored, and the queue can continue to be used.
         /// </summary>
         void HardDelete(bool reset);
+
+        /// <summary>
+        /// WARNING: Dangerous!
+        /// Asynchronously attempts to delete the queue, all its data, and all support files.
+        /// This is not thread safe, multi-process safe, or safe in any other way.
+        /// <para></para>
+        /// If reset is true, the queue's directory and lock file will be restored, and the queue can continue to be used.
+        /// </summary>
+        Task HardDeleteAsync(bool reset, CancellationToken cancellationToken = default);
     }
 }

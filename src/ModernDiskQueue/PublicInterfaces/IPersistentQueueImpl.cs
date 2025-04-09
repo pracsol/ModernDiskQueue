@@ -1,17 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using ModernDiskQueue.Implementation;
-using ModernDiskQueue.PublicInterfaces;
 
-namespace ModernDiskQueue
+namespace ModernDiskQueue.PublicInterfaces
 {
 	/// <summary>
 	/// Wrapper for exposing some inner workings of the persistent queue.
 	/// <para>You should be careful using any of these methods</para>
 	/// <para>Please read the source code before using these methods in production software</para>
 	/// </summary>
-	public interface IPersistentQueueImpl : IDisposable
+	public interface IPersistentQueueImpl : IDisposable, IAsyncDisposable
 	{
 		/// <summary>
 		/// <para>UNSAFE. Incorrect use will result in data loss.</para>
@@ -23,30 +23,69 @@ namespace ModernDiskQueue
 		/// <param name="onReplaceStream">Continuation action if a new file is created</param>
 		void AcquireWriter(IFileStream stream, Func<IFileStream, Task<long>> action, Action<IFileStream> onReplaceStream);
 
-		/// <summary>
-		/// <para>UNSAFE. Incorrect use will result in data loss.</para>
-		/// Commit a sequence of operations to storage
-		/// </summary>
-		void CommitTransaction(ICollection<Operation> operations);
+        /// <summary>
+        /// <para>UNSAFE. Incorrect use will result in data loss.</para>
+        /// Asynchronously lock and process a data file writer at the current write head.
+        /// <para>This will create new files if max size is exceeded</para>
+        /// </summary>
+        /// <param name="stream">Stream to write</param>
+        /// <param name="action">Asynchronous writing action</param>
+        /// <param name="onReplaceStream">Continuation action if a new file is created</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        Task AcquireWriterAsync(IFileStream stream, Func<IFileStream, Task<long>> action, Action<IFileStream> onReplaceStream, CancellationToken cancellationToken = default);
 
-		/// <summary>
-		/// <para>UNSAFE. Incorrect use will result in data loss.</para>
-		/// Dequeue data, returning storage entry
-		/// </summary>
-		Entry? Dequeue();
+        /// <summary>
+        /// <para>UNSAFE. Incorrect use will result in data loss.</para>
+        /// Commit a sequence of operations to storage
+        /// </summary>
+        void CommitTransaction(ICollection<Operation> operations);
 
-		/// <summary>
-		/// <para>UNSAFE. Incorrect use will result in data loss.</para>
-		/// <para>Undo Enqueue and Dequeue operations.</para>
-		/// <para>These MUST have been real operations taken.</para>
-		/// </summary>
-		void Reinstate(IEnumerable<Operation> reinstatedOperations);
+        /// <summary>
+        /// <para>UNSAFE. Incorrect use will result in data loss.</para>
+        /// Asynchronously commit a sequence of operations to storage
+        /// </summary>
+        /// <param name="operations">Collection of operations to commit</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        Task CommitTransactionAsync(ICollection<Operation> operations, CancellationToken cancellationToken = default);
 
-		/// <summary>
-		/// <para>Safe, available for tests and performance.</para>
-		/// <para>Current writing file number</para>
-		/// </summary>
-		int CurrentFileNumber { get; }
+        /// <summary>
+        /// <para>UNSAFE. Incorrect use will result in data loss.</para>
+        /// Dequeue data, returning storage entry
+        /// </summary>
+        Entry? Dequeue();
+
+        /// <summary>
+        /// <para>UNSAFE. Incorrect use will result in data loss.</para>
+        /// Asynchronously dequeue data, returning storage entry
+        /// </summary>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+        /// <returns>A task that represents the asynchronous operation with the dequeued entry or null</returns>
+        Task<Entry?> DequeueAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// <para>UNSAFE. Incorrect use will result in data loss.</para>
+        /// <para>Undo Enqueue and Dequeue operations.</para>
+        /// <para>These MUST have been real operations taken.</para>
+        /// </summary>
+        void Reinstate(IEnumerable<Operation> reinstatedOperations);
+
+        /// <summary>
+        /// <para>UNSAFE. Incorrect use will result in data loss.</para>
+        /// <para>Asynchronously undo Enqueue and Dequeue operations.</para>
+        /// <para>These MUST have been real operations taken.</para>
+        /// </summary>
+        /// <param name="reinstatedOperations">Operations to reinstate</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        Task ReinstateAsync(IEnumerable<Operation> reinstatedOperations, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// <para>Safe, available for tests and performance.</para>
+        /// <para>Current writing file number</para>
+        /// </summary>
+        int CurrentFileNumber { get; }
 
 		/// <summary>
 		/// <para>Safe, available for tests and performance.</para>
@@ -97,10 +136,27 @@ namespace ModernDiskQueue
 		/// </summary>
 		IPersistentQueueSession OpenSession();
 
-		/// <summary>
-		/// WARNING: 
-		/// Attempt to delete the queue, all its data, and all support files.
-		/// </summary>
-		void HardDelete(bool reset);
-	}
+        /// <summary>
+        /// Asynchronously lock the queue for use, and give access to session methods.
+        /// The session <b>MUST</b> be disposed as soon as possible.
+        /// </summary>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+        /// <returns>A task that represents the asynchronous operation with a session that can be used to interact with the queue</returns>
+        Task<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// WARNING:
+        /// Attempt to delete the queue, all its data, and all support files.
+        /// </summary>
+        void HardDelete(bool reset);
+
+        /// <summary>
+        /// WARNING:
+        /// Asynchronously attempt to delete the queue, all its data, and all support files.
+        /// </summary>
+        /// <param name="reset">If true, recreate queue storage</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        Task HardDeleteAsync(bool reset, CancellationToken cancellationToken = default);
+    }
 }

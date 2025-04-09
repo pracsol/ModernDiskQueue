@@ -1,4 +1,6 @@
-﻿namespace ModernDiskQueue
+﻿using ModernDiskQueue.PublicInterfaces;
+
+namespace ModernDiskQueue
 {
     /// <inheritdoc/>
     // ReSharper disable once UnusedTypeParameter
