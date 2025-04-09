@@ -38,6 +38,11 @@ namespace ModernDiskQueue.Implementation
             return _base.Position;
         }
 
+        /// <summary>
+        /// This is an older legacy method that predates resent async refactoring efforts.
+        /// It's overloaded by WriteAsync accepting a cancellation token.
+        /// </summary>
+        [Obsolete("Use WriteAsync(byte[] bytes, CancellationToken cancellationToken) instead.")]
         public async Task<long> WriteAsync(byte[] bytes)
         {
             if (_base is null) throw new Exception("Tried to write to a disposed FileStream");
@@ -48,7 +53,7 @@ namespace ModernDiskQueue.Implementation
         public async Task<long> WriteAsync(byte[] bytes, CancellationToken cancellationToken)
         {
             if (_base is null) throw new Exception("Tried to write to a disposed FileStream");
-            await _base.WriteAsync(bytes, 0, bytes.Length, cancellationToken)!.ConfigureAwait(false);
+            await _base.WriteAsync(bytes.AsMemory(0, bytes.Length), cancellationToken)!.ConfigureAwait(false);
             return _base.Position;
         }
 
@@ -79,7 +84,7 @@ namespace ModernDiskQueue.Implementation
         public async Task<int> ReadAsync(byte[] buffer, int offset, int length, CancellationToken cancellationToken = default)
         {
             if (_base is null) throw new Exception("Tried to read from a disposed FileStream");
-            return await _base.ReadAsync(buffer, offset, length, cancellationToken).ConfigureAwait(false);
+            return await _base.ReadAsync(buffer.AsMemory(offset, length), cancellationToken).ConfigureAwait(false);
         }
 
         public IBinaryReader GetBinaryReader() => this;
@@ -111,8 +116,10 @@ namespace ModernDiskQueue.Implementation
             var c = _base.ReadByte();
             var b = _base.ReadByte();
             var a = _base.ReadByte();
-            if (a < 0 || b < 0 || c < 0 || d < 0) throw new EndOfStreamException(); // truncated
-            
+            if (a < 0 || b < 0 || c < 0 || d < 0)
+            {
+                throw new EndOfStreamException(); // truncated
+            }
             return a << 24 | b << 16 | c << 8 | d;
         }
 
@@ -123,7 +130,7 @@ namespace ModernDiskQueue.Implementation
             var buffer = ArrayPool<byte>.Shared.Rent(4);
             try
             {
-                var bytesRead = await _base.ReadAsync(buffer, 0, 4, cancellationToken).ConfigureAwait(false);
+                var bytesRead = await _base.ReadAsync(buffer.AsMemory(0, 4), cancellationToken).ConfigureAwait(false);
                 if (bytesRead < 4) throw new EndOfStreamException();
 
                 return buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0];
@@ -147,7 +154,7 @@ namespace ModernDiskQueue.Implementation
             var buffer = ArrayPool<byte>.Shared.Rent(1);
             try
             {
-                var bytesRead = await _base.ReadAsync(buffer, 0, 1, cancellationToken).ConfigureAwait(false);
+                var bytesRead = await _base.ReadAsync(buffer.AsMemory(0, 1), cancellationToken).ConfigureAwait(false);
                 if (bytesRead < 1) throw new EndOfStreamException();
 
                 return buffer[0];
@@ -172,7 +179,7 @@ namespace ModernDiskQueue.Implementation
             if (_base is null) throw new Exception("Tried to read from a disposed FileStream");
 
             var buffer = new byte[count];
-            var bytesRead = await _base.ReadAsync(buffer, 0, count, cancellationToken).ConfigureAwait(false);
+            var bytesRead = await _base.ReadAsync(buffer.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
 
             if (bytesRead != count) return Array.Empty<byte>();
             return buffer;

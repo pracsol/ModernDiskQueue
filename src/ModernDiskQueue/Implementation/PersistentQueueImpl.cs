@@ -23,7 +23,7 @@ namespace ModernDiskQueue.Implementation
         private readonly AsyncLock _transactionLogLockAsync = new();
         private readonly AsyncLock _writerLockAsync = new();
         private readonly AsyncLock _entriesLockAsync = new();
-        private readonly AsyncLock _checkoutLockAsync = new();
+        private readonly AsyncLock _checkedOutEntriesLockAsync = new();
         private AsyncLock _disposeLockAsync = new();
         private readonly bool _throwOnConflict;
         private static readonly object _configLock = new();
@@ -108,6 +108,17 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
+        public async Task<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken)
+        {
+            using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            {
+                using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    return _entries.Count + _checkedOutEntries.Count;
+                }
+            }
+        }
+
         public long CurrentFilePosition { get; private set; }
 
         public int CurrentFileNumber { get; private set; }
@@ -161,7 +172,7 @@ namespace ModernDiskQueue.Implementation
                     // Flush inside the lock if needed (this is the synchronous part)
                     if (needsFlush)
                     {
-                        FlushTrimmedTransactionLog();
+                        await FlushTrimmedTransactionLogAsync();
                     }
                 }
             }
@@ -200,20 +211,15 @@ namespace ModernDiskQueue.Implementation
             // We use a semaphore to allow async operations while maintaining the lock semantics
             using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                // Set position at current file position
-                stream.SetPosition(CurrentFilePosition);
-
-                // Execute the action and await the result
-                CurrentFilePosition = await action(stream).ConfigureAwait(false);
-
+                stream.SetPosition(CurrentFilePosition); // Set position at current file position
+                CurrentFilePosition = await action(stream).ConfigureAwait(false); // Execute the action and await the result
                 // Check if we need to create a new file
                 if (CurrentFilePosition < MaxFileSize)
+                {
                     return;
+                }
 
-                // Roll over to a new file
-                CurrentFileNumber++;
-
-                // If the file driver supports async, use it, otherwise fall back to sync
+                CurrentFileNumber++; // Roll over to a new file
                 IFileStream writer = await _file.OpenWriteStreamAsync(GetDataPath(CurrentFileNumber), cancellationToken).ConfigureAwait(false);
 
                 // Set the length of the new file
@@ -281,7 +287,7 @@ namespace ModernDiskQueue.Implementation
 
             // Apply operations and clean up files
             await ApplyTransactionOperationsAsync(operations, cancellationToken).ConfigureAwait(false);
-            TrimTransactionLogIfNeeded(txLogSize);
+            await TrimTransactionLogIfNeededAsync(txLogSize, cancellationToken);
 
             // Write metadata asynchronously
             await _file.AtomicWriteAsync(Meta, async writer =>
@@ -362,7 +368,7 @@ namespace ModernDiskQueue.Implementation
 
                 _entries.RemoveFirst();
 
-                using (await _checkoutLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
                     _checkedOutEntries.Add(new Entry(entry.FileNumber, entry.Start, entry.Length));
                     return entry;
@@ -383,9 +389,7 @@ namespace ModernDiskQueue.Implementation
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Instead of creating the writer synchronously, use async version
-            var dataFilePath = GetDataPath(CurrentFileNumber);
-            var writer = await _file.OpenWriteStreamAsync(dataFilePath, cancellationToken).ConfigureAwait(false);
+            var writer = await CreateWriterAsync(cancellationToken).ConfigureAwait(false);
 
             return new PersistentQueueSession(this, writer, SuggestedWriteBuffer, FileTimeoutMilliseconds);
         }
@@ -418,18 +422,15 @@ namespace ModernDiskQueue.Implementation
 
             // Transform operations outside lock for better performance
             var operations = (from entry in reinstatedOperations.Reverse()
-                                where entry.Type == OperationType.Dequeue
-                                select new Operation(
+                              where entry.Type == OperationType.Dequeue
+                              select new Operation(
                                     OperationType.Reinstate,
                                     entry.FileNumber,
                                     entry.Start,
                                     entry.Length
                                 )).ToList(); // Materialize the query outside the lock
 
-            using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
-            {
-                await ApplyTransactionOperationsAsync(operations, cancellationToken).ConfigureAwait(false);
-            }
+            await ApplyTransactionOperationsAsync(operations, cancellationToken).ConfigureAwait(false);
         }
 
         public int[] ApplyTransactionOperationsInMemory(IEnumerable<Operation>? operations)
@@ -458,6 +459,62 @@ namespace ModernDiskQueue.Implementation
                         var entryToReinstate = new Entry(operation);
                         lock (_entries) { _entries.AddFirst(entryToReinstate); }
                         lock (_checkedOutEntries) { _checkedOutEntries.Remove(entryToReinstate); }
+                        break;
+                }
+            }
+
+            var filesToRemove = new HashSet<int>(
+                from pair in _countOfItemsPerFile
+                where pair.Value < 1
+                select pair.Key
+                );
+
+            foreach (var i in filesToRemove)
+            {
+                _countOfItemsPerFile.Remove(i);
+            }
+            return filesToRemove.ToArray();
+        }
+
+        public async Task<int[]> ApplyTransactionOperationsInMemoryAsync(IEnumerable<Operation>? operations, CancellationToken cancellationToken)
+        {
+            if (operations == null) return [];
+
+            foreach (var operation in operations)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                switch (operation?.Type)
+                {
+                    case OperationType.Enqueue:
+                        var entryToAdd = new Entry(operation);
+                        using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            _entries.AddLast(entryToAdd);
+                        }
+                        var itemCountAddition = _countOfItemsPerFile.GetValueOrDefault(entryToAdd.FileNumber);
+                        _countOfItemsPerFile[entryToAdd.FileNumber] = itemCountAddition + 1;
+                        break;
+
+                    case OperationType.Dequeue:
+                        var entryToRemove = new Entry(operation);
+                        using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            _checkedOutEntries.Remove(entryToRemove);
+                        }
+                        var itemCountRemoval = _countOfItemsPerFile.GetValueOrDefault(entryToRemove.FileNumber);
+                        _countOfItemsPerFile[entryToRemove.FileNumber] = itemCountRemoval - 1;
+                        break;
+
+                    case OperationType.Reinstate:
+                        var entryToReinstate = new Entry(operation);
+                        using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            _entries.AddFirst(entryToReinstate);
+                        }
+                        using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            _checkedOutEntries.Remove(entryToReinstate);
+                        }
                         break;
                 }
             }
@@ -569,6 +626,17 @@ namespace ModernDiskQueue.Implementation
             get
             {
                 lock (_entries)
+                {
+                    return _entries.Count + _checkedOutEntries.Count;
+                }
+            }
+        }
+
+        private async Task<int> GetCurrentCountOfItemsInQueueAsync(CancellationToken cancellationToken)
+        {
+            using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            {
+                using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
                     return _entries.Count + _checkedOutEntries.Count;
                 }
@@ -752,7 +820,7 @@ namespace ModernDiskQueue.Implementation
         private async Task<Maybe<bool>> LockQueueAsync(CancellationToken cancellationToken = default)
         {
             // Use SemaphoreSlim for async-friendly synchronization
-            using(await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 try
                 {
@@ -838,48 +906,53 @@ namespace ModernDiskQueue.Implementation
         {
             long currentBufferSize = 0;
 
-            var firstEntry = _entries.First?.Value ?? throw new Exception("Invalid queue state: first entry is null");
-            Entry lastEntry = firstEntry;
-            foreach (var entry in _entries)
+            using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                // we can't read ahead to another file or
-                // if we have unordered queue, or sparse items
-                if (entry != lastEntry &&
-                    (entry.FileNumber != lastEntry.FileNumber ||
-                    entry.Start != (lastEntry.Start + lastEntry.Length)))
+                var firstEntry = _entries.First?.Value ?? throw new Exception("Invalid queue state: first entry is null");
+                Entry lastEntry = firstEntry;
+                foreach (var entry in _entries)
                 {
-                    break;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    // we can't read ahead to another file or
+                    // if we have unordered queue, or sparse items
+                    if (entry != lastEntry &&
+                        (entry.FileNumber != lastEntry.FileNumber ||
+                        entry.Start != (lastEntry.Start + lastEntry.Length)))
+                    {
+                        break;
+                    }
+                    if (currentBufferSize + entry.Length > SuggestedReadBuffer)
+                    {
+                        break;
+                    }
+                    lastEntry = entry;
+                    currentBufferSize += entry.Length;
                 }
-                if (currentBufferSize + entry.Length > SuggestedReadBuffer)
+                if (lastEntry == firstEntry)
                 {
-                    break;
+                    currentBufferSize = lastEntry.Length;
                 }
-                lastEntry = entry;
-                currentBufferSize += entry.Length;
-            }
-            if (lastEntry == firstEntry)
-            {
-                currentBufferSize = lastEntry.Length;
-            }
 
-            var buffer = await ReadEntriesFromFileAsync(firstEntry, currentBufferSize, cancellationToken).ConfigureAwait(false);
-            if (buffer.IsFailure)
-            {
-                if (AllowTruncatedEntries) return false;
-                throw buffer.Error!;
-            }
+                var buffer = await ReadEntriesFromFileAsync(firstEntry, currentBufferSize, cancellationToken).ConfigureAwait(false);
+                if (buffer.IsFailure)
+                {
+                    if (AllowTruncatedEntries) return false;
+                    throw buffer.Error!;
+                }
 
-            var index = 0;
-            foreach (var entry in _entries)
-            {
-                entry.Data = new byte[entry.Length];
-                Buffer.BlockCopy(buffer.Value!, index, entry.Data, 0, entry.Length);
-                index += entry.Length;
-                if (entry == lastEntry)
-                    break;
-            }
+                var index = 0;
+                foreach (var entry in _entries)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    entry.Data = new byte[entry.Length];
+                    Buffer.BlockCopy(buffer.Value!, index, entry.Data, 0, entry.Length);
+                    index += entry.Length;
+                    if (entry == lastEntry)
+                        break;
+                }
 
-            return true;
+                return true;
+            }
         }
 
         private Maybe<byte[]> ReadEntriesFromFile(Entry firstEntry, long currentBufferSize)
@@ -1152,27 +1225,32 @@ namespace ModernDiskQueue.Implementation
             {
                 ms.Write(Constants.StartTransactionSeparator, 0, Constants.StartTransactionSeparator.Length);
 
-                var count = BitConverter.GetBytes(EstimatedCountOfItemsInQueue);
+                var count = BitConverter.GetBytes(await GetEstimatedCountOfItemsInQueueAsync(cancellationToken));
                 ms.Write(count, 0, count.Length);
 
                 Entry[] checkedOut;
-                lock (_checkedOutEntries)
+                using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
                     checkedOut = _checkedOutEntries.ToArray();
                 }
+
                 foreach (var entry in checkedOut)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    // Write the entry to the transaction log
                     WriteEntryToTransactionLog(ms, entry, OperationType.Enqueue);
                 }
 
                 Entry[] listedEntries;
-                lock (_entries)
+                using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
                     listedEntries = ToArray(_entries);
                 }
 
                 foreach (var entry in listedEntries)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     WriteEntryToTransactionLog(ms, entry, OperationType.Enqueue);
                 }
                 ms.Write(Constants.EndTransactionSeparator, 0, Constants.EndTransactionSeparator.Length);
@@ -1344,6 +1422,16 @@ namespace ModernDiskQueue.Implementation
             FlushTrimmedTransactionLog();
         }
 
+        private async Task TrimTransactionLogIfNeededAsync(long txLogSize, CancellationToken cancellationToken)
+        {
+            if (txLogSize < SuggestedMaxTransactionLogSize) return; // it is not big enough to care
+
+            var optimalSize = await GetOptimalTransactionLogSizeAsync(cancellationToken);
+            if (txLogSize < (optimalSize * 2)) return;  // not enough disparity to bother trimming
+
+            await FlushTrimmedTransactionLogAsync(cancellationToken);
+        }
+
         private void ApplyTransactionOperations(IEnumerable<Operation> operations)
         {
             lock (_entries)
@@ -1365,15 +1453,16 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private async Task ApplyTransactionOperationsAsync(IEnumerable<Operation> operations, CancellationToken cancellationToken = default)
         {
-            lock (_entries)
+            using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                var filesToRemove = ApplyTransactionOperationsInMemory(operations);
+                var filesToRemove = await ApplyTransactionOperationsInMemoryAsync(operations, cancellationToken);
                 foreach (var fileNumber in filesToRemove)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (CurrentFileNumber == fileNumber)
                         continue;
 
-                    _file.PrepareDelete(GetDataPath(fileNumber));
+                    await _file.PrepareDeleteAsync(GetDataPath(fileNumber), cancellationToken);
                 }
             }
 
@@ -1405,6 +1494,12 @@ namespace ModernDiskQueue.Implementation
             return _file.OpenWriteStream(dataFilePath);
         }
 
+        protected async Task<IFileStream> CreateWriterAsync(CancellationToken cancellationToken)
+        {
+            var dataFilePath = GetDataPath(CurrentFileNumber);
+            return await _file.OpenWriteStreamAsync(dataFilePath, cancellationToken);
+        }
+
         private string GetDataPath(int index)
         {
             return _file.PathCombine(_path, "data." + index);
@@ -1425,6 +1520,25 @@ namespace ModernDiskQueue.Implementation
                 )
                 *
                 CurrentCountOfItemsInQueue;
+
+            return size;
+        }
+
+        private async Task<long> GetOptimalTransactionLogSizeAsync(CancellationToken cancellationToken)
+        {
+            long size = 0;
+            size += 16 /*sizeof(guid)*/; //	initial tx separator
+            size += sizeof(int); // 	operation count
+
+            size +=
+                ( // entry size == 16
+                sizeof(int) + // 		operation separator
+                sizeof(int) + // 		file number
+                sizeof(int) + //		start
+                sizeof(int)   //		length
+                )
+                *
+                await GetCurrentCountOfItemsInQueueAsync(cancellationToken);
 
             return size;
         }
