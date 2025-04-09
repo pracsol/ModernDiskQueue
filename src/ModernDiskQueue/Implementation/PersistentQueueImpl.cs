@@ -170,7 +170,7 @@ namespace ModernDiskQueue.Implementation
                     // Determine if we need to flush the transaction log.
                     bool needsFlush = TrimTransactionLogOnDispose;
 
-                    // Flush inside the lock if needed (this is the synchronous part)
+                    // Flush inside the lock if needed.
                     if (needsFlush)
                     {
                         await FlushTrimmedTransactionLogAsync();
@@ -788,7 +788,6 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private async Task UnlockQueueAsync(CancellationToken cancellationToken = default)
         {
-            // Use SemaphoreSlim instead of lock for async-friendly synchronization
             using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (string.IsNullOrWhiteSpace(_path)) return;
@@ -1254,6 +1253,20 @@ namespace ModernDiskQueue.Implementation
                 var count = BitConverter.GetBytes(await GetEstimatedCountOfItemsInQueueAsync(cancellationToken));
                 ms.Write(count, 0, count.Length);
 
+                // acquire locks in the same sequence used elsewhere in this class, specifically, deal with _entriesLockAsync then _checkedOutEntriesLockAsync.
+                // This helps avoids potential deadlock-like scenarios.
+                Entry[] listedEntries;
+                using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    listedEntries = ToArray(_entries);
+                }
+
+                foreach (var entry in listedEntries)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    WriteEntryToTransactionLog(ms, entry, OperationType.Enqueue);
+                }
+
                 Entry[] checkedOut;
                 using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
@@ -1268,17 +1281,6 @@ namespace ModernDiskQueue.Implementation
                     WriteEntryToTransactionLog(ms, entry, OperationType.Enqueue);
                 }
 
-                Entry[] listedEntries;
-                using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    listedEntries = ToArray(_entries);
-                }
-
-                foreach (var entry in listedEntries)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    WriteEntryToTransactionLog(ms, entry, OperationType.Enqueue);
-                }
                 ms.Write(Constants.EndTransactionSeparator, 0, Constants.EndTransactionSeparator.Length);
                 ms.Flush();
                 transactionBuffer = ms.ToArray();
