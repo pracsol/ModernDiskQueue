@@ -2,6 +2,7 @@ namespace ModernDiskQueue.Implementation
 {
     using ModernDiskQueue.PublicInterfaces;
     using System;
+    using System.Buffers;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
@@ -1021,42 +1022,71 @@ namespace ModernDiskQueue.Implementation
 
         private async Task<Maybe<byte[]>> ReadEntriesFromFileAsync(Entry firstEntry, long currentBufferSize, CancellationToken cancellationToken)
         {
+            byte[]? rentedBuffer = null;
             try
             {
-                var buffer = new byte[currentBufferSize];
-                if (firstEntry.Length < 1) return buffer.Success();
+                rentedBuffer = ArrayPool<byte>.Shared.Rent((int)currentBufferSize);
+
+                if (firstEntry.Length < 1)
+                {
+                    return new byte[0].Success();
+                }
 
                 await using var reader = await _file.OpenReadStreamAsync(GetDataPath(firstEntry.FileNumber), cancellationToken).ConfigureAwait(false);
+                
                 reader.MoveTo(firstEntry.Start);
 
+                // Read the data with variable retry logic.
                 var totalRead = 0;
                 var failCount = 0;
+                int maxFailCount = 10;
+
                 do
                 {
-                    var bytesRead = await reader.ReadAsync(buffer, totalRead, buffer.Length - totalRead, cancellationToken).ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    int bytesRead = await reader.ReadAsync(rentedBuffer, totalRead, (int)currentBufferSize - totalRead, cancellationToken).ConfigureAwait(false);
                     if (bytesRead < 1)
                     {
-                        if (failCount > 10)
+                        if (++failCount > maxFailCount)
                         {
                             return Maybe<byte[]>.Fail(new InvalidOperationException("End of file reached while trying to read queue item. Exceeded retry count."));
                         }
 
-                        failCount++;
-                        await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+                        // figure out the varying backoff for retry delay.
+                        int delayMs = Math.Min(100 * (1 << (failCount -1)), 1000) + new Random().Next(50);
+                        await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
                     }
                     else
                     {
                         failCount = 0;
+                        totalRead += bytesRead;
                     }
 
                     totalRead += bytesRead;
-                } while (totalRead < buffer.Length);
+                } while (totalRead < currentBufferSize);
 
-                return buffer.Success();
+                // Create a result array that won't be returned to the pool.
+                byte[] result = new byte[totalRead];
+                Buffer.BlockCopy(rentedBuffer, 0, result, 0, totalRead);
+
+                return result.Success();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 return Maybe<byte[]>.Fail(new InvalidOperationException("End of file reached while trying to read queue item", ex));
+            }
+            finally
+            {
+                // It's a rental, return it!
+                if (rentedBuffer != null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedBuffer, clearArray: false);
+                }
             }
         }
 
