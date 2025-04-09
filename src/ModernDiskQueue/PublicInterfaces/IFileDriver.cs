@@ -1,10 +1,10 @@
-﻿using ModernDiskQueue.Implementation;
-using System;
-using System.Threading.Tasks;
-using System.Threading;
-
-namespace ModernDiskQueue.PublicInterfaces
+﻿namespace ModernDiskQueue.PublicInterfaces
 {
+    using ModernDiskQueue.Implementation;
+    using System;
+    using System.Threading.Tasks;
+    using System.Threading;
+
     /// <summary>
     /// Interface for file access mechanism. For test and advanced users only.
     /// See the source code for more details.
