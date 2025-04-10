@@ -19,6 +19,7 @@ namespace ModernDiskQueue.Implementation
         private static readonly object _lock = new();
         private static readonly Queue<string> _waitingDeletes = new();
         public readonly AsyncLock _asyncLock = new();
+        private AsyncLocal<bool> _holdsLock = new();
 
         public string GetFullPath(string path) => Path.GetFullPath(path);
         public string PathCombine(string a, string b) => Path.Combine(a, b);
@@ -39,10 +40,27 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public async Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsLock.Value)
             {
-                return Directory.Exists(path);
+                return DirectoryExists_UnderLock(path, cancellationToken);
             }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    return DirectoryExists_UnderLock(path, cancellationToken);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Test for the existence of a directory
+        /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
+        /// </summary>
+        private static bool DirectoryExists_UnderLock(string path, CancellationToken cancellationToken = default)
+        {
+            return Directory.Exists(path);
         }
 
         /// <summary>
@@ -73,17 +91,37 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public async Task PrepareDeleteAsync(string path, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsLock.Value)
             {
-                if (!FileExists(path)) return;
-                var dir = Path.GetDirectoryName(path) ?? "";
-                var file = Path.GetFileNameWithoutExtension(path);
-                var prefix = Path.GetRandomFileName();
-                var deletePath = Path.Combine(dir, $"{file}_dc_{prefix}");
-                if (await MoveAsync(path, deletePath, cancellationToken))
+                await PrepareDeleteAsync_UnderLock(path, cancellationToken);
+                return;
+            }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    _waitingDeletes.Enqueue(deletePath);
+                    _holdsLock.Value = true;
+                    await PrepareDeleteAsync_UnderLock(path, cancellationToken);
+                    return;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously moves a file to a temporary name and adds it to an internal
+        /// delete list. Files are permanently deleted on a call to FinaliseAsync()
+        /// <para>WARNING: Call must have a lock on <see cref="_asyncLock"/></para>
+        /// </summary>
+        private async Task PrepareDeleteAsync_UnderLock(string path, CancellationToken cancellationToken = default)
+        {
+            if (!FileExists(path)) return;
+            var dir = Path.GetDirectoryName(path) ?? "";
+            var file = Path.GetFileNameWithoutExtension(path);
+            var prefix = Path.GetRandomFileName();
+            var deletePath = Path.Combine(dir, $"{file}_dc_{prefix}");
+            if (await MoveAsync(path, deletePath, cancellationToken))
+            {
+                _waitingDeletes.Enqueue(deletePath);
             }
         }
 
@@ -110,15 +148,36 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public async Task FinaliseAsync(CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsLock.Value)
             {
-                while (_waitingDeletes.Count > 0)
+                Finalise_UnderLock(cancellationToken);
+                return;
+            }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var path = _waitingDeletes.Dequeue();
-                    if (path is null) continue;
-                    File.Delete(path);
+                    _holdsLock.Value = true;
+                    Finalise_UnderLock(cancellationToken);
+                    return;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously commit any pending prepared operations.
+        /// Each operation will happen in serial.
+        /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
+        /// </summary>
+        private void Finalise_UnderLock(CancellationToken cancellationToken = default)
+        {
+            _holdsLock.Value = true;
+            while (_waitingDeletes.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var path = _waitingDeletes.Dequeue();
+                if (path is null) continue;
+                File.Delete(path);
             }
         }
 
@@ -182,55 +241,72 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private async Task<ILockFile> CreateNoShareFileAsync(string path, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsLock.Value)
             {
-                var currentProcess = Process.GetCurrentProcess();
-                var currentLockData = new LockFileData
+                return CreateNoShareFile_UnderLock(path);
+            }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    ProcessId = currentProcess.Id,
-                    ThreadId = Environment.CurrentManagedThreadId,
-                    ProcessStart = GetProcessStartAsUnixTimeMs(currentProcess),
-                };
-                var keyBytes = MarshallHelper.Serialize(currentLockData);
+                    _holdsLock.Value = true;
+                    return CreateNoShareFile_UnderLock(path);
+                }
+            }
+        }
 
-                if (!File.Exists(path))
+        /// <summary>
+        /// Create and open a new file with no sharing between processes.
+        /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
+        /// </summary>
+        private static ILockFile CreateNoShareFile_UnderLock(string path)
+        {
+            var currentProcess = Process.GetCurrentProcess();
+            var currentLockData = new LockFileData
+            {
+                ProcessId = currentProcess.Id,
+                ThreadId = Environment.CurrentManagedThreadId,
+                ProcessStart = GetProcessStartAsUnixTimeMs(currentProcess),
+            };
+            var keyBytes = MarshallHelper.Serialize(currentLockData);
+
+            if (!File.Exists(path))
+            {
+                File.WriteAllBytes(path, keyBytes);
+            }
+
+            var lockBytes = File.ReadAllBytes(path); // will throw if OS considers the file locked
+            var fileLockData = MarshallHelper.Deserialize<LockFileData>(lockBytes);
+
+            if (fileLockData.ThreadId != currentLockData.ThreadId || fileLockData.ProcessId != currentLockData.ProcessId)
+            {
+                // The first two *should not* happen, but filesystems seem to have weird bugs.
+                // Is this for our own process?
+                if (fileLockData.ProcessId == currentLockData.ProcessId)
                 {
-                    File.WriteAllBytes(path, keyBytes);
+                    throw new Exception($"This queue is locked by another thread in this process. Thread id = {fileLockData.ThreadId}");
                 }
 
-                var lockBytes = File.ReadAllBytes(path); // will throw if OS considers the file locked
-                var fileLockData = MarshallHelper.Deserialize<LockFileData>(lockBytes);
-
-                if (fileLockData.ThreadId != currentLockData.ThreadId || fileLockData.ProcessId != currentLockData.ProcessId)
+                // Is it for a running process?
+                if (IsRunning(fileLockData))
                 {
-                    // The first two *should not* happen, but filesystems seem to have weird bugs.
-                    // Is this for our own process?
-                    if (fileLockData.ProcessId == currentLockData.ProcessId)
-                    {
-                        throw new Exception($"This queue is locked by another thread in this process. Thread id = {fileLockData.ThreadId}");
-                    }
-
-                    // Is it for a running process?
-                    if (IsRunning(fileLockData))
-                    {
-                        throw new Exception($"This queue is locked by another running process. Process id = {fileLockData.ProcessId}");
-                    }
-
-                    // We have a lock from a dead process. Kill it.
-                    File.Delete(path);
-                    File.WriteAllBytes(path, keyBytes);
+                    throw new Exception($"This queue is locked by another running process. Process id = {fileLockData.ProcessId}");
                 }
 
-                var lockStream = new FileStream(path,
+                // We have a lock from a dead process. Kill it.
+                File.Delete(path);
+                File.WriteAllBytes(path, keyBytes);
+            }
+
+            var lockStream = new FileStream(path,
                         FileMode.Create,
                         FileAccess.ReadWrite,
                         FileShare.None);
 
-                lockStream.Write(keyBytes, 0, keyBytes.Length);
-                lockStream.Flush(true);
+            lockStream.Write(keyBytes, 0, keyBytes.Length);
+            lockStream.Flush(true);
 
-                return new LockFile(lockStream, path);
-            }
+            return new LockFile(lockStream, path);
         }
 
         /// <summary>
@@ -277,10 +353,29 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public async Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsLock.Value)
             {
-                return File.Exists(path);
+                return FileExists_UnderLock(path, cancellationToken);
             }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    return FileExists_UnderLock(path, cancellationToken);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Test for the existence of a file
+        /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
+        /// </summary>
+        private bool FileExists_UnderLock(string path, CancellationToken cancellationToken = default)
+        {
+            _holdsLock.Value = true;
+            return File.Exists(path);
+
         }
 
         /// <summary>
@@ -359,10 +454,27 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public async Task CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsLock.Value)
             {
-                Directory.CreateDirectory(path);
+                CreateDirectory_UnderLock(path, cancellationToken);
             }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    CreateDirectory_UnderLock(path, cancellationToken);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Attempt to create a directory. No error if the directory already exists.
+        /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
+        /// </summary>
+        private static void CreateDirectory_UnderLock(string path, CancellationToken cancellationToken = default)
+        {
+            Directory.CreateDirectory(path);
         }
 
         /// <summary>
@@ -393,21 +505,40 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private async Task<bool> MoveAsync(string oldPath, string newPath, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsLock.Value)
             {
-                for (var i = 0; i < RetryLimit; i++)
+                return Move_UnderLock(oldPath, newPath, cancellationToken);
+            }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    try
-                    {
-                        File.Move(oldPath, newPath);
-                        return true;
-                    }
-                    catch when (i < RetryLimit - 1)
-                    {
-                        Thread.Sleep(i * 100);
-                    }
+                    _holdsLock.Value = true;
+                    return Move_UnderLock(oldPath, newPath, cancellationToken);
                 }
             }
+        }
+
+        /// <summary>
+        /// Rename a file, including its path
+        /// <para>WARNING: Call must already have a lock on <see cref="_asyncLock"/>.</para>
+        /// </summary>
+        private static bool Move_UnderLock(string oldPath, string newPath, CancellationToken cancellationToken = default)
+        {
+            for (var i = 0; i < RetryLimit; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    File.Move(oldPath, newPath);
+                    return true;
+                }
+                catch when (i < RetryLimit - 1)
+                {
+                    Thread.Sleep(i * 100);
+                }
+            }
+
             return false;
         }
 
@@ -436,6 +567,7 @@ namespace ModernDiskQueue.Implementation
         {
             using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
             {
+                _holdsLock.Value = true;
                 var stream = new FileStream(path,
                         FileMode.Append,
                         FileAccess.Write,
@@ -466,6 +598,7 @@ namespace ModernDiskQueue.Implementation
         {
             using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
             {
+                _holdsLock.Value = true;
                 var stream = new FileStream(
                         path,
                         FileMode.OpenOrCreate,
@@ -505,6 +638,7 @@ namespace ModernDiskQueue.Implementation
         {
             using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
             {
+                _holdsLock.Value = true;
                 var stream = new FileStream(
                         dataFilePath,
                         FileMode.OpenOrCreate,
@@ -703,6 +837,7 @@ namespace ModernDiskQueue.Implementation
             {
                 using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    _holdsLock.Value = true;
                     stream = new FileStream(path,
                         FileMode.OpenOrCreate,
                         FileAccess.Read,
@@ -767,36 +902,35 @@ namespace ModernDiskQueue.Implementation
         /// <param name="cancellationToken">Cancellation token</param>
         private async Task AtomicWriteInternalAsync(string path, Func<FileStream, Task> action, CancellationToken cancellationToken)
         {
-            bool needsBackup = false;
+            bool needsBackup;
 
-            // Check if we need to create a backup first
             using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                needsBackup = FileExists(path) && !FileExists(path + ".old_copy");
-            }
+                _holdsLock.Value = true;
 
-            // Create backup if needed
-            if (needsBackup)
-            {
-                await MoveAsync(path, path + ".old_copy", cancellationToken);
-            }
+                // Check if we need to create a backup first
+                needsBackup = await FileExistsAsync(path, cancellationToken) && !(await FileExistsAsync(path + ".old_copy", cancellationToken));
 
-            // Ensure directory exists
-            var dir = Path.GetDirectoryName(path);
-            if (dir is not null)
-            {
-                bool dirExists = await DirectoryExistsAsync(dir, cancellationToken);
-                if (!dirExists)
+                // Create backup if needed
+                if (needsBackup)
                 {
-                    await CreateDirectoryAsync(dir, cancellationToken);
+                    await MoveAsync(path, path + ".old_copy", cancellationToken);
                 }
-            }
 
-            // Open stream for writing
-            FileStream? stream = null;
-            try
-            {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                // Ensure directory exists
+                var dir = Path.GetDirectoryName(path);
+                if (dir is not null)
+                {
+                    bool dirExists = await DirectoryExistsAsync(dir, cancellationToken);
+                    if (!dirExists)
+                    {
+                        await CreateDirectoryAsync(dir, cancellationToken);
+                    }
+                }
+
+                // Open stream for writing
+                FileStream? stream = null;
+                try
                 {
                     stream = new FileStream(path,
                         FileMode.Create,
@@ -806,22 +940,22 @@ namespace ModernDiskQueue.Implementation
                         FileOptions.Asynchronous | FileOptions.WriteThrough | FileOptions.SequentialScan);
 
                     SetPermissions.TryAllowReadWriteForAll(path);
+
+                    // Execute the write action
+                    await action(stream!).ConfigureAwait(false);
+
+                    // Ensure data is flushed
+                    await HardFlushAsync(stream!, cancellationToken).ConfigureAwait(false);
+
+                    // Clean up old backup
+                    await WaitDeleteAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
                 }
-
-                // Execute the write action
-                await action(stream!).ConfigureAwait(false);
-
-                // Ensure data is flushed
-                await HardFlushAsync(stream!, cancellationToken).ConfigureAwait(false);
-
-                // Clean up old backup
-                await WaitDeleteAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                if (stream != null)
+                finally
                 {
-                    await stream.DisposeAsync().ConfigureAwait(false);
+                    if (stream != null)
+                    {
+                        await stream.DisposeAsync().ConfigureAwait(false);
+                    }
                 }
             }
         }
@@ -883,12 +1017,7 @@ namespace ModernDiskQueue.Implementation
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
-                    {
-                        await PrepareDeleteAsync(path, cancellationToken);
-                        await FinaliseAsync(cancellationToken);
-                    }
-
+                    await WaitDeleteInternalAsync(path, cancellationToken).ConfigureAwait(false);
                     return;
                 }
                 catch when (i < RetryLimit - 1 && !cancellationToken.IsCancellationRequested)
@@ -896,6 +1025,34 @@ namespace ModernDiskQueue.Implementation
                     await Task.Delay(100, cancellationToken);
                 }
             }
+        }
+
+        /// <summary>
+        /// Asynchronously delete a file with retries
+        /// </summary>
+        private async Task WaitDeleteInternalAsync(string path, CancellationToken cancellationToken)
+        {
+            if (_holdsLock.Value)
+            {
+                await WaitDeleteInternalAsync_UnderLock(path, cancellationToken);
+            }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    await WaitDeleteInternalAsync_UnderLock(path, cancellationToken);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously delete a file with retries
+        /// </summary>
+        private async Task WaitDeleteInternalAsync_UnderLock(string path, CancellationToken cancellationToken)
+        {
+                await PrepareDeleteAsync(path, cancellationToken);
+                await FinaliseAsync(cancellationToken);
         }
     }
 
