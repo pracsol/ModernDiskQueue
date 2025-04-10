@@ -55,6 +55,23 @@ namespace ModernDiskQueue.Implementation
             return null;
         }
 
+        public async Task<IDisposable> LockAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            // Fast path if semaphore is available
+            if (_semaphore.CurrentCount > 0 &&
+                await _semaphore.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+            {
+                return _releaser.Result;
+            }
+
+            // Use the specified timeout
+            if (await _semaphore.WaitAsync(timeout, cancellationToken).ConfigureAwait(false))
+            {
+                return _releaser.Result;
+            }
+
+            throw new TimeoutException($"Failed to acquire lock within {timeout.TotalSeconds} seconds.");
+        }
 
         /// <summary>
         /// A disposable struct that releases the lock when disposed.
