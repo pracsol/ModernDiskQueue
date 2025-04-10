@@ -792,7 +792,7 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Lock and read queue asynchronously
         /// </summary>
-        private async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default)
+        private async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default, bool holdsWriterLock = false)
         {
             try
             {
@@ -805,7 +805,9 @@ namespace ModernDiskQueue.Implementation
                         .ConfigureAwait(false);
                 }
 
-                var result = await LockQueueAsync(cancellationToken).ConfigureAwait(false);
+                var result = (holdsWriterLock) ? await LockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false)
+                        : await LockQueueAsync(cancellationToken).ConfigureAwait(false);
+
                 if (result.IsFailure)
                 {
 #pragma warning disable IDE0079 // Suppress warning about suppressing warnings
@@ -937,29 +939,38 @@ namespace ModernDiskQueue.Implementation
 
         /// <summary>
         /// Try to get a lock on a file path asynchronously
+        /// <para>Locks <see cref="_writerLockAsync"/></para>
         /// </summary>
         private async Task<Maybe<bool>> LockQueueAsync(CancellationToken cancellationToken = default)
         {
-            // Use SemaphoreSlim for async-friendly synchronization
             using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                try
-                {
-                    var target = _file.PathCombine(_path, "lock");
+                return await LockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+            }
+        }
 
-                    Maybe<ILockFile> result = await _file.CreateLockFileAsync(target, cancellationToken)
+        /// <summary>
+        /// Try to get a lock on a file path asynchronously
+        /// <para>WARNING! Caller MUST lock <see cref="_writerLockAsync"/>.</para>
+        /// </summary>
+        private async Task<Maybe<bool>> LockQueueAsync_UnderLock(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var target = _file.PathCombine(_path, "lock");
+
+                Maybe<ILockFile> result = await _file.CreateLockFileAsync(target, cancellationToken)
                         .ConfigureAwait(false);
 
-                    if (result.IsFailure)
-                        return result.Chain<bool>();
+                if (result.IsFailure)
+                    return result.Chain<bool>();
 
-                    _fileLock = result.Value!;
-                    return Maybe<bool>.Success(true);
-                }
-                catch (Exception ex)
-                {
-                    return Maybe<bool>.Fail(ex);
-                }
+                _fileLock = result.Value!;
+                return Maybe<bool>.Success(true);
+            }
+            catch (Exception ex)
+            {
+                return Maybe<bool>.Fail(ex);
             }
         }
 
@@ -1617,6 +1628,7 @@ namespace ModernDiskQueue.Implementation
 
         /// <summary>
         /// Apply transaction operations asynchronously
+        /// <para>Locks <see cref="_entriesLockAsync"/></para>
         /// </summary>
         private async Task ApplyTransactionOperationsAsync(IEnumerable<Operation> operations, CancellationToken cancellationToken = default)
         {
