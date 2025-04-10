@@ -134,7 +134,7 @@ namespace ModernDiskQueue.Implementation
                 async stream =>
                 {
                     var data = ConcatenateBufferAndAddIndividualOperations(stream);
-                    return await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+                    return await stream.WriteAsync(data.AsMemory(), cancellationToken).ConfigureAwait(false);
                 },
                 OnReplaceStream,
                 cancellationToken).ConfigureAwait(false);

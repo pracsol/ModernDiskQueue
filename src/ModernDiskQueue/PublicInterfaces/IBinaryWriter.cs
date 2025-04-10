@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace ModernDiskQueue.PublicInterfaces
 {
@@ -11,6 +13,16 @@ namespace ModernDiskQueue.PublicInterfaces
         /// Write bytes to the current position
         /// </summary>
         long Write(byte[] bytes);
+
+        /// <summary>
+        /// Write all bytes to a stream, returning new position
+        /// </summary>
+        ValueTask<long> WriteAsync(byte[] bytes, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Write all bytes to a stream, returning new position
+        /// </summary>
+        ValueTask<long> WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Truncate the file
