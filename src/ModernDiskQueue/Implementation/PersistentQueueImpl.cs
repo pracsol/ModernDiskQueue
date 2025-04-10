@@ -216,6 +216,7 @@ namespace ModernDiskQueue.Implementation
 
         /// <summary>
         /// Asynchronously disposes the queue implementation, ensuring proper cleanup of resources.
+        /// <para>Locks <see cref="_transactionLogLockAsync"/> and <see cref="_configLockAsync"/>.</para>
         /// </summary>
         public async ValueTask DisposeAsync()
         {
@@ -553,7 +554,18 @@ namespace ModernDiskQueue.Implementation
             return filesToRemove.ToArray();
         }
 
-        public async Task<int[]> ApplyTransactionOperationsInMemoryAsync(IEnumerable<Operation>? operations, CancellationToken cancellationToken)
+        /// <summary>
+        /// Asynchronously applies a sequence of queue operations to the in-memory state.
+        /// <para>This method processes enqueue, dequeue, and reinstate operations, updating the internal
+        /// collections (<see cref="_entries"/> and <see cref="_checkedOutEntries"/>), and tracking file usage.</para>
+        /// <para>The method also identifies files that are no longer needed (have no entries) and returns them for cleanup.</para>
+        /// </summary>
+        /// <param name="operations">Collection of operations to apply (enqueue, dequeue, reinstate)</param>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/></param>
+        /// <param name="holdsEntriesLock">True if the caller already has a lock on <see cref="_entriesLockAsync"/></param>
+        /// <param name="holdsCheckedOutEntriesLock">True if the caller alread has a lock on <see cref="_checkedOutEntriesLockAsync"/></param>
+        /// <returns>Array of file numbers that can be safely deleted (contain no entries)</returns>
+        public async Task<int[]> ApplyTransactionOperationsInMemoryAsync(IEnumerable<Operation>? operations, CancellationToken cancellationToken, bool holdsEntriesLock = false, bool holdsCheckedOutEntriesLock = false)
         {
             if (operations == null) return [];
 
@@ -564,9 +576,16 @@ namespace ModernDiskQueue.Implementation
                 {
                     case OperationType.Enqueue:
                         var entryToAdd = new Entry(operation);
-                        using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        if (holdsEntriesLock)
                         {
                             _entries.AddLast(entryToAdd);
+                        }
+                        else
+                        {
+                            using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                _entries.AddLast(entryToAdd);
+                            }
                         }
                         var itemCountAddition = _countOfItemsPerFile.GetValueOrDefault(entryToAdd.FileNumber);
                         _countOfItemsPerFile[entryToAdd.FileNumber] = itemCountAddition + 1;
@@ -574,23 +593,43 @@ namespace ModernDiskQueue.Implementation
 
                     case OperationType.Dequeue:
                         var entryToRemove = new Entry(operation);
-                        using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        if (holdsCheckedOutEntriesLock)
                         {
                             _checkedOutEntries.Remove(entryToRemove);
+                        }
+                        else
+                        {
+                            using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                _checkedOutEntries.Remove(entryToRemove);
+                            }
                         }
                         var itemCountRemoval = _countOfItemsPerFile.GetValueOrDefault(entryToRemove.FileNumber);
                         _countOfItemsPerFile[entryToRemove.FileNumber] = itemCountRemoval - 1;
                         break;
-
                     case OperationType.Reinstate:
                         var entryToReinstate = new Entry(operation);
-                        using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        if (holdsEntriesLock)
                         {
                             _entries.AddFirst(entryToReinstate);
                         }
-                        using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        else
+                        {
+                            using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                _entries.AddFirst(entryToReinstate);
+                            }
+                        }
+                        if (holdsCheckedOutEntriesLock)
                         {
                             _checkedOutEntries.Remove(entryToReinstate);
+                        }
+                        else
+                        {
+                            using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                _checkedOutEntries.Remove(entryToReinstate);
+                            }
                         }
                         break;
                 }
@@ -630,10 +669,9 @@ namespace ModernDiskQueue.Implementation
             cancellationToken.ThrowIfCancellationRequested();
 
             // Use a semaphore for async-compatible locking
-
             using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                await UnlockQueueAsync(cancellationToken).ConfigureAwait(false);
+                await UnlockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
 
                 // If IFileDriver gets an async version of DeleteRecursive in the future, use it here
                 _file.DeleteRecursive(_path);
@@ -853,21 +891,27 @@ namespace ModernDiskQueue.Implementation
 
         /// <summary>
         /// Asynchronously unlock and clear the queue's lock file.
+        /// <para>Locks <see cref="_writerLockAsync"/>.</para>
         /// </summary>
         private async Task UnlockQueueAsync(CancellationToken cancellationToken = default)
         {
             using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                if (string.IsNullOrWhiteSpace(_path)) return;
-                var target = _file.PathCombine(_path, "lock");
+                await UnlockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+            }
+        }
 
-                if (_fileLock != null)
-                {
-                    _file.ReleaseLock(_fileLock);
+        private async Task UnlockQueueAsync_UnderLock(CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(_path)) return;
+            var target = _file.PathCombine(_path, "lock");
 
-                    await _file.PrepareDeleteAsync(target, cancellationToken).ConfigureAwait(false);
-                    await _file.FinaliseAsync(cancellationToken).ConfigureAwait(false);
-                }
+            if (_fileLock != null)
+            {
+                _file.ReleaseLock(_fileLock);
+
+                await _file.PrepareDeleteAsync(target, cancellationToken).ConfigureAwait(false);
+                await _file.FinaliseAsync(cancellationToken).ConfigureAwait(false);
             }
             _fileLock = null;
         }
@@ -1338,7 +1382,8 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
-        /// Asynchronously flush the trimmed transaction log
+        /// Asynchronously flush the trimmed transaction log.
+        /// <para>Locks <see cref="_entriesLockAsync"/> and <see cref="_checkedOutEntriesLockAsync"/>.</para>
         /// </summary>
         private async Task FlushTrimmedTransactionLogAsync(CancellationToken cancellationToken = default)
         {
@@ -1577,7 +1622,7 @@ namespace ModernDiskQueue.Implementation
         {
             using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-                var filesToRemove = await ApplyTransactionOperationsInMemoryAsync(operations, cancellationToken);
+                var filesToRemove = await ApplyTransactionOperationsInMemoryAsync(operations, cancellationToken, true, false);
                 foreach (var fileNumber in filesToRemove)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
