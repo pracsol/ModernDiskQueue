@@ -4,7 +4,6 @@ using System.Threading;
 
 namespace ModernDiskQueue
 {
-
     /// <inheritdoc />
     public interface IPersistentQueue<T> : IPersistentQueue
     {

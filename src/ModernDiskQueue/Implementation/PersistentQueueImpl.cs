@@ -4,9 +4,10 @@ namespace ModernDiskQueue.Implementation
     using System;
     using System.Buffers;
     using System.Collections.Generic;
+    using System.ComponentModel;
     using System.IO;
     using System.Linq;
-    using System.Net.Http.Headers;
+    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -26,12 +27,46 @@ namespace ModernDiskQueue.Implementation
         private readonly AsyncLock _writerLockAsync = new();
         private readonly AsyncLock _entriesLockAsync = new();
         private readonly AsyncLock _checkedOutEntriesLockAsync = new();
-        private AsyncLock _disposeLockAsync = new();
+        /// <summary>
+        /// This is only used during async initialization and disposal.
+        /// </summary>
+        private readonly AsyncLock _configLockAsync = new();
+        /// <summary>
+        /// This flag is set during the factory initialization and is used to determine if the queue is in async mode.
+        /// It will be used for runtime checks to ensure that async methods are not called in sync mode and vice versa.
+        /// Sync and Async operations use different locking strategies, and should not be mixed.
+        /// </summary>
+        private readonly bool _isAsyncMode = false;
         private readonly bool _throwOnConflict;
         private static readonly object _configLock = new();
         private volatile bool _disposed;
         private ILockFile? _fileLock;
         private IFileDriver _file;
+
+        /// <summary>
+        /// Private constructor is only for use by the Async factory method.
+        /// </summary>
+        /// <param name="path">The path to the folder in which the queue will be created.</param>
+        /// <param name="maxFileSize">The maximum file size of the queue.</param>
+        /// <param name="throwOnConflict"></param>
+        /// <param name="isAsyncMode">Typically set to true. This parameter differentiates the constructor.</param>
+        private PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode)
+        {
+            _isAsyncMode = isAsyncMode;
+            _file = new StandardFileDriver();
+            MaxFileSize = maxFileSize;
+            _throwOnConflict = throwOnConflict;
+            try
+            {
+                _path = _file.GetFullPath(path);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw new UnauthorizedAccessException("Directory \"" + path + "\" does not exist or is missing write permissions");
+            }
+        }
+
+        public PersistentQueueImpl(string path) : this(path, Constants._32Megabytes, true) { }
 
         public PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict)
         {
@@ -64,7 +99,40 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
-        public PersistentQueueImpl(string path) : this(path, Constants._32Megabytes, true) { }
+        public static async Task<PersistentQueueImpl> CreateAsync(string path, CancellationToken cancellationToken = default)
+        {
+            var queue = new PersistentQueueImpl(path, Constants._32Megabytes, true, true);
+            await queue.InitializeAsync(cancellationToken);
+            queue._disposed = false;
+            return queue;
+        }
+
+        public static async Task<PersistentQueueImpl> CreateAsync(string path, int maxFileSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
+        {
+            var queue = new PersistentQueueImpl(path, maxFileSize, throwOnConflict, true);
+            await queue.InitializeAsync(cancellationToken);
+            queue._disposed = false;
+            return queue;
+        }
+
+        private async Task InitializeAsync(CancellationToken cancellationToken)
+        {
+            using (await _configLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            {
+                _disposed = true;
+                TrimTransactionLogOnDispose = PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose;
+                ParanoidFlushing = PersistentQueue.DefaultSettings.ParanoidFlushing;
+                AllowTruncatedEntries = PersistentQueue.DefaultSettings.AllowTruncatedEntries;
+                FileTimeoutMilliseconds = PersistentQueue.DefaultSettings.FileTimeoutMilliseconds;
+                SuggestedMaxTransactionLogSize = Constants._32Megabytes;
+                SuggestedReadBuffer = 1024 * 1024;
+                SuggestedWriteBuffer = 1024 * 1024;
+
+                await LockAndReadQueueAsync(cancellationToken);
+
+                _disposed = false;
+            }
+        }
 
         ~PersistentQueueImpl()
         {
@@ -151,38 +219,34 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public async ValueTask DisposeAsync()
         {
-            // First check if already disposed to avoid unnecessary work
-            if (_disposed)
-                return;
-
-            _disposeLockAsync ??= new AsyncLock();
-
-            using (await _disposeLockAsync.LockAsync().ConfigureAwait(false))
+            using (await _configLockAsync.LockAsync().ConfigureAwait(false))
             {
-                // Double-check disposed state after acquiring lock
+                // First check if already disposed to avoid unnecessary work
                 if (_disposed)
-                    return;
-
-                _disposed = true;
-
-                // Use SemaphoreSlim for transaction log synchronization during async operation
-                using (await _transactionLogLockAsync.LockAsync().ConfigureAwait(false))
                 {
-                    // Determine if we need to flush the transaction log.
-                    bool needsFlush = TrimTransactionLogOnDispose;
+                    return;
+                }
 
-                    // Flush inside the lock if needed.
-                    if (needsFlush)
+                try
+                {
+                    _disposed = true;
+                    // Use SemaphoreSlim for transaction log synchronization during async operation
+                    using (await _transactionLogLockAsync.LockAsync().ConfigureAwait(false))
                     {
-                        await FlushTrimmedTransactionLogAsync();
+                        // Determine if we need to flush the transaction log.
+                        if (TrimTransactionLogOnDispose)
+                        {
+                            await FlushTrimmedTransactionLogAsync();
+                        }
                     }
+                    GC.SuppressFinalize(this);
+                }
+                finally
+                {
+                    // Perform async unlock outside any locks
+                    await UnlockQueueAsync().ConfigureAwait(false);
                 }
             }
-
-            // Perform async unlock outside any locks
-            await UnlockQueueAsync().ConfigureAwait(false);
-
-            GC.SuppressFinalize(this);
         }
 
         public void AcquireWriter(IFileStream stream, Func<IFileStream, Task<long>> action, Action<IFileStream> onReplaceStream)
@@ -313,6 +377,7 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public Entry? Dequeue()
         {
+            if (_isAsyncMode) throw new Exception("Cannot use Dequeue for async queue. Use DequeueAsync instead.");
             lock (_entries)
             {
                 var first = _entries.First;
@@ -389,6 +454,7 @@ namespace ModernDiskQueue.Implementation
 
         public IPersistentQueueSession OpenSession()
         {
+            if (_isAsyncMode) throw new Exception("Cannot use OpenSession for async queue. Use OpenSessionAsync instead.");
             return new PersistentQueueSession(this, CreateWriter(), SuggestedWriteBuffer, FileTimeoutMilliseconds);
         }
 
@@ -545,6 +611,7 @@ namespace ModernDiskQueue.Implementation
 
         public void HardDelete(bool reset)
         {
+            if (_isAsyncMode) throw new Exception("Cannot use HardDelete for async queue. Use HardDeleteAsync instead.");
             lock (_writerLock)
             {
                 UnlockQueue();

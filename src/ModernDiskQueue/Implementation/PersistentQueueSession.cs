@@ -19,6 +19,7 @@ namespace ModernDiskQueue.Implementation
         private readonly List<Operation> _operations = [];
         private readonly List<Exception> _pendingWritesFailures = [];
         private readonly List<WaitHandle> _pendingWritesHandles = [];
+        private readonly AsyncLock _pendingWritesFailuresLockAsync = new();
         private IFileStream _currentStream;
         private readonly int _writeBufferSize;
         private readonly int _timeoutLimitMilliseconds;
@@ -380,7 +381,7 @@ namespace ModernDiskQueue.Implementation
                 }
             }
 
-            AssertNoPendingWritesFailures(exceptions);
+            await AssertNoPendingWritesFailuresAsync(exceptions, cancellationToken);
 
             if (timeoutCount > 0)
                 exceptions.Add(new Exception($"File system async operations are timing out: {timeoutCount} of {total}"));
@@ -389,6 +390,19 @@ namespace ModernDiskQueue.Implementation
         private void AssertNoPendingWritesFailures(List<Exception> exceptions)
         {
             lock (_pendingWritesFailures)
+            {
+                if (_pendingWritesFailures.Count == 0)
+                    return;
+
+                var array = _pendingWritesFailures.ToArray();
+                _pendingWritesFailures.Clear();
+                exceptions.Add(new PendingWriteException(array));
+            }
+        }
+
+        private async Task AssertNoPendingWritesFailuresAsync(List<Exception> exceptions, CancellationToken cancellationToken)
+        {
+            using (await _pendingWritesFailuresLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (_pendingWritesFailures.Count == 0)
                     return;
