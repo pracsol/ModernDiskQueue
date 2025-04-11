@@ -836,7 +836,7 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Lock and read queue asynchronously
         /// </summary>
-        private async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default)
+        private async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default, bool holdsWriterLock = false)
         {
             Maybe<bool> isFilePathLocked;
             try
@@ -1690,6 +1690,7 @@ namespace ModernDiskQueue.Implementation
 
         /// <summary>
         /// Apply transaction operations asynchronously
+        /// <para>Locks <see cref="_entriesLockAsync"/></para>
         /// </summary>
         private async Task ApplyTransactionOperationsAsync(IEnumerable<Operation> operations, CancellationToken cancellationToken = default)
         {
