@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace ModernDiskQueue.Tests
 {
     [TestFixture, SingleThreaded]
-    public class AsyncPersistentQueueTests : PersistentQueueTestsBase
+    public class PersistentQueueTestsAsync : PersistentQueueTestsBase
     {
         protected override string Path => "./AsyncPersistentQueueTests";
 
