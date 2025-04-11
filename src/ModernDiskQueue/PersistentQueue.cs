@@ -259,15 +259,8 @@ namespace ModernDiskQueue
             // Ensuring the operation can be cancelled
             cancellationToken.ThrowIfCancellationRequested();
 
-            // This implementation runs on a background thread to avoid blocking
-            // We can't make this truly asynchronous without changing the internals,
-            // but this at least allows proper cancellation and thread management
-            return await Task.Run(() =>
-            {
-                if (Queue == null) throw new Exception("This queue has been disposed");
-                var session = Queue.OpenSessionAsync(cancellationToken);
-                return session;
-            }, cancellationToken).ConfigureAwait(false);
+            if (Queue == null) throw new Exception("This queue has been disposed");
+            return await Queue.OpenSessionAsync(cancellationToken);
         }
 
         /// <summary>
@@ -302,12 +295,8 @@ namespace ModernDiskQueue
         /// </summary>
         public async Task HardDeleteAsync(bool reset, CancellationToken cancellationToken = default)
         {
-            await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (Queue is null) throw new Exception("This queue has been disposed");
-                Queue.HardDelete(reset);
-            }, cancellationToken).ConfigureAwait(false);
+            if (Queue is null) throw new Exception("This queue has been disposed");
+            await Queue.HardDeleteAsync(reset, cancellationToken);
         }
 
         /// <summary>
