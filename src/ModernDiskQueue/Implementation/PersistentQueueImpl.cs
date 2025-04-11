@@ -11,6 +11,12 @@ namespace ModernDiskQueue.Implementation
     using System.Threading;
     using System.Threading.Tasks;
 
+    /// <summary>
+    /// A persistent queue implementation.
+    /// <para>For synchronous code: Use with 'using' statement to dispose resources properly.</para>
+    /// <para>For asynchronous code: Use with 'await using' statement to dispose resources properly.</para>
+    /// <para>WARNING: Mixing sync and async operations can cause deadlocks.</para>
+    /// </summary>
     internal class PersistentQueueImpl : IPersistentQueueImpl
     {
         private readonly HashSet<Entry> _checkedOutEntries = [];
@@ -31,6 +37,7 @@ namespace ModernDiskQueue.Implementation
         /// This is only used during async initialization and disposal.
         /// </summary>
         private readonly AsyncLock _configLockAsync = new();
+        private AsyncLocal<bool> _holdsWriterLock = new();
         /// <summary>
         /// This flag is set during the factory initialization and is used to determine if the queue is in async mode.
         /// It will be used for runtime checks to ensure that async methods are not called in sync mode and vice versa.
@@ -133,12 +140,23 @@ namespace ModernDiskQueue.Implementation
                 _disposed = false;
             }
         }
-
+#if DEBUG
+        ~PersistentQueueImpl()
+        {
+            // The finalizer should not be relied upon for cleanup, instead the object should be explicitly disposed
+            // by the user invoking Dispose() or DisposeAsync(), either manually or through using or await using statements.
+            if (!_disposed)
+            {
+                System.Diagnostics.Debug.Fail("PersistentQueueImpl was not properly disposed!");
+            }
+        }
+#else
         ~PersistentQueueImpl()
         {
             if (_disposed) return;
             Dispose();
         }
+#endif
 
         public int SuggestedReadBuffer { get; set; }
 
@@ -244,8 +262,15 @@ namespace ModernDiskQueue.Implementation
                 }
                 finally
                 {
-                    // Perform async unlock outside any locks
-                    await UnlockQueueAsync().ConfigureAwait(false);
+                    if (_holdsWriterLock.Value)
+                    {
+                        await UnlockQueueAsync_UnderLock().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // Perform async unlock outside any locks
+                        await UnlockQueueAsync().ConfigureAwait(false);
+                    }
                 }
             }
         }
@@ -278,6 +303,7 @@ namespace ModernDiskQueue.Implementation
             // We use a semaphore to allow async operations while maintaining the lock semantics
             using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
+                _holdsWriterLock.Value = true;
                 stream.SetPosition(CurrentFilePosition); // Set position at current file position
                 CurrentFilePosition = await action(stream).ConfigureAwait(false); // Execute the action and await the result
                 // Check if we need to create a new file
@@ -347,7 +373,7 @@ namespace ModernDiskQueue.Implementation
             {
                 await using (var stream = await WaitForTransactionLogAsync(transactionBuffer, cancellationToken).ConfigureAwait(false))
                 {
-                    txLogSize = await stream.WriteAsync(transactionBuffer, cancellationToken).ConfigureAwait(false);
+                    txLogSize = await stream.WriteAsync(transactionBuffer.AsMemory(), cancellationToken).ConfigureAwait(false);
                     await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -360,9 +386,9 @@ namespace ModernDiskQueue.Implementation
             await _file.AtomicWriteAsync(Meta, async writer =>
             {
                 var bytes = BitConverter.GetBytes(CurrentFileNumber);
-                writer.Write(bytes);
+                await writer.WriteAsync(bytes.AsMemory(), cancellationToken);
                 bytes = BitConverter.GetBytes(CurrentFilePosition);
-                writer.Write(bytes);
+                await writer.WriteAsync(bytes.AsMemory(), cancellationToken);
                 await Task.CompletedTask; // Satisfy the async signature requirement
             }, cancellationToken).ConfigureAwait(false);
 
@@ -667,23 +693,41 @@ namespace ModernDiskQueue.Implementation
         public async Task HardDeleteAsync(bool reset, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            // Use a semaphore for async-compatible locking
-            using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsWriterLock.Value)
             {
-                await UnlockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
-
-                // If IFileDriver gets an async version of DeleteRecursive in the future, use it here
-                _file.DeleteRecursive(_path);
-
-                if (reset)
+                await HardDeleteAsync_UnderLock(reset, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                // Use a semaphore for async-compatible locking
+                using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    await LockAndReadQueueAsync(cancellationToken).ConfigureAwait(false);
+                    _holdsWriterLock.Value = true;
+                    await HardDeleteAsync_UnderLock(reset, cancellationToken).ConfigureAwait(false);
                 }
-                else
-                {
-                    await DisposeAsync().ConfigureAwait(false);
-                }
+            }
+        }
+
+        /// <summary>
+        /// WARNING:
+        /// Asynchronously attempt to delete the queue, all its data, and all support files.
+        /// <para>WARNING: Assumes the caller has already locked <see cref="_writerLockAsync"/>.</para>
+        /// </summary>
+        private async Task HardDeleteAsync_UnderLock(bool reset, CancellationToken cancellationToken = default)
+        {
+            // We can call the UnderLock 
+            await UnlockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+
+            // If IFileDriver gets an async version of DeleteRecursive in the future, use it here
+            _file.DeleteRecursive(_path);
+
+            if (reset)
+            {
+                await LockAndReadQueueAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await DisposeAsync().ConfigureAwait(false);
             }
         }
 
@@ -794,6 +838,7 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default, bool holdsWriterLock = false)
         {
+            Maybe<bool> isFilePathLocked;
             try
             {
                 bool directoryExists = await _file.DirectoryExistsAsync(_path, cancellationToken)
@@ -805,10 +850,15 @@ namespace ModernDiskQueue.Implementation
                         .ConfigureAwait(false);
                 }
 
-                var result = (holdsWriterLock) ? await LockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false)
-                        : await LockQueueAsync(cancellationToken).ConfigureAwait(false);
-
-                if (result.IsFailure)
+                if (_holdsWriterLock.Value)
+                {
+                    isFilePathLocked = await LockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    isFilePathLocked = await LockQueueAsync(cancellationToken).ConfigureAwait(false);
+                }
+                if (isFilePathLocked.IsFailure)
                 {
 #pragma warning disable IDE0079 // Suppress warning about suppressing warnings
 #pragma warning disable CA1816 // Use concrete types when possible for improved performance
@@ -816,7 +866,7 @@ namespace ModernDiskQueue.Implementation
 #pragma warning restore CA1859, IDE0079
                     throw new InvalidOperationException(
                         "Another instance of the queue is already in action, or directory does not exist",
-                        result.Error ?? new Exception());
+                        isFilePathLocked.Error ?? new Exception());
                 }
 
                 CurrentFileNumber = 0;
@@ -903,6 +953,10 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
+        /// <summary>
+        /// Asynchronously unlock and clear the queue's lock file.
+        /// <para>WARNING: Assumes the caller has already locked <see cref="_writerLockAsync"/>.</para>
+        /// </summary>
         private async Task UnlockQueueAsync_UnderLock(CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(_path)) return;
@@ -939,19 +993,27 @@ namespace ModernDiskQueue.Implementation
 
         /// <summary>
         /// Try to get a lock on a file path asynchronously
-        /// <para>Locks <see cref="_writerLockAsync"/></para>
+        /// <para>Locks <see cref="_writerLockAsync"/>.</para>
         /// </summary>
         private async Task<Maybe<bool>> LockQueueAsync(CancellationToken cancellationToken = default)
         {
-            using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            if (_holdsWriterLock.Value)
             {
                 return await LockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsWriterLock.Value = true;
+                    return await LockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+                }
             }
         }
 
         /// <summary>
         /// Try to get a lock on a file path asynchronously
-        /// <para>WARNING! Caller MUST lock <see cref="_writerLockAsync"/>.</para>
+        /// <para>WARNING: Caller must have a lock on <see cref="_writerLockAsync"/>.</para>
         /// </summary>
         private async Task<Maybe<bool>> LockQueueAsync_UnderLock(CancellationToken cancellationToken = default)
         {
@@ -1442,7 +1504,7 @@ namespace ModernDiskQueue.Implementation
             await _file.AtomicWriteAsync(TransactionLog, async writer =>
             {
                 writer.Truncate();
-                writer.Write(transactionBuffer);
+                await writer.WriteAsync(transactionBuffer.AsMemory(), cancellationToken);
                 await Task.CompletedTask;
             }, cancellationToken).ConfigureAwait(false);
         }
