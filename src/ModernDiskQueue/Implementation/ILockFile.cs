@@ -6,5 +6,5 @@ namespace ModernDiskQueue.Implementation
     /// An inter-process lock based on a file.
     /// The lock is removed by disposing of the instance.
     /// </summary>
-    public interface ILockFile : IDisposable { }
+    public interface ILockFile : IDisposable, IAsyncDisposable { }
 }
