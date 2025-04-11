@@ -125,7 +125,7 @@
         /// </summary>
         private async Task PrepareDeleteAsync_UnderLock(string path, CancellationToken cancellationToken = default)
         {
-            if (!FileExists(path)) return;
+            if (!(await FileExistsAsync(path, cancellationToken))) return;
             var dir = Path.GetDirectoryName(path) ?? "";
             var file = Path.GetFileNameWithoutExtension(path);
             var prefix = Path.GetRandomFileName();
@@ -161,7 +161,7 @@
         {
             if (_holdsLock.Value)
             {
-                await Finalise_UnderLock(cancellationToken);
+                Finalise_UnderLock(cancellationToken);
                 return;
             }
             else
@@ -169,7 +169,7 @@
                 using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
-                    await Finalise_UnderLock(cancellationToken);
+                    Finalise_UnderLock(cancellationToken);
                     return;
                 }
             }
@@ -180,14 +180,11 @@
         /// Each operation will happen in serial.
         /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
         /// </summary>
-        private async Task Finalise_UnderLock(CancellationToken cancellationToken = default)
+        private void Finalise_UnderLock(CancellationToken cancellationToken = default)
         {
-            _holdsLock.Value = true;
-            while (await _waitingDeletesAsync.Reader.WaitToReadAsync(cancellationToken))
+            while (_waitingDeletesAsync.Reader.TryRead(out string? path))
             {
-                while (await _waitingDeletesAsync.Reader.WaitToReadAsync(cancellationToken))
                 cancellationToken.ThrowIfCancellationRequested();
-                var path = _waitingDeletes.Dequeue();
                 if (path is null) continue;
                 File.Delete(path);
             }
@@ -404,6 +401,31 @@
 
                 Directory.Delete(path, true);
             }
+        }
+
+        public async Task DeleteRecursiveAsync(string path, CancellationToken cancellationToken = default)
+        {
+            if (_holdsLock.Value)
+            {
+                DeleteRecursive_UnderLock(path, cancellationToken);
+            }
+            else
+            {
+                using (await _asyncLock.LockAsync().ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    DeleteRecursive_UnderLock(path, cancellationToken);
+                }
+            }
+        }
+
+        public void DeleteRecursive_UnderLock(string path, CancellationToken cancellationToken = default)
+        {
+            if (Path.GetPathRoot(path) == Path.GetFullPath(path)) throw new Exception("Request to delete root directory rejected");
+            if (string.IsNullOrWhiteSpace(Path.GetDirectoryName(path)!)) throw new Exception("Request to delete root directory rejected");
+            if (File.Exists(path)) throw new Exception("Tried to recursively delete a single file.");
+
+            Directory.Delete(path, true);
         }
 
         /// <summary>

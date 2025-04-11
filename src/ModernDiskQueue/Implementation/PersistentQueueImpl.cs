@@ -719,7 +719,7 @@ namespace ModernDiskQueue.Implementation
             await UnlockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
 
             // If IFileDriver gets an async version of DeleteRecursive in the future, use it here
-            _file.DeleteRecursive(_path);
+            await _file.DeleteRecursiveAsync(_path, cancellationToken);
 
             if (reset)
             {

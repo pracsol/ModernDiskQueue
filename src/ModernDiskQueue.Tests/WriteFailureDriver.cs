@@ -123,6 +123,11 @@ namespace ModernDiskQueue.Tests
         }
         public void DeleteRecursive(string path) { }
 
+        public Task DeleteRecursiveAsync(string path, CancellationToken cancellationToken = default) 
+        {
+            throw new NotImplementedException();
+        }
+
         public Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
         {
             return ((IFileDriver)_realDriver).DirectoryExistsAsync(path, cancellationToken);

@@ -153,5 +153,10 @@
         /// Try to delete all files and directories in a sub-path
         /// </summary>
         void DeleteRecursive(string path);
+
+        /// <summary>
+        /// Try to delete all files and directories in a sub-path
+        /// </summary>
+        Task DeleteRecursiveAsync(string path, CancellationToken cancellationToken = default);
     }
 }
