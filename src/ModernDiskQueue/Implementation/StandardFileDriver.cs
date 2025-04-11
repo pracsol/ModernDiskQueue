@@ -450,7 +450,7 @@
             }
         }
 
-        public async Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = value)
+        public async Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = default)
         {
             if (_holdsLock.Value)
             {
