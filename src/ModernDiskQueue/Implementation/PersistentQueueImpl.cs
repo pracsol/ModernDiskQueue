@@ -964,7 +964,7 @@ namespace ModernDiskQueue.Implementation
 
             if (_fileLock != null)
             {
-                _file.ReleaseLock(_fileLock);
+                await _file.ReleaseLockAsync(_fileLock, cancellationToken);
 
                 await _file.PrepareDeleteAsync(target, cancellationToken).ConfigureAwait(false);
                 await _file.FinaliseAsync(cancellationToken).ConfigureAwait(false);
