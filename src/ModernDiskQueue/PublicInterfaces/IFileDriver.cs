@@ -47,6 +47,11 @@
         void ReleaseLock(ILockFile fileLock);
 
         /// <summary>
+        /// Release a lock that was previously held
+        /// </summary>
+        Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Ready a file for delete on next call to Finalise
         /// </summary>
         /// <param name="path"></param>
