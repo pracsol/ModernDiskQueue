@@ -37,7 +37,7 @@ namespace ModernDiskQueue.Implementation
         /// This is only used during async initialization and disposal.
         /// </summary>
         private readonly AsyncLock _configLockAsync = new();
-        private AsyncLocal<bool> _holdsWriterLock = new();
+        private readonly AsyncLocal<bool> _holdsWriterLock = new();
         /// <summary>
         /// This flag is set during the factory initialization and is used to determine if the queue is in async mode.
         /// It will be used for runtime checks to ensure that async methods are not called in sync mode and vice versa.
@@ -836,7 +836,7 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Lock and read queue asynchronously
         /// </summary>
-        private async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default, bool holdsWriterLock = false)
+        private async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default)
         {
             Maybe<bool> isFilePathLocked;
             try

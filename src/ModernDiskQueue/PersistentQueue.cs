@@ -99,7 +99,6 @@ namespace ModernDiskQueue
             return WaitFor(() => new PersistentQueue(storagePath), maxWait, storagePath);
         }
 
-
         /// <summary>
         /// Wait a maximum time to open an exclusive session.
         /// The queue is opened with default max file size (32MiB) and conflicts set to throw exceptions.
