@@ -1,13 +1,14 @@
-﻿using ModernDiskQueue.PublicInterfaces;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace ModernDiskQueue.Implementation
+﻿namespace ModernDiskQueue.Implementation
 {
+    using ModernDiskQueue.PublicInterfaces;
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Threading;
+    using System.Threading.Channels;
+    using System.Threading.Tasks;
+
     /// <summary>
     /// A wrapper around System.IO.File to help with
     /// heavily multi-threaded and multi-process workflows
@@ -16,8 +17,18 @@ namespace ModernDiskQueue.Implementation
     {
         public const int RetryLimit = 10;
 
+        // existing fields for sync operations
         private static readonly object _lock = new();
         private static readonly Queue<string> _waitingDeletes = new();
+
+        // New channel for async operations
+        private readonly Channel<string> _waitingDeletesAsync = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = true,
+            AllowSynchronousContinuations = false,
+        });
+
         public readonly AsyncLock _asyncLock = new();
         private AsyncLocal<bool> _holdsLock = new();
 
@@ -121,7 +132,7 @@ namespace ModernDiskQueue.Implementation
             var deletePath = Path.Combine(dir, $"{file}_dc_{prefix}");
             if (await MoveAsync(path, deletePath, cancellationToken))
             {
-                _waitingDeletes.Enqueue(deletePath);
+                await _waitingDeletesAsync.Writer.WriteAsync(deletePath, cancellationToken);
             }
         }
 
@@ -150,7 +161,7 @@ namespace ModernDiskQueue.Implementation
         {
             if (_holdsLock.Value)
             {
-                Finalise_UnderLock(cancellationToken);
+                await Finalise_UnderLock(cancellationToken);
                 return;
             }
             else
@@ -158,7 +169,7 @@ namespace ModernDiskQueue.Implementation
                 using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
-                    Finalise_UnderLock(cancellationToken);
+                    await Finalise_UnderLock(cancellationToken);
                     return;
                 }
             }
@@ -169,11 +180,12 @@ namespace ModernDiskQueue.Implementation
         /// Each operation will happen in serial.
         /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
         /// </summary>
-        private void Finalise_UnderLock(CancellationToken cancellationToken = default)
+        private async Task Finalise_UnderLock(CancellationToken cancellationToken = default)
         {
             _holdsLock.Value = true;
-            while (_waitingDeletes.Count > 0)
+            while (await _waitingDeletesAsync.Reader.WaitToReadAsync(cancellationToken))
             {
+                while (await _waitingDeletesAsync.Reader.WaitToReadAsync(cancellationToken))
                 cancellationToken.ThrowIfCancellationRequested();
                 var path = _waitingDeletes.Dequeue();
                 if (path is null) continue;
@@ -435,6 +447,21 @@ namespace ModernDiskQueue.Implementation
             lock (_lock)
             {
                 fileLock.Dispose();
+            }
+        }
+
+        public async Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = value)
+        {
+            if (_holdsLock.Value)
+            {
+                await fileLock.DisposeAsync();
+            }
+            else
+            {
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    await fileLock.DisposeAsync();
+                }
             }
         }
 
