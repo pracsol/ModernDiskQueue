@@ -715,7 +715,7 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private async Task HardDeleteAsync_UnderLock(bool reset, CancellationToken cancellationToken = default)
         {
-            // We can call the UnderLock 
+            // We can call the UnderLock directly since we already know we're operating under a lock
             await UnlockQueueAsync_UnderLock(cancellationToken).ConfigureAwait(false);
 
             // If IFileDriver gets an async version of DeleteRecursive in the future, use it here
@@ -727,6 +727,10 @@ namespace ModernDiskQueue.Implementation
             }
             else
             {
+                // Since we're performing a hard delete, and the whole point is to clean up the folders and files, 
+                // we override the flag TrimTransactionLogOnDispose, setting it false to avoid the 
+                // transaction log being recreated.
+                TrimTransactionLogOnDispose = false;
                 await DisposeAsync().ConfigureAwait(false);
             }
         }
@@ -964,9 +968,11 @@ namespace ModernDiskQueue.Implementation
 
             if (_fileLock != null)
             {
+                // Delete the lock file.
                 await _file.ReleaseLockAsync(_fileLock, cancellationToken);
-
+                // Enqueue any files in the queue folder for deletion.
                 await _file.PrepareDeleteAsync(target, cancellationToken).ConfigureAwait(false);
+                // Move through queue and delete any files queued for deletion.
                 await _file.FinaliseAsync(cancellationToken).ConfigureAwait(false);
             }
             _fileLock = null;
