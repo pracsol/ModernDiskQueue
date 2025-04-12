@@ -1253,7 +1253,6 @@ namespace ModernDiskQueue.Implementation
                         totalRead += bytesRead;
                     }
 
-                    totalRead += bytesRead;
                 } while (totalRead < currentBufferSize);
 
                 // Create a result array that won't be returned to the pool.
