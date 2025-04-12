@@ -30,7 +30,7 @@
         });
 
         public readonly AsyncLock _asyncLock = new();
-        private AsyncLocal<bool> _holdsLock = new();
+        private readonly AsyncLocal<bool> _holdsLock = new();
 
         public string GetFullPath(string path) => Path.GetFullPath(path);
         public string PathCombine(string a, string b) => Path.Combine(a, b);
@@ -1043,7 +1043,6 @@
             bool needsBackup;
             try
             {
-
                 using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
