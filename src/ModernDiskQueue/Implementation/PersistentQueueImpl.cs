@@ -36,7 +36,7 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// This is only used during async initialization and disposal.
         /// </summary>
-        private readonly AsyncLock _configLockAsync = new();
+        protected readonly AsyncLock _configLockAsync = new();
         private readonly AsyncLocal<bool> _holdsWriterLock = new();
         /// <summary>
         /// This flag is set during the factory initialization and is used to determine if the queue is in async mode.
@@ -57,7 +57,7 @@ namespace ModernDiskQueue.Implementation
         /// <param name="maxFileSize">The maximum file size of the queue.</param>
         /// <param name="throwOnConflict"></param>
         /// <param name="isAsyncMode">Typically set to true. This parameter differentiates the constructor.</param>
-        private PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode)
+        protected PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode)
         {
             _isAsyncMode = isAsyncMode;
             _file = new StandardFileDriver();
@@ -106,7 +106,7 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
-        public static async Task<PersistentQueueImpl> CreateAsync(string path, CancellationToken cancellationToken = default)
+        public static async Task<IPersistentQueueImpl> CreateAsync(string path, CancellationToken cancellationToken = default)
         {
             var queue = new PersistentQueueImpl(path, Constants._32Megabytes, true, true);
             await queue.InitializeAsync(cancellationToken);
@@ -122,7 +122,7 @@ namespace ModernDiskQueue.Implementation
             return queue;
         }
 
-        private async Task InitializeAsync(CancellationToken cancellationToken)
+        protected async Task InitializeAsync(CancellationToken cancellationToken)
         {
             using (await _configLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -836,7 +836,7 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Lock and read queue asynchronously
         /// </summary>
-        private async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default)
+        protected async Task LockAndReadQueueAsync(CancellationToken cancellationToken = default)
         {
             Maybe<bool> isFilePathLocked;
             try

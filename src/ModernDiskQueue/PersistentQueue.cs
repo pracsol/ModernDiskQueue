@@ -231,6 +231,17 @@ namespace ModernDiskQueue
         }
 
         /// <summary>
+        /// Close this queue connection. Does not destroy flushed data.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            var local = Interlocked.Exchange(ref Queue, null);
+            if (local == null) return;
+            await local.DisposeAsync();
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
         /// Dispose of the queue connection on destruction.
         /// This is a safety valve. You should ensure you dispose
         /// of connections properly.
@@ -358,6 +369,7 @@ namespace ModernDiskQueue
             var sw = new Stopwatch();
             try
             {
+                sw.Start();
                 do
                 {
                     cancellationToken.ThrowIfCancellationRequested();

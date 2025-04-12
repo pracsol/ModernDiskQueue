@@ -12,7 +12,7 @@ namespace ModernDiskQueue
     /// <example>using (var session = q.OpenSession()) {...}</example>
     /// Queue should be disposed after use. This will NOT destroy the backing storage.
     /// </summary>
-    public interface IPersistentQueue : IDisposable
+    public interface IPersistentQueue : IDisposable, IAsyncDisposable
     {
         /// <summary>
         /// Open an read/write session
