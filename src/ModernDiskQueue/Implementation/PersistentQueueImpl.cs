@@ -1250,8 +1250,9 @@ namespace ModernDiskQueue.Implementation
                     else
                     {
                         failCount = 0;
-                        totalRead += bytesRead;
                     }
+                    
+                    totalRead += bytesRead;
 
                 } while (totalRead < currentBufferSize);
 
