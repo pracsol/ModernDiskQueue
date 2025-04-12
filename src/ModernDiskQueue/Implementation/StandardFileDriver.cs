@@ -57,10 +57,17 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    return DirectoryExists_UnderLock(path, cancellationToken);
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        return DirectoryExists_UnderLock(path, cancellationToken);
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -109,11 +116,18 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    await PrepareDeleteAsync_UnderLock(path, cancellationToken);
-                    return;
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        await PrepareDeleteAsync_UnderLock(path, cancellationToken);
+                        return;
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -166,11 +180,18 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    Finalise_UnderLock(cancellationToken);
-                    return;
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        Finalise_UnderLock(cancellationToken);
+                        return;
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -256,10 +277,17 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    return CreateNoShareFile_UnderLock(path);
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        return CreateNoShareFile_UnderLock(path);
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -368,10 +396,17 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    return FileExists_UnderLock(path, cancellationToken);
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        return FileExists_UnderLock(path, cancellationToken);
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -382,9 +417,7 @@
         /// </summary>
         private bool FileExists_UnderLock(string path, CancellationToken cancellationToken = default)
         {
-            _holdsLock.Value = true;
             return File.Exists(path);
-
         }
 
         /// <summary>
@@ -411,10 +444,17 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync().ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    DeleteRecursive_UnderLock(path, cancellationToken);
+                    using (await _asyncLock.LockAsync().ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        DeleteRecursive_UnderLock(path, cancellationToken);
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -480,9 +520,16 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    await fileLock.DisposeAsync();
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        await fileLock.DisposeAsync();
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -509,10 +556,17 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    CreateDirectory_UnderLock(path, cancellationToken);
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        CreateDirectory_UnderLock(path, cancellationToken);
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -560,10 +614,17 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    return Move_UnderLock(oldPath, newPath, cancellationToken);
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        return Move_UnderLock(oldPath, newPath, cancellationToken);
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
@@ -614,17 +675,24 @@
         /// </summary>
         public async Task<IFileStream> OpenTransactionLogAsync(string path, int bufferLength, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            try
             {
-                _holdsLock.Value = true;
-                var stream = new FileStream(path,
-                        FileMode.Append,
-                        FileAccess.Write,
-                        FileShare.None,
-                        bufferLength,
-                        FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    var stream = new FileStream(path,
+                            FileMode.Append,
+                            FileAccess.Write,
+                            FileShare.None,
+                            bufferLength,
+                            FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
 
-                return (IFileStream)new FileStreamWrapper(stream);
+                    return (IFileStream)new FileStreamWrapper(stream);
+                }
+            }
+            finally
+            {
+                _holdsLock.Value = false;
             }
         }
 
@@ -645,18 +713,25 @@
         /// </summary>
         public async Task<IFileStream> OpenReadStreamAsync(string path, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            try
             {
-                _holdsLock.Value = true;
-                var stream = new FileStream(
-                        path,
-                        FileMode.OpenOrCreate,
-                        FileAccess.Read,
-                        FileShare.ReadWrite,
-                        bufferSize: 0x10000,
-                        FileOptions.Asynchronous | FileOptions.SequentialScan);
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    var stream = new FileStream(
+                            path,
+                            FileMode.OpenOrCreate,
+                            FileAccess.Read,
+                            FileShare.ReadWrite,
+                            bufferSize: 0x10000,
+                            FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-                return (IFileStream)new FileStreamWrapper(stream);
+                    return (IFileStream)new FileStreamWrapper(stream);
+                }
+            }
+            finally
+            {
+                _holdsLock.Value = false;
             }
         }
 
@@ -685,19 +760,26 @@
         /// </summary>
         public async Task<IFileStream> OpenWriteStreamAsync(string dataFilePath, CancellationToken cancellationToken = default)
         {
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            try
             {
-                _holdsLock.Value = true;
-                var stream = new FileStream(
-                        dataFilePath,
-                        FileMode.OpenOrCreate,
-                        FileAccess.Write,
-                        FileShare.ReadWrite,
-                        0x10000,
-                        FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    var stream = new FileStream(
+                            dataFilePath,
+                            FileMode.OpenOrCreate,
+                            FileAccess.Write,
+                            FileShare.ReadWrite,
+                            0x10000,
+                            FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
 
-                SetPermissions.TryAllowReadWriteForAll(dataFilePath);
-                return (IFileStream)new FileStreamWrapper(stream);
+                    SetPermissions.TryAllowReadWriteForAll(dataFilePath);
+                    return (IFileStream)new FileStreamWrapper(stream);
+                }
+            }
+            finally
+            {
+                _holdsLock.Value = false;
             }
         }
 
@@ -884,17 +966,24 @@
 
             try
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    stream = new FileStream(path,
-                        FileMode.OpenOrCreate,
-                        FileAccess.Read,
-                        FileShare.ReadWrite,
-                        0x10000,
-                        FileOptions.Asynchronous | FileOptions.SequentialScan);
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        stream = new FileStream(path,
+                            FileMode.OpenOrCreate,
+                            FileAccess.Read,
+                            FileShare.ReadWrite,
+                            0x10000,
+                            FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-                    SetPermissions.TryAllowReadWriteForAll(path);
+                        SetPermissions.TryAllowReadWriteForAll(path);
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
 
                 await action(stream!).ConfigureAwait(false);
@@ -952,60 +1041,67 @@
         private async Task AtomicWriteInternalAsync(string path, Func<FileStream, Task> action, CancellationToken cancellationToken)
         {
             bool needsBackup;
-
-            using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+            try
             {
-                _holdsLock.Value = true;
 
-                // Check if we need to create a backup first
-                needsBackup = await FileExistsAsync(path, cancellationToken) && !(await FileExistsAsync(path + ".old_copy", cancellationToken));
-
-                // Create backup if needed
-                if (needsBackup)
+                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    await MoveAsync(path, path + ".old_copy", cancellationToken);
-                }
+                    _holdsLock.Value = true;
 
-                // Ensure directory exists
-                var dir = Path.GetDirectoryName(path);
-                if (dir is not null)
-                {
-                    bool dirExists = await DirectoryExistsAsync(dir, cancellationToken);
-                    if (!dirExists)
+                    // Check if we need to create a backup first
+                    needsBackup = await FileExistsAsync(path, cancellationToken) && !(await FileExistsAsync(path + ".old_copy", cancellationToken));
+
+                    // Create backup if needed
+                    if (needsBackup)
                     {
-                        await CreateDirectoryAsync(dir, cancellationToken);
+                        await MoveAsync(path, path + ".old_copy", cancellationToken);
+                    }
+
+                    // Ensure directory exists
+                    var dir = Path.GetDirectoryName(path);
+                    if (dir is not null)
+                    {
+                        bool dirExists = await DirectoryExistsAsync(dir, cancellationToken);
+                        if (!dirExists)
+                        {
+                            await CreateDirectoryAsync(dir, cancellationToken);
+                        }
+                    }
+
+                    // Open stream for writing
+                    FileStream? stream = null;
+                    try
+                    {
+                        stream = new FileStream(path,
+                            FileMode.Create,
+                            FileAccess.Write,
+                            FileShare.ReadWrite,
+                            0x10000,
+                            FileOptions.Asynchronous | FileOptions.WriteThrough | FileOptions.SequentialScan);
+
+                        SetPermissions.TryAllowReadWriteForAll(path);
+
+                        // Execute the write action
+                        await action(stream!).ConfigureAwait(false);
+
+                        // Ensure data is flushed
+                        await HardFlushAsync(stream!, cancellationToken).ConfigureAwait(false);
+
+                        // Clean up old backup
+                        await WaitDeleteAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        if (stream != null)
+                        {
+                            await stream.DisposeAsync().ConfigureAwait(false);
+                        }
                     }
                 }
-
-                // Open stream for writing
-                FileStream? stream = null;
-                try
-                {
-                    stream = new FileStream(path,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.ReadWrite,
-                        0x10000,
-                        FileOptions.Asynchronous | FileOptions.WriteThrough | FileOptions.SequentialScan);
-
-                    SetPermissions.TryAllowReadWriteForAll(path);
-
-                    // Execute the write action
-                    await action(stream!).ConfigureAwait(false);
-
-                    // Ensure data is flushed
-                    await HardFlushAsync(stream!, cancellationToken).ConfigureAwait(false);
-
-                    // Clean up old backup
-                    await WaitDeleteAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    if (stream != null)
-                    {
-                        await stream.DisposeAsync().ConfigureAwait(false);
-                    }
-                }
+            }
+            finally
+            {
+                _holdsLock.Value = false;
             }
         }
 
@@ -1087,10 +1183,17 @@
             }
             else
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                try
                 {
-                    _holdsLock.Value = true;
-                    await WaitDeleteInternalAsync_UnderLock(path, cancellationToken);
+                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsLock.Value = true;
+                        await WaitDeleteInternalAsync_UnderLock(path, cancellationToken);
+                    }
+                }
+                finally
+                {
+                    _holdsLock.Value = false;
                 }
             }
         }
