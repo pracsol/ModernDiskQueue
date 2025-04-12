@@ -7,12 +7,12 @@ namespace ModernDiskQueue.Tests
     [TestFixture]
     public class WriteFailureTests : PersistentQueueTestsBase
     {
-        protected override string Path => "./WriteFailureTests";
+        protected override string QueuePath => "./WriteFailureTests";
 
         [Test]
         public void EnqueueFailsIfDiskIsFullButDequeueStillWorks()
         {
-            using var subject = new PersistentQueue(Path);
+            using var subject = new PersistentQueue(QueuePath);
             subject.HardDelete(true);
 
             using (var session = subject.OpenSession())

@@ -6,12 +6,12 @@ namespace ModernDiskQueue.Tests
     [TestFixture, SingleThreaded]
     public class CountOfItemsPersistentQueueTests : PersistentQueueTestsBase
     {
-        protected override string Path => "./CountOfItemsTests";
+        protected override string QueuePath => "./CountOfItemsTests";
 
         [Test]
         public void Can_get_count_from_queue()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 Assert.That(0, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
             }
@@ -20,7 +20,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_enter_items_and_get_count_of_items()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 for (byte i = 0; i < 5; i++)
                 {
@@ -37,7 +37,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_get_count_of_items_after_queue_restart()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 for (byte i = 0; i < 5; i++)
                 {
@@ -49,7 +49,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 Assert.That(5, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
             }

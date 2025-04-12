@@ -16,7 +16,7 @@ namespace ModernDiskQueue.Tests
     [TestFixture, SingleThreaded]
     public class PersistentQueueSessionTests : PersistentQueueTestsBase
     {
-        protected override string Path => "./PersistentQueueSessionTest";
+        protected override string QueuePath => "./PersistentQueueSessionTest";
 
         [Test]
         public void Errors_raised_during_pending_write_will_be_thrown_on_flush()
@@ -57,20 +57,20 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void If_data_stream_is_truncated_will_raise_error()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             using (var session = queue.OpenSession())
             {
                 session.Enqueue(new byte[] { 1, 2, 3, 4 });
                 session.Flush();
             }
-            using (var fs = new FileStream(System.IO.Path.Combine(Path, "data.0"), FileMode.Open))
+            using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
             {
                 fs.SetLength(2);//corrupt the file
             }
 
             Assert.Throws<InvalidOperationException>(() =>
             {
-                using (var queue = new PersistentQueue(Path))
+                using (var queue = new PersistentQueue(QueuePath))
                 {
                     using (var session = queue.OpenSession())
                     {
@@ -86,7 +86,7 @@ namespace ModernDiskQueue.Tests
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
             PersistentQueue.DefaultSettings.ParanoidFlushing = true;
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -94,13 +94,13 @@ namespace ModernDiskQueue.Tests
                     session.Flush();
                 }
             }
-            using (var fs = new FileStream(System.IO.Path.Combine(Path, "data.0"), FileMode.Open))
+            using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
             {
                 fs.SetLength(2);//corrupt the file
             }
 
             byte[]? bytes;
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -117,7 +117,7 @@ namespace ModernDiskQueue.Tests
         {
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -125,12 +125,12 @@ namespace ModernDiskQueue.Tests
                     session.Flush();
                 }
             }
-            using (var fs = new FileStream(System.IO.Path.Combine(Path, "data.0"), FileMode.Open))
+            using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
             {
                 fs.SetLength(2);//corrupt the file
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -140,7 +140,7 @@ namespace ModernDiskQueue.Tests
             }
 
             byte[]? bytes, corruptBytes;
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {

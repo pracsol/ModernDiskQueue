@@ -8,7 +8,7 @@ namespace ModernDiskQueue.Tests
 {
     public abstract class PersistentQueueTestsBase
     {
-        protected abstract string Path { get; }
+        protected abstract string QueuePath { get; }
 
         private static readonly object _lock = new object();
 
@@ -33,16 +33,16 @@ namespace ModernDiskQueue.Tests
             {
                 try
                 {
-                    if (Directory.Exists(Path))
+                    if (Directory.Exists(QueuePath))
                     {
-                        var files = Directory.GetFiles(Path, "*", SearchOption.AllDirectories);
+                        var files = Directory.GetFiles(QueuePath, "*", SearchOption.AllDirectories);
                         Array.Sort(files, (s1, s2) => s2.Length.CompareTo(s1.Length)); // sort by length descending
                         foreach (var file in files)
                         {
                             File.Delete(file);
                         }
 
-                        Directory.Delete(Path, true);
+                        Directory.Delete(QueuePath, true);
 
                     }
                 }

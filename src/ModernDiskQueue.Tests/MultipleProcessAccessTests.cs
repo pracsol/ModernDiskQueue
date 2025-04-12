@@ -10,7 +10,7 @@ namespace ModernDiskQueue.Tests
     [TestFixture]
     public class MultipleProcessAccessTests : PersistentQueueTestsBase
     {
-        protected override string Path => "./MultipleProcessAccessTests";
+        protected override string QueuePath => "./MultipleProcessAccessTests";
 
         [Test,
          Description("Multiple PersistentQueue instances are " +
@@ -92,7 +92,7 @@ namespace ModernDiskQueue.Tests
         private void AddToQueueString(string data)
         {
             Thread.Sleep(152);
-            using var queue = PersistentQueue.WaitFor<string>(Path, TimeSpan.FromSeconds(30));
+            using var queue = PersistentQueue.WaitFor<string>(QueuePath, TimeSpan.FromSeconds(30));
             using var session = queue.OpenSession();
 
             session.Enqueue(data);
@@ -102,7 +102,7 @@ namespace ModernDiskQueue.Tests
         private string? ReadQueueString()
         {
             Thread.Sleep(121);
-            using var queue = PersistentQueue.WaitFor<string>(Path, TimeSpan.FromSeconds(30));
+            using var queue = PersistentQueue.WaitFor<string>(QueuePath, TimeSpan.FromSeconds(30));
             using var session = queue.OpenSession();
             var data = session.Dequeue();
             session.Flush();
@@ -112,7 +112,7 @@ namespace ModernDiskQueue.Tests
         private void AddToQueue(byte[] data)
         {
             Thread.Sleep(152);
-            using (var queue = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(30)))
+            using (var queue = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(30)))
             using (var session = queue.OpenSession())
             {
                 session.Enqueue(data);
@@ -123,7 +123,7 @@ namespace ModernDiskQueue.Tests
         private byte[]? ReadQueue()
         {
             Thread.Sleep(121);
-            using (var queue = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(30)))
+            using (var queue = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(30)))
             using (var session = queue.OpenSession())
             {
                 var data = session.Dequeue();

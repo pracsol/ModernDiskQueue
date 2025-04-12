@@ -6,7 +6,7 @@ namespace ModernDiskQueue.Tests
     [TestFixture]
     public class ParanoidFlushingTests : PersistentQueueTestsBase
     {
-        protected override string Path => "./ParanoidFlushingTests";
+        protected override string QueuePath => "./ParanoidFlushingTests";
 
         private readonly byte[] _one = { 1, 2, 3, 4 };
         private readonly byte[] _two = { 5, 6, 7, 8 };
@@ -14,7 +14,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Paranoid_flushing_still_respects_session_rollback()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // Clean up leftover data from previous failed test runs
                 queue.HardDelete(true);

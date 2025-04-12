@@ -16,14 +16,14 @@ namespace ModernDiskQueue.Tests
         private const int LargeCount = 1000000;
         private const int SmallCount = 500;
 
-        protected override string Path => "PerformanceTests";
+        protected override string QueuePath => "PerformanceTests";
 
         [Test, Description(
             "With a mid-range SSD, this is some 20x slower " +
             "than with a single flush (depends on disk speed)")]
         public void Enqueue_million_items_with_100_flushes()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 for (int i = 0; i < 100; i++)
                 {
@@ -42,7 +42,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Enqueue_million_items_with_single_flush()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -58,7 +58,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void write_heavy_multi_thread_workload()
         {
-            using (var queue = new PersistentQueue(Path)) { queue.HardDelete(false); }
+            using (var queue = new PersistentQueue(QueuePath)) { queue.HardDelete(false); }
 
             var rnd = new Random();
             var threads = new Thread[200];
@@ -72,7 +72,7 @@ namespace ModernDiskQueue.Tests
                     for (int k = 0; k < 10; k++)
                     {
                         Thread.Sleep(rnd.Next(5));
-                        using (var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(50)))
+                        using (var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(50)))
                         {
                             using var s = q.OpenSession();
                             s.Enqueue(Encoding.ASCII.GetBytes($"Thread {j} enqueue {k}"));
@@ -90,7 +90,7 @@ namespace ModernDiskQueue.Tests
             while (true)
             {
                 byte[]? bytes;
-                using (var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(50)))
+                using (var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(50)))
                 {
                     using var s = q.OpenSession();
 
@@ -119,7 +119,7 @@ namespace ModernDiskQueue.Tests
         public void read_heavy_multi_thread_workload()
         {
             DateTime testStartTime = DateTime.Now;
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 queue.HardDelete(false);
             }
@@ -132,7 +132,7 @@ namespace ModernDiskQueue.Tests
                 var enqueueStartTime = DateTime.Now;
                 for (int i = 0; i < 1000; i++)
                 {
-                    using var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(50));
+                    using var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(50));
                     using var s = q.OpenSession();
                     s.Enqueue(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
                     s.Flush();
@@ -166,7 +166,7 @@ namespace ModernDiskQueue.Tests
                         while (count > 0)
                         {
                             Thread.Sleep(rnd.Next(5));
-                            using (var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(80)))
+                            using (var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(80)))
                             {
                                 using var s = q.OpenSession();
                                 var data = s.Dequeue();
@@ -209,7 +209,7 @@ namespace ModernDiskQueue.Tests
             var failedThreads = new ConcurrentBag<(int threadId, string reason)>();
 
             DateTime testStartTime = DateTime.Now;
-            using (var queue = new PersistentQueue(Path)) { queue.HardDelete(false); }
+            using (var queue = new PersistentQueue(QueuePath)) { queue.HardDelete(false); }
 
             // enqueue thread
             var enqueueThread = new Thread(() =>
@@ -229,7 +229,7 @@ namespace ModernDiskQueue.Tests
                     };
 
                     stopwatch.Restart();
-                    using var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(50));
+                    using var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(50));
                     {
                         metric.QueueCreateTime = stopwatch.Elapsed;
 
@@ -281,7 +281,7 @@ namespace ModernDiskQueue.Tests
                                 };
 
                                 stopwatch.Restart();
-                                using var q = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(80));
+                                using var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(80));
                                 {
 
                                     metric.QueueCreateTime = stopwatch.Elapsed;
@@ -343,7 +343,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Enqueue_and_dequeue_million_items_same_queue()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -370,7 +370,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Enqueue_and_dequeue_million_items_restart_queue()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -382,7 +382,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -400,7 +400,7 @@ namespace ModernDiskQueue.Tests
         {
             var random = new Random();
             var itemsSizes = new List<int>();
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -415,7 +415,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
