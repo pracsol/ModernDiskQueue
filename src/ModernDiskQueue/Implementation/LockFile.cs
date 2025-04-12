@@ -49,7 +49,7 @@ namespace ModernDiskQueue.Implementation
             }
             catch
             {
-                // ignore?
+                // ignore? Should log tho
             }
         }
     }
