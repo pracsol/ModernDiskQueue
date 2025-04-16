@@ -15,7 +15,7 @@ namespace ModernDiskQueue.Tests
         {
             using (var queue = await PersistentQueue.CreateAsync(QueuePath))
             {
-                Assert.That(0, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
+                Assert.That(0, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }
         }
 
@@ -28,11 +28,11 @@ namespace ModernDiskQueue.Tests
                 {
                     using (var session = await queue.OpenSessionAsync())
                     {
-                        await session.EnqueueAsync(new[] { i });
+                        await session.EnqueueAsync([i]);
                         await session.FlushAsync();
                     }
                 }
-                Assert.That(5, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
+                Assert.That(5, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }
         }
 
@@ -53,7 +53,7 @@ namespace ModernDiskQueue.Tests
 
             using (var queue = await PersistentQueue.CreateAsync(QueuePath))
             {
-                Assert.That(5, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
+                Assert.That(5, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }
         }
     }
