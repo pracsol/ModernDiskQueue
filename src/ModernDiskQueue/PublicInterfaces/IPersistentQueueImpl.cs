@@ -112,11 +112,16 @@ namespace ModernDiskQueue.PublicInterfaces
 		/// </summary>
 		int EstimatedCountOfItemsInQueue { get; }
 
-		/// <summary>
-		/// Configured maximum size of each queue file.
-		/// Files will be split and rolled after this limit.
+        /// <summary>
+		/// Approximate size of the queue. Used for testing
 		/// </summary>
-		int MaxFileSize { get; }
+        Task<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Configured maximum size of each queue file.
+        /// Files will be split and rolled after this limit.
+        /// </summary>
+        int MaxFileSize { get; }
 
 		/// <summary>
 		/// If the transaction log is near this size, it will be flushed and trimmed.
