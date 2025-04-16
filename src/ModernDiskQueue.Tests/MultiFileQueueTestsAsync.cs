@@ -104,7 +104,9 @@ namespace ModernDiskQueue.Tests
                 {
                     using (var session = await queue.OpenSessionAsync())
                     {
-                        Assert.That(i, Is.EqualTo(await session.DequeueAsync()?[0]));
+                        var value = await session.DequeueAsync();
+                        Assert.That(value, Is.Not.Null);
+                        Assert.That(i, Is.EqualTo(value?[0]));
                         await session.FlushAsync();
                     }
                 }
@@ -147,13 +149,17 @@ namespace ModernDiskQueue.Tests
                 {
                     for (byte i = 0; i < 12; i++)
                     {
-                        Assert.That(i, Is.EqualTo(await session.DequeueAsync()?[0]));
+                        var value = await session.DequeueAsync();
+                        Assert.That(value, Is.Not.Null);
+                        Assert.That(i, Is.EqualTo(value?[0]));
                         await session.FlushAsync();
                     }
 
                     for (byte i = 0; i < 3; i++)
                     {
-                        Assert.That(i, Is.EqualTo(await session.DequeueAsync()?[0]));
+                        var value = await session.DequeueAsync();
+                        Assert.That(value, Is.Not.Null);
+                        Assert.That(i, Is.EqualTo(value?[0]));
                         await session.FlushAsync();
                     }
                 }
@@ -169,7 +175,7 @@ namespace ModernDiskQueue.Tests
                 {
                     using (var session = await queue.OpenSessionAsync())
                     {
-                        await session.EnqueueAsync(new[] { i });
+                        await session.EnqueueAsync([i]);
                         await session.FlushAsync();
                     }
                 }
@@ -182,7 +188,9 @@ namespace ModernDiskQueue.Tests
                 {
                     using (var session = await queue.OpenSessionAsync())
                     {
-                        Assert.That(i, Is.EqualTo(await session.DequeueAsync()?[0]));
+                        var value = await session.DequeueAsync();
+                        Assert.That(value, Is.Not.Null);
+                        Assert.That(i, Is.EqualTo(value?[0]));
                         await session.FlushAsync();
                     }
                 }
