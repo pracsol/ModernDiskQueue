@@ -280,6 +280,16 @@ namespace ModernDiskQueue
         public int EstimatedCountOfItemsInQueue => Queue?.EstimatedCountOfItemsInQueue ?? 0;
 
         /// <summary>
+        /// Returns the number of items in the queue, but does not include items added or removed
+        /// in currently open sessions.
+        /// </summary>
+        public async Task<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken = default)
+        {
+            if (Queue == null) return 0;
+            return await Queue.GetEstimatedCountOfItemsInQueueAsync(cancellationToken);
+        }
+
+        /// <summary>
         /// Advanced adjustable settings. Use with caution. Read the source code.
         /// </summary>
         public IPersistentQueueImpl Internals => Queue ?? throw new InvalidOperationException("Internals not available in this state");

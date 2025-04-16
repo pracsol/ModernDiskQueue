@@ -33,6 +33,12 @@ namespace ModernDiskQueue
         int EstimatedCountOfItemsInQueue { get; }
 
         /// <summary>
+        /// Returns the number of items in the queue, but does not include items added or removed
+        /// in currently open sessions.
+        /// </summary>
+        Task<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Advanced adjustable settings. Use with caution. Read the source code.
         /// </summary>
         IPersistentQueueImpl Internals { get; }
