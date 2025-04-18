@@ -3,6 +3,7 @@
     using System.Threading;
     using System.Threading.Tasks;
     using ModernDiskQueue.PublicInterfaces;
+
     /// <inheritdoc cref="IPersistentQueueImpl{T}"/>
     internal class PersistentQueueImpl<T> : PersistentQueueImpl, IPersistentQueueImpl<T>
     {
