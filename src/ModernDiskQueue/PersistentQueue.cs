@@ -3,7 +3,6 @@ using ModernDiskQueue.PublicInterfaces;
 using System;
 using System.Collections;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
