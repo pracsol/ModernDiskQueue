@@ -13,7 +13,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_get_count_from_queue()
         {
-            using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
             {
                 Assert.That(0, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }
@@ -22,11 +22,11 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_enter_items_and_get_count_of_items()
         {
-            using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
             {
                 for (byte i = 0; i < 5; i++)
                 {
-                    using (var session = await queue.OpenSessionAsync())
+                    await using (var session = await queue.OpenSessionAsync())
                     {
                         await session.EnqueueAsync([i]);
                         await session.FlushAsync();
@@ -39,11 +39,11 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_get_count_of_items_after_queue_restart()
         {
-            using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
             {
                 for (byte i = 0; i < 5; i++)
                 {
-                    using (var session = await queue.OpenSessionAsync())
+                    await using (var session = await queue.OpenSessionAsync())
                     {
                         await session.EnqueueAsync(new[] { i });
                         await session.FlushAsync();
@@ -51,7 +51,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
             {
                 Assert.That(5, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }

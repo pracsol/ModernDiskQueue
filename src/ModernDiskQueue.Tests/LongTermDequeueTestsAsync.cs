@@ -32,7 +32,7 @@ namespace ModernDiskQueue.Tests
             
             var s1 = await _q.OpenSessionAsync();
 
-            using (var s2 = await _q.OpenSessionAsync())
+            await using (var s2 = await _q.OpenSessionAsync())
             {
                 if (s2 == null) throw new InvalidOperationException("Session 2 is null");
                 await s2.EnqueueAsync(new byte[] { 1, 2, 3, 4 });

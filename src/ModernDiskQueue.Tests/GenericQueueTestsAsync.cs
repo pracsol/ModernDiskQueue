@@ -16,8 +16,8 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Round_trip_value_type()
         {
-            using PersistentQueue<int> queue = await PersistentQueue<int>.CreateAsync(QueueName+"int");
-            using var session = await queue.OpenSessionAsync();
+            await using PersistentQueue<int> queue = await PersistentQueue<int>.CreateAsync(QueueName+"int");
+            await using var session = await queue.OpenSessionAsync();
 
             await session.EnqueueAsync(7);
             await session.FlushAsync();
@@ -36,8 +36,8 @@ namespace ModernDiskQueue.Tests
         {
             // Use different queue for each test case so that we don't get errors when running tests concurrently.
             var hash = valueToTest.GetHashCode().ToString("X8");
-            using var queue = await PersistentQueue<string>.CreateAsync($"./GenericQueueTests3{hash}");
-            using var session = await queue.OpenSessionAsync();
+            await using var queue = await PersistentQueue<string>.CreateAsync($"./GenericQueueTests3{hash}");
+            await using var session = await queue.OpenSessionAsync();
 
             while (await session.DequeueAsync() != null) { Console.WriteLine("Removing old data"); }
             await session.FlushAsync();
@@ -52,8 +52,8 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Round_trip_complex_type()
         {
-            using var queue = await PersistentQueue<TestClass>.CreateAsync(QueueName+"TC");
-            using var session = await queue.OpenSessionAsync();
+            await using var queue = await PersistentQueue<TestClass>.CreateAsync(QueueName+"TC");
+            await using var session = await queue.OpenSessionAsync();
 
             var testObject = new TestClass(7, "TestString", null);
             await session.EnqueueAsync(testObject);
@@ -75,8 +75,8 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Round_trip_DateTimeOffset()
         {
-            using var queue   = await PersistentQueue<DateTimeOffset>.CreateAsync(QueueName+"TC2");
-            using var session = await queue.OpenSessionAsync();
+            await using var queue   = await PersistentQueue<DateTimeOffset>.CreateAsync(QueueName+"TC2");
+            await using var session = await queue.OpenSessionAsync();
 
             var testObject = DateTimeOffset.Now;
             await session.EnqueueAsync(testObject);

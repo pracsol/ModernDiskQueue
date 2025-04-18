@@ -15,7 +15,7 @@ namespace ModernDiskQueue.Tests
         public async Task Can_create_new_queue_async()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-            using (queue)
+            await using (queue)
             {
                 Assert.That(queue, Is.Not.Null);
             }
@@ -34,7 +34,7 @@ namespace ModernDiskQueue.Tests
 
             // Create initial queue
             var queue = await PersistentQueue.CreateAsync(QueuePath);
-            using (await queue.OpenSessionAsync()) { }
+            await using (await queue.OpenSessionAsync()) { }
 
             // Log initial directory state
             Console.WriteLine($"Initial directory state - Exists: {Directory.Exists(QueuePath)}");
@@ -255,7 +255,7 @@ namespace ModernDiskQueue.Tests
         public async Task Dequeueing_from_empty_queue_will_return_null_async()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-            using (queue)
+            await using (queue)
             {
                 var session = await queue.OpenSessionAsync();
                 var dequeued = await session.DequeueAsync();
@@ -268,7 +268,7 @@ namespace ModernDiskQueue.Tests
         public async Task Can_enqueue_data_in_queue_async()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-            using (queue)
+            await using (queue)
             {
                 var session = await queue.OpenSessionAsync();
                 await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
@@ -280,7 +280,7 @@ namespace ModernDiskQueue.Tests
         public async Task Can_dequeue_data_from_queue_async()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-            using (queue)
+            await using (queue)
             {
                 var session = await queue.OpenSessionAsync();
                 await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
@@ -294,7 +294,7 @@ namespace ModernDiskQueue.Tests
         public async Task Queueing_and_dequeueing_empty_data_is_handled_async()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-            using (queue)
+            await using (queue)
             {
                 var session = await queue.OpenSessionAsync();
                 await session.EnqueueAsync(Array.Empty<byte>());
@@ -310,7 +310,7 @@ namespace ModernDiskQueue.Tests
             // First session: enqueue data
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
@@ -321,7 +321,7 @@ namespace ModernDiskQueue.Tests
             // Second session: dequeue data
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     var dequeued = await session.DequeueAsync();
@@ -337,7 +337,7 @@ namespace ModernDiskQueue.Tests
             // First session: enqueue data
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
@@ -348,7 +348,7 @@ namespace ModernDiskQueue.Tests
             // Second session: dequeue and verify queue is empty
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     var dequeued = await session.DequeueAsync();
@@ -368,7 +368,7 @@ namespace ModernDiskQueue.Tests
             // First session: enqueue data
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
@@ -379,7 +379,7 @@ namespace ModernDiskQueue.Tests
             // Second session: dequeue but don't flush
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     var dequeued = await session.DequeueAsync();
@@ -391,7 +391,7 @@ namespace ModernDiskQueue.Tests
             // Third session: verify item is still there
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     var dequeued = await session.DequeueAsync();
@@ -407,7 +407,7 @@ namespace ModernDiskQueue.Tests
             // First session: enqueue data but don't flush
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
@@ -418,7 +418,7 @@ namespace ModernDiskQueue.Tests
             // Second session: verify queue is empty
             {
                 var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                using (queue)
+                await using (queue)
                 {
                     var session = await queue.OpenSessionAsync();
                     var dequeued = await session.DequeueAsync();

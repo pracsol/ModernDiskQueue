@@ -40,7 +40,7 @@ namespace ModernDiskQueue.Tests
             WriteLockFile(queueName, _otherProcess!.Id, _currentThread, _otherProcess.StartTime.AddSeconds(1));
 
             //ACT
-            using var queue = await PersistentQueue<string>.CreateAsync(queueName);
+            await using var queue = await PersistentQueue<string>.CreateAsync(queueName);
         }
 
         [Test]

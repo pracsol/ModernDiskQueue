@@ -32,9 +32,9 @@ namespace ModernDiskQueue.Tests
 
         public void ReleaseLock(ILockFile fileLock) { }
 
-        public Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = default) 
+        public async Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = default) 
         {
-            throw new NotImplementedException();
+            
         }
 
         public void PrepareDelete(string path)

@@ -15,7 +15,7 @@
         [Test]
         public async Task Paranoid_flushing_still_respects_session_rollback()
         {
-            using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
             {
                 // Clean up leftover data from previous failed test runs
                 await queue.HardDeleteAsync(true);
@@ -23,7 +23,7 @@
                 queue.Internals.ParanoidFlushing = true;
 
                 // Flush only `_one`
-                using (var s1 = await queue.OpenSessionAsync())
+                await using (var s1 = await queue.OpenSessionAsync())
                 {
                     await s1.EnqueueAsync(_one);
                     await s1.FlushAsync();
@@ -32,7 +32,7 @@
                 }
 
                 // Read without flushing
-                using (var s2 = await queue.OpenSessionAsync())
+                await using (var s2 = await queue.OpenSessionAsync())
                 {
                     var value = await s2.DequeueAsync();
                     Console.WriteLine($"First read from session 2: {BitConverter.ToString(value ?? [])}");
@@ -44,7 +44,7 @@
                 }
 
                 // Read again WITH flushing
-                using (var s3 = await queue.OpenSessionAsync())
+                await using (var s3 = await queue.OpenSessionAsync())
                 {
                     var value = await s3.DequeueAsync();
                     Console.WriteLine($"First read from session 3: {BitConverter.ToString(value ?? [])}");
@@ -56,7 +56,7 @@
                 }
 
                 // Read empty queue to be sure
-                using (var s4 = await queue.OpenSessionAsync())
+                await using (var s4 = await queue.OpenSessionAsync())
                 {
                     // Now queue should definitely be empty since we flushed on last read.
                     Assert.That(await s4.DequeueAsync(), Is.Null, "Queue was not empty after flush");
