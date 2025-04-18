@@ -191,6 +191,7 @@ namespace ModernDiskQueue.Implementation
         {
             get
             {
+                if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
                 lock (_entries)
                 {
                     return _entries.Count + _checkedOutEntries.Count;
@@ -295,6 +296,7 @@ namespace ModernDiskQueue.Implementation
 
         public void AcquireWriter(IFileStream stream, Func<IFileStream, Task<long>> action, Action<IFileStream> onReplaceStream)
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             lock (_writerLock)
             {
                 stream.SetPosition(CurrentFilePosition);
@@ -342,6 +344,7 @@ namespace ModernDiskQueue.Implementation
 
         public void CommitTransaction(ICollection<Operation> operations)
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             if (operations.Count == 0)
                 return;
 
@@ -542,6 +545,7 @@ namespace ModernDiskQueue.Implementation
 
         public void Reinstate(IEnumerable<Operation> reinstatedOperations)
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             lock (_entries)
             {
                 ApplyTransactionOperations(
@@ -581,6 +585,7 @@ namespace ModernDiskQueue.Implementation
 
         public int[] ApplyTransactionOperationsInMemory(IEnumerable<Operation>? operations)
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             if (operations == null) return [];
 
             foreach (var operation in operations)
@@ -816,6 +821,7 @@ namespace ModernDiskQueue.Implementation
 
         private IFileStream WaitForTransactionLog(byte[] transactionBuffer)
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             for (int i = 0; i < 10; i++)
             {
                 try
@@ -868,6 +874,7 @@ namespace ModernDiskQueue.Implementation
         {
             get
             {
+                if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
                 lock (_entries)
                 {
                     return _entries.Count + _checkedOutEntries.Count;
@@ -904,6 +911,7 @@ namespace ModernDiskQueue.Implementation
 
         private void LockAndReadQueue()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             try
             {
                 if (!_file.DirectoryExists(_path))
@@ -992,6 +1000,7 @@ namespace ModernDiskQueue.Implementation
 
         private void ReadExistingQueue()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             try
             {
                 ReadMetaState();
@@ -1025,6 +1034,7 @@ namespace ModernDiskQueue.Implementation
 
         private void UnlockQueue()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.\n Make sure async queues are being disposed properly with 'await using' statements.");
             lock (_writerLock)
             {
                 if (string.IsNullOrWhiteSpace(_path)) return;
@@ -1083,6 +1093,7 @@ namespace ModernDiskQueue.Implementation
 
         private Maybe<bool> LockQueue()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             lock (_writerLock)
             {
                 try
@@ -1167,6 +1178,7 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private bool ReadAhead()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             long currentBufferSize = 0;
 
             var firstEntry = _entries.First?.Value ?? throw new Exception("Invalid queue state: first entry is null");
@@ -1291,6 +1303,7 @@ namespace ModernDiskQueue.Implementation
 
         private Maybe<byte[]> ReadEntriesFromFile(Entry firstEntry, long currentBufferSize)
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             try
             {
                 var buffer = new byte[currentBufferSize];
@@ -1400,6 +1413,7 @@ namespace ModernDiskQueue.Implementation
 
         private void ReadTransactionLog()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             var requireTxLogTrimming = false;
 
             var ok = _file.AtomicRead(TransactionLog, binaryReader =>
@@ -1539,6 +1553,7 @@ namespace ModernDiskQueue.Implementation
 
         private void FlushTrimmedTransactionLog()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             byte[] transactionBuffer;
             using (var ms = new MemoryStream())
             {
@@ -1755,6 +1770,7 @@ namespace ModernDiskQueue.Implementation
 
         private void ReadMetaState()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             var ok = _file.AtomicRead(Meta, binaryReader =>
             {
                 try
@@ -1794,6 +1810,7 @@ namespace ModernDiskQueue.Implementation
 
         private void TrimTransactionLogIfNeeded(long txLogSize)
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             if (txLogSize < SuggestedMaxTransactionLogSize) return; // it is not big enough to care
 
             var optimalSize = GetOptimalTransactionLogSize();
@@ -1814,6 +1831,7 @@ namespace ModernDiskQueue.Implementation
 
         private void ApplyTransactionOperations(IEnumerable<Operation> operations)
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             lock (_entries)
             {
                 var filesToRemove = ApplyTransactionOperationsInMemory(operations);
@@ -1880,6 +1898,7 @@ namespace ModernDiskQueue.Implementation
 
         protected IFileStream CreateWriter()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             var dataFilePath = GetDataPath(CurrentFileNumber);
             return _file.OpenWriteStream(dataFilePath);
         }
@@ -1897,6 +1916,7 @@ namespace ModernDiskQueue.Implementation
 
         private long GetOptimalTransactionLogSize()
         {
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
             long size = 0;
             size += 16 /*sizeof(guid)*/; //	initial tx separator
             size += sizeof(int); // 	operation count
