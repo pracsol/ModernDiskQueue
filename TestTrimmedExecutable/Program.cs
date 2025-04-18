@@ -35,10 +35,12 @@
                     {
                         if (!string.IsNullOrEmpty(testToRun) && !string.IsNullOrEmpty(inputArgument))
                         {
+                            int inputInt = 0;
+                            DateTimeOffset inputDate;
                             switch (arguments["test"])
                             {
                                 case "1":
-                                    if (int.TryParse(inputArgument, out int inputInt))
+                                    if (int.TryParse(inputArgument, out inputInt))
                                     {
                                         Console.WriteLine(TestSimpleObjectQueueing(inputInt));
                                     }
@@ -48,13 +50,33 @@
                                     }
                                     break;
                                 case "2":
-                                    if (DateTimeOffset.TryParse(inputArgument, out DateTimeOffset inputDate))
+                                    if (DateTimeOffset.TryParse(inputArgument, out inputDate))
                                     {
                                         Console.WriteLine(TestComplexObjectQueueing(inputDate));
                                     }
                                     else
                                     {
                                         throw new ArgumentOutOfRangeException(nameof(args), "Input DateTimeOffset for complex object test could not be parsed.");
+                                    }
+                                    break;
+                                case "3":
+                                    if (int.TryParse(inputArgument, out inputInt))
+                                    {
+                                        Console.WriteLine(TestSimpleObjectQueueingAsync(inputInt));
+                                    }
+                                    else
+                                    {
+                                        throw new ArgumentOutOfRangeException(nameof(args), "Input integer for simple object async test could not be parsed.");
+                                    }
+                                    break;
+                                case "4":
+                                    if (DateTimeOffset.TryParse(inputArgument, out inputDate))
+                                    {
+                                        Console.WriteLine(TestComplexObjectQueueingAsync(inputDate));
+                                    }
+                                    else
+                                    {
+                                        throw new ArgumentOutOfRangeException(nameof(args), "Input DateTimeOffset for complex object async test could not be parsed.");
                                     }
                                     break;
                             }
@@ -118,6 +140,37 @@
             return outputInt;
         }
 
+        public static async Task<int> TestSimpleObjectQueueingAsync(int inputInt)
+        {
+            int outputInt;
+            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for simple object");
+            PersistentQueue<int> queue = await PersistentQueue<int>.CreateAsync(folderNameSimpleQueue);
+            try
+            {
+                if (isConsoleLoggingEnabled) Console.WriteLine($"Existing items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
+                if (isConsoleLoggingEnabled) Console.WriteLine("Enqueueing object");
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    await session.EnqueueAsync(inputInt);
+                    await session.FlushAsync();
+                }
+                if (isConsoleLoggingEnabled) Console.WriteLine("Dequeueing object");
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    outputInt = await session.DequeueAsync();
+                    await session.FlushAsync();
+                }
+            }
+            finally
+            {
+                if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up");
+                if (isConsoleLoggingEnabled) Console.WriteLine($"Residual items: {queue.EstimatedCountOfItemsInQueue}");
+                await queue.HardDeleteAsync(false);
+                DeleteFolderAndFiles(folderNameSimpleQueue);
+            }
+            return outputInt;
+        }
+
         public static DateTimeOffset TestComplexObjectQueueing(DateTimeOffset submittedTime)
         {
             DateTimeOffset retrievedTime;
@@ -158,6 +211,48 @@
             return retrievedTime;
 
         }
+
+        public static async Task<DateTimeOffset> TestComplexObjectQueueingAsync(DateTimeOffset submittedTime)
+        {
+            DateTimeOffset retrievedTime;
+            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue");
+            PersistentQueue<Report> queue = (PersistentQueue<Report>)await PersistentQueue.CreateAsync(folderNameComplexQueue);
+            try
+            {
+                Report myTestReport = new()
+                {
+                    Id = new(),
+                    ReportType = 2,
+                    DataField = "test",
+                    LocalTime = submittedTime,
+                };
+                if (isConsoleLoggingEnabled) Console.WriteLine($"Existing items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
+                if (isConsoleLoggingEnabled) Console.WriteLine("Enqueueing object");
+                using (var session = await queue.OpenSessionAsync())
+                {
+                    // This will serialize our test object.
+                    await session.EnqueueAsync(myTestReport);
+                    await session.FlushAsync();
+                }
+                if (isConsoleLoggingEnabled) Console.WriteLine("Dequeueing object");
+                using (var session = await queue.OpenSessionAsync())
+                {
+                    Report? data = await session.DequeueAsync();
+                    await session.FlushAsync();
+                    retrievedTime = (data != null) ? data.LocalTime : DateTimeOffset.Now;
+                }
+            }
+            finally
+            {
+                if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up...");
+                if (isConsoleLoggingEnabled) Console.WriteLine($"Residual items: {queue.EstimatedCountOfItemsInQueue}");
+                await queue.HardDeleteAsync(false);
+                DeleteFolderAndFiles(folderNameComplexQueue);
+            }
+            return retrievedTime;
+
+        }
+
         private static void DeleteFolderAndFiles(string folderName)
         {
             DirectoryInfo dirInfo = new(folderName);
