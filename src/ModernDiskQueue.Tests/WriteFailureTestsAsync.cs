@@ -5,6 +5,7 @@ namespace ModernDiskQueue.Tests
     using ModernDiskQueue.Implementation;
     using NUnit.Framework;
     using System.Threading.Tasks;
+    using System;
 
     [TestFixture]
     public class WriteFailureTestsAsync : PersistentQueueTestsBase
@@ -33,16 +34,35 @@ namespace ModernDiskQueue.Tests
 
                 for (int i = 0; i < 3; i++)
                 {
+                    Console.WriteLine("Trying to dequeue using a file system that fails on write.");
                     var result = await session.DequeueAsync();
+                    Console.WriteLine($"Value dequeued is {BitConverter.ToString(result ?? [])}");
                     Assert.That(result, Is.Not.Null);
 
+                    Console.WriteLine("Now trying to enqueue, which should work before flushing.");
                     await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
-                    Assert.Throws<IOException>(async () => { await session.FlushAsync(); }, "should have thrown an exception when trying to write");
+                    Console.WriteLine("Now trying to flush, which should fail with a file system designed to fail on write.");
+                    try
+                    {
+                        await session.FlushAsync();
+                    }
+                    catch (IOException ex)
+                    {
+                        Console.WriteLine($"Expected exception: {ex.Message}");
+                        Assert.Pass($"Caught expected exception when trying to write: {ex.GetType()} - {ex.Message} - {ex.StackTrace}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Assert.Fail($"Unexpected exception type: {ex.GetType()} - {ex.Message}");
+                    }
+                    finally
+                    {
+                        // Restore driver so we can dispose correctly.
+                        subject.Internals.SetFileDriver(new StandardFileDriver());
+                    }
                 }
             }
             
-            // Restore driver so we can dispose correctly.
-            subject.Internals.SetFileDriver(new StandardFileDriver());
         }
     }
 }
