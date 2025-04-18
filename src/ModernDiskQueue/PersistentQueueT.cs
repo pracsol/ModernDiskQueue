@@ -28,6 +28,10 @@ namespace ModernDiskQueue
         /// <summary>
         /// Create a new queue instance.
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
         /// <returns><see cref="PersistentQueue{T}"/></returns>
@@ -45,6 +49,10 @@ namespace ModernDiskQueue
         /// <summary>
         /// Create a new queue instance.
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
         /// <param name="maxSize">Maximum size of the queue file.</param>
         /// <param name="throwOnConflict"><see cref="int"/></param>
@@ -72,6 +80,10 @@ namespace ModernDiskQueue
         /// <summary>
         /// Open a read/write session asynchronously.
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
         /// <returns><see cref="IPersistentQueueSession{T}"/></returns>
         public new async Task<IPersistentQueueSession<T>> OpenSessionAsync(CancellationToken cancellationToken = default)

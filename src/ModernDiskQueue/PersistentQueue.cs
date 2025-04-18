@@ -63,6 +63,10 @@ namespace ModernDiskQueue
         /// <summary>
         /// Create or connect to a persistent store at the given storage path.
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
         /// <returns><see cref="PersistentQueue"/></returns>
@@ -74,6 +78,10 @@ namespace ModernDiskQueue
         /// <summary>
         /// Create or connect to a persistent store at the given storage path.
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
         /// <param name="maxSize">Maximum size of the queue file.</param>
         /// <param name="throwOnConflict"><see cref="int"/></param>
@@ -139,6 +147,10 @@ namespace ModernDiskQueue
         /// as soon as possible.</para>
         /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist.</param>
         /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken"/> to monitor for cancellation requests.</param>
@@ -155,6 +167,10 @@ namespace ModernDiskQueue
         /// as soon as possible.</para>
         /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist.</param>
         /// <param name="maxSize">Maximum size in bytes for each storage file. Files will be rotated after reaching this limit.</param>
         /// <param name="throwOnConflict">When true, if data files are damaged, throw an InvalidOperationException. This will stop program flow.</param>
@@ -173,6 +189,10 @@ namespace ModernDiskQueue
         /// as soon as possible.</para>
         /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <typeparam name="T"></typeparam>
         /// <param name="storagePath"></param>
         /// <param name="maxWait"></param>
@@ -189,6 +209,10 @@ namespace ModernDiskQueue
         /// as soon as possible.</para>
         /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         /// <typeparam name="T"></typeparam>
         /// <param name="storagePath"></param>
         /// <param name="maxSize"></param>
@@ -262,8 +286,12 @@ namespace ModernDiskQueue
         }
 
         /// <summary>
-        /// Asynchronously opens a read/write session with the queue
+        /// Asynchronously opens a read/write session with the queue.
         /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
         public async Task<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default)
         {
             // Ensuring the operation can be cancelled
