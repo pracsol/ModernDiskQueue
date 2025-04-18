@@ -3,8 +3,6 @@ using ModernDiskQueue.PublicInterfaces;
 using System;
 using System.Threading.Tasks;
 using System.Threading;
-using System.Diagnostics;
-using System.IO;
 
 namespace ModernDiskQueue
 {
@@ -29,7 +27,7 @@ namespace ModernDiskQueue
         /// Create a new queue instance.
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
@@ -50,7 +48,7 @@ namespace ModernDiskQueue
         /// Create a new queue instance.
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
@@ -81,7 +79,7 @@ namespace ModernDiskQueue
         /// Open a read/write session asynchronously.
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
