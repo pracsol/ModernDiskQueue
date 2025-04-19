@@ -38,3 +38,4 @@ build
 *.user
 publish/
 publishprofiles/
+/TestTrimmedExecutable/Properties/PublishProfiles/FolderProfile.pubxml.user

@@ -59,12 +59,19 @@ namespace ModernDiskQueue.Implementation
         /// <param name="maxFileSize">The maximum file size of the queue.</param>
         /// <param name="throwOnConflict"></param>
         /// <param name="isAsyncMode">Typically set to true. This parameter differentiates the constructor.</param>
-        protected PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode)
+        internal PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode)
         {
             _isAsyncMode = isAsyncMode;
             _file = new StandardFileDriver();
-            MaxFileSize = maxFileSize;
             _throwOnConflict = throwOnConflict;
+            MaxFileSize = maxFileSize;
+            TrimTransactionLogOnDispose = PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose;
+            ParanoidFlushing = PersistentQueue.DefaultSettings.ParanoidFlushing;
+            AllowTruncatedEntries = PersistentQueue.DefaultSettings.AllowTruncatedEntries;
+            FileTimeoutMilliseconds = PersistentQueue.DefaultSettings.FileTimeoutMilliseconds;
+            SuggestedMaxTransactionLogSize = Constants._32Megabytes;
+            SuggestedReadBuffer = 1024 * 1024;
+            SuggestedWriteBuffer = 1024 * 1024;
             try
             {
                 _path = _file.GetFullPath(path);
@@ -112,7 +119,6 @@ namespace ModernDiskQueue.Implementation
         {
             var queue = new PersistentQueueImpl(path, Constants._32Megabytes, true, true);
             await queue.InitializeAsync(cancellationToken);
-            queue._disposed = false;
             return queue;
         }
 
@@ -120,23 +126,14 @@ namespace ModernDiskQueue.Implementation
         {
             var queue = new PersistentQueueImpl(path, maxFileSize, throwOnConflict, true);
             await queue.InitializeAsync(cancellationToken);
-            queue._disposed = false;
             return queue;
         }
 
-        protected async Task InitializeAsync(CancellationToken cancellationToken)
+        internal async Task InitializeAsync(CancellationToken cancellationToken)
         {
             using (await _configLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 _disposed = true;
-                TrimTransactionLogOnDispose = PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose;
-                ParanoidFlushing = PersistentQueue.DefaultSettings.ParanoidFlushing;
-                AllowTruncatedEntries = PersistentQueue.DefaultSettings.AllowTruncatedEntries;
-                FileTimeoutMilliseconds = PersistentQueue.DefaultSettings.FileTimeoutMilliseconds;
-                SuggestedMaxTransactionLogSize = Constants._32Megabytes;
-                SuggestedReadBuffer = 1024 * 1024;
-                SuggestedWriteBuffer = 1024 * 1024;
-
                 await LockAndReadQueueAsync(cancellationToken);
 
                 _disposed = false;
@@ -967,6 +964,7 @@ namespace ModernDiskQueue.Implementation
                 {
                     isFilePathLocked = await LockQueueAsync(cancellationToken).ConfigureAwait(false);
                 }
+
                 if (isFilePathLocked.IsFailure)
                 {
 #pragma warning disable IDE0079 // Suppress warning about suppressing warnings

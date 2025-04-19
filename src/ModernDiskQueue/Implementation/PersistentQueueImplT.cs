@@ -11,13 +11,12 @@
 
         public PersistentQueueImpl(string path) : base(path) { }
         public PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict) : base(path, maxFileSize, throwOnConflict) { }
-        private PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode) : base(path, maxFileSize, throwOnConflict, isAsyncMode) { }
+        internal PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode) : base(path, maxFileSize, throwOnConflict, isAsyncMode) { }
 
         public new static async Task<IPersistentQueueImpl<T>> CreateAsync(string path, CancellationToken cancellationToken = default)
         {
             var queue = new PersistentQueueImpl<T>(path, Constants._32Megabytes, true, true);
             await queue.InitializeAsync(cancellationToken);
-            queue._disposed = false;
             return queue;
         }
 
@@ -26,16 +25,7 @@
             using (await _configLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 _disposed = true;
-                TrimTransactionLogOnDispose = PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose;
-                ParanoidFlushing = PersistentQueue.DefaultSettings.ParanoidFlushing;
-                AllowTruncatedEntries = PersistentQueue.DefaultSettings.AllowTruncatedEntries;
-                FileTimeoutMilliseconds = PersistentQueue.DefaultSettings.FileTimeoutMilliseconds;
-                SuggestedMaxTransactionLogSize = Constants._32Megabytes;
-                SuggestedReadBuffer = 1024 * 1024;
-                SuggestedWriteBuffer = 1024 * 1024;
-
                 await base.LockAndReadQueueAsync(cancellationToken);
-
                 _disposed = !_disposed;
             }
         }

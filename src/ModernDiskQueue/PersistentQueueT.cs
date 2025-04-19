@@ -23,6 +23,11 @@ namespace ModernDiskQueue
             Queue = new PersistentQueueImpl<T>(storagePath, maxSize, throwOnConflict);
         }
 
+        internal PersistentQueue(IPersistentQueueImpl<T> queue)
+        {
+            Queue = queue;
+        }
+
         /// <summary>
         /// Create a new queue instance.
         /// </summary>
