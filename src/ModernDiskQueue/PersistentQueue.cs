@@ -22,6 +22,7 @@ namespace ModernDiskQueue
         /// The queue implementation instance, or null if not connected
         /// </summary>
         protected IPersistentQueueImpl? Queue;
+
         /// <summary>
         /// Logging action for non-critical faults. Defaults to Console.WriteLine.
         /// </summary>
@@ -32,6 +33,9 @@ namespace ModernDiskQueue
         /// <para>Throws UnauthorizedAccessException if you do not have read and write permissions.</para>
         /// <para>Throws InvalidOperationException if another instance is attached to the backing store.</para>
         /// </summary>
+        /// <remarks>
+        /// For async operations, do not use constructor. Instead use <see cref="CreateAsync(string, CancellationToken)"/> or <see cref="IPersistentQueueFactory"/>
+        /// </remarks>
         public PersistentQueue(string storagePath)
         {
             Queue = new PersistentQueueImpl(storagePath);
