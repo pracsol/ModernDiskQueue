@@ -1350,7 +1350,7 @@ namespace ModernDiskQueue.Implementation
 
                 if (firstEntry.Length < 1)
                 {
-                    return Array.Empty<byte>().Success();
+                    return new byte[currentBufferSize].Success();
                 }
 
                 await using var reader = await _file.OpenReadStreamAsync(GetDataPath(firstEntry.FileNumber), cancellationToken).ConfigureAwait(false);
@@ -1633,7 +1633,7 @@ namespace ModernDiskQueue.Implementation
                 {
                     using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
                     {
-                        _holdsCheckedOutEntriesLock.Value = false;
+                        _holdsCheckedOutEntriesLock.Value = true;
                         checkedOut = _checkedOutEntries.ToArray();
                     }
                 }
