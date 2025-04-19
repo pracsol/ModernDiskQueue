@@ -42,7 +42,7 @@ namespace ModernDiskQueue
         /// </summary>
         protected PersistentQueue() { }
 
-        private PersistentQueue(IPersistentQueueImpl queue)
+        internal PersistentQueue(IPersistentQueueImpl queue)
         {
             Queue = queue;
         }
