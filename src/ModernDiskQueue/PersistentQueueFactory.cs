@@ -1,55 +1,64 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-
+﻿
 namespace ModernDiskQueue
 {
+    using ModernDiskQueue.Implementation;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Threading;
+    using System.Threading.Tasks;
     /// <summary>
     /// Factory for creating <see cref="PersistentQueue{T}"/> instances.
     /// </summary>
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors |
-                               DynamicallyAccessedMemberTypes.PublicMethods)]
     public class PersistentQueueFactory : IPersistentQueueFactory
     {
         /// <inheritdoc/>
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
         public PersistentQueue<T> Create<T>(string storagePath)
         {
             return new PersistentQueue<T>(storagePath);
         }
 
         /// <inheritdoc/>
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
         public PersistentQueue<T> Create<T>(string storagePath, int maxSize, bool throwOnConflict = true)
         {
             return new PersistentQueue<T>(storagePath, maxSize, throwOnConflict);
         }
 
         /// <inheritdoc/>
-        [RequiresUnreferencedCode("This method creates a generic instance and may be removed during trimming")]
-        public async Task<PersistentQueue<T>> CreateAsync<T>(string storagePath, CancellationToken cancellationToken = default)
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        public async Task<PersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default)
         {
-            var baseQueue = await PersistentQueue.CreateAsync(storagePath, cancellationToken);
-            var impl = baseQueue.Internals;
-            baseQueue.Internals = null; // Prevent double disposal
-            await baseQueue.DisposeAsync();
-
-            return new PersistentQueue<T> { Queue = impl };
+            var queue = new PersistentQueueImpl(storagePath, Constants._32Megabytes, true, true);
+            await queue.InitializeAsync(cancellationToken);
+            return new PersistentQueue(queue);
         }
 
         /// <inheritdoc/>
-        [RequiresUnreferencedCode("This method creates a generic instance and may be removed during trimming")]
-        public async Task<PersistentQueue<T>> CreateAsync<T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        public async Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            var baseQueue = await PersistentQueue.CreateAsync(storagePath, maxSize, throwOnConflict, cancellationToken);
-            var impl = baseQueue.Internals;
-            baseQueue.Internals = null; // Prevent double disposal
-            await baseQueue.DisposeAsync();
+            var queue = new PersistentQueueImpl(storagePath, maxSize, throwOnConflict, true);
+            await queue.InitializeAsync(cancellationToken);
+            return new PersistentQueue(queue);
+        }
 
-            return new PersistentQueue<T> { Queue = impl };
+
+        /// <inheritdoc/>
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, CancellationToken cancellationToken = default)
+        {
+            var queue = new PersistentQueueImpl<T>(storagePath, Constants._32Megabytes, true, true);
+            await queue.InitializeAsync(cancellationToken);
+            return new PersistentQueue<T>(queue);
+        }
+
+        /// <inheritdoc/>
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
+        {
+            var queue = new PersistentQueueImpl<T>(storagePath, Constants._32Megabytes, true, true);
+            await queue.InitializeAsync(cancellationToken);
+            return new PersistentQueue<T>(queue);
         }
     }
 
