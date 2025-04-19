@@ -85,6 +85,12 @@ namespace ModernDiskQueue.Tests
         {
             string path = "TrimmedHost/TestTrimmedExecutable.exe";
             int argument = 5;
+            bool enableConsoleLogging = false;
+            if (enableConsoleLogging)
+            {
+                Console.WriteLine("WARNING: Console logging has been enabled for debugging the external process, and the test will fail.");
+                Console.WriteLine("Turn off the writeoutput argument to run test.");
+            }
             string stdOut, stdErr = string.Empty;
             int processTimeOut = 3000;
 
@@ -92,7 +98,7 @@ namespace ModernDiskQueue.Tests
             var processStartInfo = new ProcessStartInfo()
             {
                 FileName = path,
-                Arguments = $"test=3 value={argument}",
+                Arguments = $"test=3 value={argument} writeoutput={enableConsoleLogging}",
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
@@ -108,6 +114,7 @@ namespace ModernDiskQueue.Tests
                 {
                     process.Start();
                     stdOut = process.StandardOutput.ReadToEnd();
+                    Console.Write(stdOut);
                     stdErr = process.StandardError.ReadToEnd();
                     bool isProcessDone = process.WaitForExit(processTimeOut);
 
