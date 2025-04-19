@@ -129,15 +129,31 @@ namespace ModernDiskQueue.Implementation
         // Private helper method for async buffer flushing
         private async Task FlushBufferAsync(CancellationToken cancellationToken = default)
         {
-            await _queue.AcquireWriterAsync(
-                _currentStream,
-                async stream =>
+            try
+            {
+                async Task<long> WriteOperation(IFileStream stream)
                 {
-                    var data = ConcatenateBufferAndAddIndividualOperations(stream);
-                    return await stream.WriteAsync(data.AsMemory(), cancellationToken).ConfigureAwait(false);
-                },
-                OnReplaceStream,
-                cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        var data = ConcatenateBufferAndAddIndividualOperations(stream);
+                        return await stream.WriteAsync(data.AsMemory(), cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception)
+                    {
+                        throw;
+                    }
+                }
+
+                await _queue.AcquireWriterAsync(
+                    _currentStream,
+                    WriteOperation,
+                    OnReplaceStream,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         private void FlushBufferSync()

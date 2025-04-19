@@ -61,6 +61,7 @@ namespace ModernDiskQueue.Implementation
         {
             if (_base is null) throw new Exception("Tried to write to a disposed FileStream");
             await _base.WriteAsync(bytes, cancellationToken)!.ConfigureAwait(false);
+
             return _base.Position;
         }
 
@@ -76,8 +77,18 @@ namespace ModernDiskQueue.Implementation
             if (_base is null) throw new Exception("Tried to flush a disposed FileStream");
             if (_base is FileStream fs)
             {
-                // FileStream.FlushAsync doesn't support flushToDisk parameter, so we use Task.Run for the synchronous call
+                // FileStream.FlushAsync doesn't support flushToDisk parameter, so we use Task.Run for the synchronous call.
+                // Compared to the ms.Flush no-op method, FS flush is comparatively slow and can block, so that's why
+                // wrapped in Task.Run.
                 await Task.Run(() => fs.Flush(true), cancellationToken).ConfigureAwait(false);
+            }
+            else if (_base is MemoryStream ms)
+            {
+                // MemoryStream.FlushAsync will not throw an exception when trying to write beyond its capacity. It's a no-op method
+                // per documentation, so I don't think there's any issue in calling FlushAsync and swallowing the exception
+                // but for the sake of consistency with behavior of original sync operation, I'm calling the sync method to get that
+                // exception thrown if appropriate.
+                ms.Flush();
             }
             else
             {
