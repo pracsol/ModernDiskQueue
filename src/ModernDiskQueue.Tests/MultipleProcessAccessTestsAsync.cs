@@ -1,8 +1,10 @@
 ﻿using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using NSubstitute.Exceptions;
 
 // ReSharper disable PossibleNullReferenceException
 
@@ -21,7 +23,7 @@ namespace ModernDiskQueue.Tests
         {
             var producerDone = new ManualResetEvent(false);
             var consumerDone = new ManualResetEvent(false);
-            var received = new List<byte[]>();
+            var received = new ConcurrentBag<byte[]>();
             int numberOfItems = 10;
 
             var t1 = new Thread(() =>
@@ -42,10 +44,7 @@ namespace ModernDiskQueue.Tests
                     var data = task.Result;
                     if (data != null)
                     {
-                        lock(received)
-                        {
-                            received.Add(data);
-                        }
+                        received.Add(data);
                     }
                 }
                 consumerDone.Set();
@@ -79,33 +78,47 @@ namespace ModernDiskQueue.Tests
         {
             var producerDone = new ManualResetEvent(false);
             var consumerDone = new ManualResetEvent(false);
-            var received = new List<string>();
+            var received = new ConcurrentBag<string>();
             int numberOfItems = 10;
+            Exception? lastException = null;
 
             var t1 = new Thread(() =>
             {
-                for (int i = 0; i < numberOfItems; i++)
+                try
                 {
-                    var task = AddToQueueStringAsync("Hello");
-                    task.Wait();
+                    for (int i = 0; i < numberOfItems; i++)
+                    {
+                        var task = AddToQueueStringAsync("Hello");
+                        task.Wait();
+                    }
+                    producerDone.Set();
                 }
-                producerDone.Set();
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    producerDone.Set();
+                }
             });
             var t2 = new Thread(() => 
             {
-                while (received.Count < numberOfItems)
+                try
                 {
-                    var task = ReadQueueStringAsync();
-                    var data = task.Result;
-                    if (data != null)
+                    while (received.Count < numberOfItems)
                     {
-                        lock(received)
+                        var task = ReadQueueStringAsync();
+                        var data = task.Result;
+                        if (data != null)
                         {
                             received.Add(data);
                         }
                     }
+                    consumerDone.Set();
                 }
-                consumerDone.Set();
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    consumerDone.Set();
+                }
             });
 
             t1.Start();
@@ -125,15 +138,19 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("Consumer did not finish in time");
             }
+            if (lastException != null)
+            {
+                Assert.Fail($"Exception hit while trying to read queue: {lastException.Message}");
+            }
 
             Assert.That(received.Count, Is.EqualTo(numberOfItems), "received items");
         }
 
         private async Task AddToQueueStringAsync(string data)
         {
-            Thread.Sleep(152);
-            using var queue = await PersistentQueue.WaitForAsync<string>(QueuePath, TimeSpan.FromSeconds(30));
-            using var session = await queue.OpenSessionAsync();
+            await Task.Delay(152);
+            await using var queue = await PersistentQueue.WaitForAsync<string>(QueuePath, TimeSpan.FromSeconds(30));
+            await using var session = await queue.OpenSessionAsync();
 
             await session.EnqueueAsync(data);
             await session.FlushAsync();
@@ -141,20 +158,28 @@ namespace ModernDiskQueue.Tests
 
         private async Task<string?> ReadQueueStringAsync()
         {
-            Thread.Sleep(121);
-            using var queue = await PersistentQueue.WaitForAsync<string>(QueuePath, TimeSpan.FromSeconds(30));
-            using var session = await queue.OpenSessionAsync();
-            var data = await session.DequeueAsync();
-            await session.FlushAsync();
+            string? data = null;
+            try
+            {
+                await Task.Delay(121);
+                await using var queue = await PersistentQueue.WaitForAsync<string>(QueuePath, TimeSpan.FromSeconds(30));
+                await using var session = await queue.OpenSessionAsync();
+                data = await session.DequeueAsync();
+                await session.FlushAsync();
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"Exception hit while trying to read queue: {ex.Message}");
+            }
             return data;
         }
 
         private async Task AddToQueueAsync(byte[] data)
         {
-            Thread.Sleep(152);
-            using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(30)))
+            await Task.Delay(152);
+            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(30)))
             {
-                using (var session = await queue.OpenSessionAsync())
+                await using (var session = await queue.OpenSessionAsync())
                 {
                     await session.EnqueueAsync(data);
                     await session.FlushAsync();
@@ -164,10 +189,10 @@ namespace ModernDiskQueue.Tests
 
         private async Task<byte[]?> ReadQueueAsync()
         {
-            Thread.Sleep(121);
-            using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(30)))
+            await Task.Delay(121);
+            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(30)))
             {
-                using (var session = await queue.OpenSessionAsync())
+                await using (var session = await queue.OpenSessionAsync())
                 {
                     var data = await session.DequeueAsync();
                     await session.FlushAsync();
