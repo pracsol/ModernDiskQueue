@@ -542,7 +542,7 @@ namespace ModernDiskQueue.Implementation
 
         public void Reinstate(IEnumerable<Operation> reinstatedOperations)
         {
-            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.");
+            if (_isAsyncMode) throw new Exception("A synchronous method was called but this queue was implemented in async mode.\n Always use the async equivalent operations on queues created asynchronously.\n Reinstate operations can happen during disposal, so ensure that any 'using' blocks are awaited with 'await using'.");
             lock (_entries)
             {
                 ApplyTransactionOperations(
