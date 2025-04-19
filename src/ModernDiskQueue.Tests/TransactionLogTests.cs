@@ -298,8 +298,6 @@ namespace ModernDiskQueue.Tests
             }
         }
 
-
-
         [Test]
         public void Can_handle_transaction_with_only_zero_length_entries()
         {
@@ -396,8 +394,10 @@ namespace ModernDiskQueue.Tests
                 queue.TrimTransactionLogOnDispose = false;
                 using (var session = queue.OpenSession())
                 {
+                    Console.WriteLine("Enqueueing zero length entry.");
                     session.Enqueue([]);
                     session.Flush();
+                    Console.WriteLine("Enqueueing real data entries.");
                     for (int j = 0; j < 19; j++)
                     {
                         session.Enqueue([1]);
@@ -410,15 +410,16 @@ namespace ModernDiskQueue.Tests
             {
                 using (var session = queue.OpenSession())
                 {
+                    Console.WriteLine("Dequeueing entries, FIFO should hit zero length first.");
                     for (int j = 0; j < 20; j++)
                     {
+                        Console.WriteLine($"Dequeue entry {j}.");
                         Assert.That(session.Dequeue(), Is.Not.Null);
                         session.Flush();
                     }
                 }
             }
         }
-
 
         [Test]
         public void Can_handle_zero_length_entries_at_end()
