@@ -1,8 +1,12 @@
 ﻿namespace TestTrimmedExecutable
 {
     using ModernDiskQueue;
+    using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.PublicInterfaces;
     using System.IO;
     using System.Runtime.Serialization;
+    using Microsoft.Extensions.DependencyInjection;
+    using System.Diagnostics.CodeAnalysis;
 
     public static class Program
     {
@@ -12,6 +16,11 @@
 
         public static void Main(string[] args)
         {
+            // Set up the DI container
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            var serviceProvider = serviceCollection.BuildServiceProvider();
+
             int exitCode = 0;
             try
             {
@@ -37,6 +46,8 @@
                         {
                             int inputInt = 0;
                             DateTimeOffset inputDate;
+                            var factory = serviceProvider.GetRequiredService<PersistentQueueFactory>();
+
                             switch (arguments["test"])
                             {
                                 case "1":
@@ -62,7 +73,7 @@
                                 case "3":
                                     if (int.TryParse(inputArgument, out inputInt))
                                     {
-                                        Console.WriteLine(TestSimpleObjectQueueingAsync(inputInt));
+                                        Console.WriteLine(TestSimpleObjectQueueingAsync(inputInt, factory));
                                     }
                                     else
                                     {
@@ -72,7 +83,7 @@
                                 case "4":
                                     if (DateTimeOffset.TryParse(inputArgument, out inputDate))
                                     {
-                                        Console.WriteLine(TestComplexObjectQueueingAsync(inputDate));
+                                        Console.WriteLine(TestComplexObjectQueueingAsync(inputDate, factory));
                                     }
                                     else
                                     {
@@ -109,6 +120,19 @@
             Environment.Exit(exitCode);
         }
 
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
+        private static void ConfigureServices(IServiceCollection services)
+        {
+            // Register PersistentQueueFactory as a singleton
+            services.AddSingleton<PersistentQueueFactory>();
+
+        }
+
+        private static void EnsureFactoryIsReferenced()
+        {
+            _ = typeof(PersistentQueueFactory);
+        }
+
         public static int TestSimpleObjectQueueing(int inputInt)
         {
             int outputInt;
@@ -140,11 +164,11 @@
             return outputInt;
         }
 
-        public static async Task<int> TestSimpleObjectQueueingAsync(int inputInt)
+        public static async Task<int> TestSimpleObjectQueueingAsync(int inputInt, PersistentQueueFactory factory)
         {
             int outputInt;
             if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for simple object");
-            PersistentQueue<int> queue = await PersistentQueue<int>.CreateAsync(folderNameSimpleQueue);
+            PersistentQueue<int> queue = await factory.CreateAsync<int>(folderNameSimpleQueue);
             try
             {
                 if (isConsoleLoggingEnabled) Console.WriteLine($"Existing items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
@@ -212,11 +236,11 @@
 
         }
 
-        public static async Task<DateTimeOffset> TestComplexObjectQueueingAsync(DateTimeOffset submittedTime)
+        public static async Task<DateTimeOffset> TestComplexObjectQueueingAsync(DateTimeOffset submittedTime, PersistentQueueFactory factory)
         {
             DateTimeOffset retrievedTime;
             if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue");
-            PersistentQueue<Report> queue = (PersistentQueue<Report>)await PersistentQueue.CreateAsync(folderNameComplexQueue);
+            PersistentQueue<Report> queue = await factory.CreateAsync<Report>(folderNameComplexQueue);
             try
             {
                 Report myTestReport = new()
