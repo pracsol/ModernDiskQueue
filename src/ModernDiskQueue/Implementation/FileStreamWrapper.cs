@@ -39,7 +39,7 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
-        /// This is an older legacy method that predates resent async refactoring efforts.
+        /// This is an older legacy method that predates recent async refactoring efforts.
         /// It's overloaded by WriteAsync accepting a cancellation token.
         /// </summary>
         [Obsolete("Use WriteAsync(byte[] bytes, CancellationToken cancellationToken) instead.")]
