@@ -27,9 +27,18 @@ namespace ModernDiskQueue.Tests
 
             var pendingWriteException = Assert.Throws<AggregateException>(() =>
             {
-                using var session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000);
-                session.Enqueue(new byte[64 * 1024 * 1024 + 1]);
-                session.Flush();
+                // Create a session with a write buffer size of 1,048,576
+                using (var session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000))
+                {
+                    // Send in an excessively large amount of data to write, 67,000,000+.
+                    // This will exceed the write buffer and the size of the stream.
+                    // An exception will be thrown during the enqueue operation because
+                    // the data exceeds the write buffer size. However, the exception will 
+                    // be stored in a collection of pending write failures, and returned as
+                    // an aggregate exception during the Flush operation.
+                    session.Enqueue(new byte[64 * 1024 * 1024 + 1]);
+                    session.Flush();
+                }
             });
 
             Assert.That(pendingWriteException.Message, Is.EqualTo("One or more errors occurred. (Error during pending writes:" + Environment.NewLine + " - Memory stream is not expandable.)"));
@@ -44,8 +53,13 @@ namespace ModernDiskQueue.Tests
 
             var notSupportedException = Assert.Throws<NotSupportedException>(() =>
             {
+                // Create a session with a write buffer size of 1,048,576
                 using (var session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000))
                 {
+                    // Send in a small amount of data to write, which is less than
+                    // the write buffer size, but greater than the stream size.
+                    // The enqueue operation will succeed, but an exception will be thrown
+                    // when the flush operation happens because the data is to large for the stream size.
                     session.Enqueue(new byte[64]);
                     session.Flush();
                 }

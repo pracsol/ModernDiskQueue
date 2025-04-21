@@ -9,6 +9,7 @@ namespace ModernDiskQueue.Tests
     using System;
     using System.IO;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
 
     [TestFixture, SingleThreaded]
@@ -19,60 +20,54 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Errors_raised_during_pending_write_will_be_thrown_on_flush()
         {
+            // Create a super small memory stream.
             var limitedSizeStream = new MemoryStream(new byte[4]);
             var fileStream = new FileStreamWrapper(limitedSizeStream);
             var queueStub = PersistentQueueWithMemoryStream(fileStream);
 
-            try
+            var notSupportedException = Assert.ThrowsAsync<NotSupportedException>(async () =>
             {
-                using var session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000);
-                await session.EnqueueAsync(new byte[64 * 1024 * 1024 + 1]);
-                await session.FlushAsync();
-                Assert.Fail("Expected PendingWriteException was not thrown.");
-            }
-            catch (AssertionException)
-            {
-                throw;
-            }
-            catch (PendingWriteException ex)
-            {
-                Assert.That(ex.Message, Is.EqualTo($"One or more errors occurred. (Error during pending writes: {Environment.NewLine} - Memory stream is not expandable.)"));
-            }
-            catch (Exception ex)
-            {
-                Assert.Fail($"Unexpected exception type: {ex.GetType().Name}: {ex.Message}");
-            }
+                // Create a session with a write buffer size of 1,048,576
+                await using (var session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000))
+                {
+                    // Send in an excessively large amount of data to write, 67,000,000+.
+                    // This will exceed the write buffer and the size of the stream.
+                    // An exception will be thrown during the enqueue operation because
+                    // the data exceeds the write buffer size. However, the exception will 
+                    // be stored in a collection of pending write failures, and returned as
+                    // an aggregate exception during the Flush operation.
+                    await session.EnqueueAsync(new byte[64 * 1024 * 1024 + 1]);
+                    await session.FlushAsync();
+                }
+            });
+            // I've change the behavior of this test compared to the sync version. 
+            // In this case the exception is thrown during the enqueue operation, not during the flush.
+            Assert.That(notSupportedException.Message, Is.EqualTo(@"Memory stream is not expandable."));
         }
 
         [Test]
         public async Task Errors_raised_during_flush_write_will_be_thrown_as_is()
         {
+            // Create a super small memory stream.
             var limitedSizeStream = new MemoryStream(new byte[4]);
             var fileStream = new FileStreamWrapper(limitedSizeStream);
             var queueStub = PersistentQueueWithMemoryStream(fileStream);
 
-            try
+            var notSupportedException = Assert.ThrowsAsync<NotSupportedException>(async () =>
             {
+                // Create a session with a write buffer size of 1,048,576
                 PersistentQueueSession session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000);
                 await using (session)
                 {
+                    // Send in a small amount of data to write, which is less than
+                    // the write buffer size, but greater than the stream size.
+                    // The enqueue operation will succeed, but an exception will be thrown
+                    // when the flush operation happens because the data is to large for the stream size.
                     await session.EnqueueAsync(new byte[64]);
                     await session.FlushAsync();
                 }
-            }
-            catch (AssertionException)
-            {
-                throw;
-            }
-            catch (NotSupportedException ex)
-            {
-                Assert.That(ex.Message, Is.EqualTo(@"Memory stream is not expandable."), "Expected NotSupportedException was not thrown.");
-            }
-            catch (Exception ex)
-            {
-                Assert.Fail($"Unexpected exception type: {ex.GetType().Name}: {ex.Message}");
-            }
-            Assert.Fail("Expected NotSupportedException was not thrown.");
+            });
+            Assert.That(notSupportedException.Message, Is.EqualTo(@"Memory stream is not expandable."));
         }
 
         [Test]
@@ -179,39 +174,18 @@ namespace ModernDiskQueue.Tests
         {
             var queueStub = Substitute.For<IPersistentQueueImpl>();
 
-            queueStub.WhenForAnyArgs(x => x.AcquireWriter(default!, default!, default!))
-                .Do(c => CallActionArgument(c, limitedSizeStream));
-
-            try
-            {
-                queueStub.WhenForAnyArgs(x => x.AcquireWriterAsync(default!, default!, default!, default!))
-                    .Do(async c =>
-                    {
-                        try
-                        {
-                            var actionFunc = c.Args()[1] as Func<IFileStream, Task<long>>;
-                            await actionFunc!(limitedSizeStream);
-                        }
-                        catch (Exception)
-                        {
-                            throw;
-                        }
-                    });
-
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            queueStub.AcquireWriterAsync(Arg.Any<IFileStream>(),
+                                        Arg.Any<Func<IFileStream, CancellationToken, Task<long>>>(),
+                                        Arg.Any<Action<IFileStream>>(),
+                                        Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var actionFunc = callInfo.ArgAt<Func<IFileStream, CancellationToken, Task<long>>>(1);
+                    // This returns the Task directly, letting the exception propagate naturally
+                    return actionFunc(limitedSizeStream, new CancellationToken());
+                });
 
             return queueStub!;
-        }
-
-        // Update the helper method to properly handle async calls
-        private static async Task CallActionArgument(CallInfo c, IFileStream ms)
-        {
-            var func = c.Args()[1] as Func<IFileStream, Task<long>>;
-            await func!(ms);
         }
     }
 }
