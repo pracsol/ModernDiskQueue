@@ -1,6 +1,7 @@
 ﻿using ModernDiskQueue.Implementation;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -12,7 +13,34 @@ namespace ModernDiskQueue.Tests
         protected override string QueuePath => "./PersistentQueueTestsAsync";
 
         [Test]
-        public async Task Can_create_new_queue_async()
+        public void Only_single_instance_of_queue_can_exists_at_any_one_time()
+        {
+            var invalidOperationException = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                await using (await PersistentQueue.CreateAsync(QueuePath))
+                {
+                    await PersistentQueue.CreateAsync(QueuePath);
+                }
+            });
+            Assert.That(invalidOperationException, Is.Not.Null);
+            Assert.That(invalidOperationException.Message, Is.EqualTo("Another instance of the queue is already in action, or directory does not exist"));
+        }
+
+        [Test]
+        public async Task If_a_non_running_process_has_a_lock_then_can_start_an_instance()
+        {
+            Directory.CreateDirectory(QueuePath);
+            var lockFilePath = System.IO.Path.Combine(QueuePath, "lock");
+            File.WriteAllText(lockFilePath, "78924759045");
+
+            await using (await PersistentQueue.CreateAsync(QueuePath))
+            {
+                Assert.Pass();
+            }
+        }
+
+        [Test]
+        public async Task Can_create_new_queue()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
             await using (queue)
@@ -21,8 +49,29 @@ namespace ModernDiskQueue.Tests
             }
         }
 
+        [Test]
+        public async Task Corrupt_index_file_should_throw()
+        {
+            PersistentQueue.DefaultSettings.AllowTruncatedEntries = false;
+            var buffer = new List<byte>();
+            buffer.AddRange(Guid.NewGuid().ToByteArray());
+            buffer.AddRange(Guid.NewGuid().ToByteArray());
+            buffer.AddRange(Guid.NewGuid().ToByteArray());
+
+            Directory.CreateDirectory(QueuePath);
+            File.WriteAllBytes(System.IO.Path.Combine(QueuePath, "transaction.log"), buffer.ToArray());
+
+            var invalidOperationException = Assert.ThrowsAsync<UnrecoverableException>(async () =>
+            {
+                await PersistentQueue.CreateAsync(QueuePath);
+            });
+
+            Assert.That(invalidOperationException, Is.Not.Null);
+            Assert.That(invalidOperationException.Message, Is.EqualTo("Unexpected data in transaction log. Expected to get transaction separator but got unknown data. Tx #1"));
+        }
+
         [Test, Explicit]
-        public async Task Can_hard_delete_async()
+        public async Task Can_hard_delete()
         {
             // ARRANGE
 
@@ -250,9 +299,8 @@ namespace ModernDiskQueue.Tests
             }
         }
 
-
         [Test]
-        public async Task Dequeueing_from_empty_queue_will_return_null_async()
+        public async Task Dequeueing_from_empty_queue_will_return_null()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
             await using (queue)
@@ -265,7 +313,7 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task Can_enqueue_data_in_queue_async()
+        public async Task Can_enqueue_data_in_queue()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
             await using (queue)
@@ -277,7 +325,7 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task Can_dequeue_data_from_queue_async()
+        public async Task Can_dequeue_data_from_queue()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
             await using (queue)
@@ -291,7 +339,7 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task Queueing_and_dequeueing_empty_data_is_handled_async()
+        public async Task Queueing_and_dequeueing_empty_data_is_handled()
         {
             var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
             await using (queue)
@@ -305,7 +353,7 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task Can_enqueue_and_dequeue_data_after_restarting_queue_async()
+        public async Task Can_enqueue_and_dequeue_data_after_restarting_queuec()
         {
             // First session: enqueue data
             {
@@ -332,7 +380,7 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task After_dequeue_from_queue_item_no_longer_on_queue_async()
+        public async Task After_dequeue_from_queue_item_no_longer_on_queue()
         {
             // First session: enqueue data
             {
@@ -363,7 +411,32 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task Not_flushing_the_session_will_revert_dequeued_items_async()
+        public async Task After_dequeue_from_queue_item_no_longer_on_queue_with_queues_restarts()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var session = await queue.OpenSessionAsync())
+            {
+                await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
+                await session.FlushAsync();
+            }
+
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var session = await queue.OpenSessionAsync())
+            {
+                Assert.That(await session.DequeueAsync(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+                await session.FlushAsync();
+            }
+
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var session = await queue.OpenSessionAsync())
+            {
+                Assert.That(await session.DequeueAsync(), Is.Null);
+                await session.FlushAsync();
+            }
+        }
+
+        [Test]
+        public async Task Not_flushing_the_session_will_revert_dequeued_items()
         {
             // First session: enqueue data
             {
@@ -402,30 +475,102 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task Not_flushing_the_session_will_revert_queued_items_async()
+        public async Task Not_flushing_the_session_will_revert_queued_items()
         {
             // First session: enqueue data but don't flush
             {
-                var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                await using (queue)
+                await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
                 {
-                    var session = await queue.OpenSessionAsync();
-                    await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
+                    await using (var session = await queue.OpenSessionAsync())
+                    {
+                        await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
+                    }
                     // Explicitly omit: await session.FlushAsync();
                 }
             }
 
             // Second session: verify queue is empty
             {
-                var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5));
-                await using (queue)
+                await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
                 {
-                    var session = await queue.OpenSessionAsync();
-                    var dequeued = await session.DequeueAsync();
-                    Assert.That(dequeued, Is.Null);
-                    await session.FlushAsync();
+                    await using (var session = await queue.OpenSessionAsync())
+                    {
+                        var dequeued = await session.DequeueAsync();
+                        Assert.That(dequeued, Is.Null);
+                        await session.FlushAsync();
+                    }
                 }
             }
         }
+
+        [Test]
+        public async Task Not_flushing_the_session_will_revert_dequeued_items_two_sessions_same_queue()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var session = await queue.OpenSessionAsync())
+            {
+                await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
+                await session.FlushAsync();
+            }
+
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var session2 = await queue.OpenSessionAsync())
+            {
+                await using (var session1 = await queue.OpenSessionAsync())
+                {
+                    var dequeued = await session1.DequeueAsync();
+                    Assert.That(dequeued, Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+                    //Explicitly omitted: session.Flush();
+                }
+                Assert.That(await session2.DequeueAsync(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+                await session2.FlushAsync();
+            }
+        }
+
+        [Test]
+        public async Task Two_sessions_off_the_same_queue_cannot_get_same_item()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var session = await queue.OpenSessionAsync())
+            {
+                await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
+                await session.FlushAsync();
+            }
+
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var session2 = await queue.OpenSessionAsync())
+            await using (var session1 = await queue.OpenSessionAsync())
+            {
+                Assert.That(await session1.DequeueAsync(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+                Assert.That(await session2.DequeueAsync(), Is.Null);
+            }
+        }
+
+        [Test]
+        public async Task Items_are_reverted_in_their_original_order()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var session = await queue.OpenSessionAsync())
+            {
+                await session.EnqueueAsync(new byte[] { 1 });
+                await session.EnqueueAsync(new byte[] { 2 });
+                await session.EnqueueAsync(new byte[] { 3 });
+                await session.EnqueueAsync(new byte[] { 4 });
+                await session.FlushAsync();
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    Assert.That(await session.DequeueAsync(), Is.EqualTo(new byte[] { 1 }), $"Incorrect order on turn {i + 1}");
+                    Assert.That(await session.DequeueAsync(), Is.EqualTo(new byte[] { 2 }), $"Incorrect order on turn {i + 1}");
+                    Assert.That(await session.DequeueAsync(), Is.EqualTo(new byte[] { 3 }), $"Incorrect order on turn {i + 1}");
+                    // Dispose without `session.Flush();`
+                }
+            }
+        }
+
     }
 }
