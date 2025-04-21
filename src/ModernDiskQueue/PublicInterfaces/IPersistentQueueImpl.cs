@@ -33,7 +33,7 @@ namespace ModernDiskQueue.PublicInterfaces
         /// <param name="onReplaceStream">Continuation action if a new file is created</param>
         /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
         /// <returns>A task that represents the asynchronous operation</returns>
-        Task AcquireWriterAsync(IFileStream stream, Func<IFileStream, Task<long>> action, Action<IFileStream> onReplaceStream, CancellationToken cancellationToken = default);
+        Task AcquireWriterAsync(IFileStream stream, Func<IFileStream, CancellationToken, Task<long>> action, Action<IFileStream> onReplaceStream, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// <para>UNSAFE. Incorrect use will result in data loss.</para>

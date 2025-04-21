@@ -314,15 +314,17 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Asynchronously acquires a writer for the file stream.
         /// </summary>
-        public async Task AcquireWriterAsync(IFileStream stream, Func<IFileStream, Task<long>> action,
-            Action<IFileStream> onReplaceStream, CancellationToken cancellationToken = default)
+        public async Task AcquireWriterAsync(IFileStream stream,
+            Func<IFileStream, CancellationToken, Task<long>> action,
+            Action<IFileStream> onReplaceStream,
+            CancellationToken cancellationToken = default)
         {
             // We use a semaphore to allow async operations while maintaining the lock semantics
             using (await _writerLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 _holdsWriterLock.Value = true;
                 stream.SetPosition(CurrentFilePosition); // Set position at current file position
-                CurrentFilePosition = await action(stream).ConfigureAwait(false); // Execute the action and await the result
+                CurrentFilePosition = await action(stream, cancellationToken).ConfigureAwait(false); // Execute the action and await the result
                 // Check if we need to create a new file
                 if (CurrentFilePosition < MaxFileSize)
                 {

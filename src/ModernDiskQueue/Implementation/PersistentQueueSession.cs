@@ -55,6 +55,10 @@ namespace ModernDiskQueue.Implementation
         {
             _buffer.Add(data);
             _bufferSize += data.Length;
+
+            // When the data size exceeds the write buffer size, we need to go ahead and flush the buffer
+            // by committing the operation to the queue
+            // This will write the data to the stream and collect any exceptions in the _pendingWriteExceptions collection.
             if (_bufferSize > _writeBufferSize)
             {
                 AsyncFlushBuffer();
@@ -118,42 +122,19 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
-        /// This is a legacy function using the async prefix. It calls an async write operation (AsyncWriteToStream) but since the method
-        /// itself runs synchronously, it is not a true async method. It is kept for backward compatibility.
+        /// This method is used to flush the buffer to the stream. It is called when the buffer size exceeds the specified limit during the Enqueue operation.
+        /// Unlike FlushBufferSync, this method swallows any write exceptions, collecting them into _pendingWritesFailures
+        /// which will get thrown as an AggregateException at the end of the Flush operation.
         /// </summary>
+        /// <remarks>
+        /// This is a legacy function (from original DQ implementation) using the async prefix, not part of new async work in MDQ.
+        /// It calls an async write operation (AsyncWriteToStream) but returns immediately, and
+        /// the manualresetevents and exception collection are used to let these operations complete in their own time.
+        /// </remarks>>
         private void AsyncFlushBuffer()
         {
+            // AcquireWriter will roll over to a new file if size has been exceeded after the write operation.
             _queue.AcquireWriter(_currentStream, AsyncWriteToStream, OnReplaceStream);
-        }
-
-        // Private helper method for async buffer flushing
-        private async Task FlushBufferAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                async Task<long> WriteOperation(IFileStream stream)
-                {
-                    try
-                    {
-                        var data = ConcatenateBufferAndAddIndividualOperations(stream);
-                        return await stream.WriteAsync(data.AsMemory(), cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
-                }
-
-                await _queue.AcquireWriterAsync(
-                    _currentStream,
-                    WriteOperation,
-                    OnReplaceStream,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
         }
 
         private void FlushBufferSync()
@@ -161,12 +142,33 @@ namespace ModernDiskQueue.Implementation
             _queue.AcquireWriter(_currentStream, stream =>
             {
                 var data = ConcatenateBufferAndAddIndividualOperations(stream);
+                // This will throw an exception immediately if there's an issue.
                 return Task.FromResult(stream.Write(data));
             }, OnReplaceStream);
         }
 
+        /// <summary>
+        /// This is the async version of FlushBufferSync.
+        /// </summary>
+        private async Task FlushBufferAsync(CancellationToken cancellationToken = default)
+        {
+            await _queue.AcquireWriterAsync(
+                _currentStream,
+                WriteToStreamAsync,
+                OnReplaceStream,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Asynchronously write to the stream. This method is called when the buffer size exceeds the specified limit.
+        /// This method is called by AsyncFlushBuffer, which is called by Enqueue when the buffer size exceeds the buffer size limit
+        /// specified during session instantiation.
+        /// Exceptions are collected in _pendingWritesFailures, which will be thrown as an AggregateException at the end of the Flush operation.
+        /// </summary>
         private async Task<long> AsyncWriteToStream(IFileStream stream)
         {
+            // This will collection exceptions in _pendingWriteFailures, which 
+            // will get thrown as an AggregateException at end of Flush operation.
             var data = ConcatenateBufferAndAddIndividualOperations(stream);
             var resetEvent = new ManualResetEvent(false);
             _pendingWritesHandles.Add(resetEvent);
@@ -186,6 +188,16 @@ namespace ModernDiskQueue.Implementation
             }
 
             return positionAfterWrite;
+        }
+
+        private async Task<long> WriteToStreamAsync(IFileStream stream, CancellationToken cancellationToken = default)
+        {
+            // Use of ManualResetEvents and _pendingWritesFailures has been dropped
+            // in the async model. I believe those design decisions were made to
+            // support the use of asyncwrite in a synchronous context, and so
+            // are not needed anymore.
+            var data = ConcatenateBufferAndAddIndividualOperations(stream);
+            return await stream.WriteAsync(data.AsMemory(), cancellationToken).ConfigureAwait(false);
         }
 
         private byte[] ConcatenateBufferAndAddIndividualOperations(IFileStream stream)
@@ -273,6 +285,8 @@ namespace ModernDiskQueue.Implementation
             cancellationToken.ThrowIfCancellationRequested();
 
             var fails = new List<Exception>();
+            // I don't think I need this method since we're not using the ManualResetEvents
+            // that were used by the sync code.
             await WaitForPendingWritesAsync(fails, cancellationToken).ConfigureAwait(false);
 
             try
@@ -341,11 +355,10 @@ namespace ModernDiskQueue.Implementation
         // Helper method for async waiting
         private async Task WaitForPendingWritesAsync(List<Exception> exceptions, CancellationToken cancellationToken)
         {
-            var timeoutCount = 0;
-            var total = _pendingWritesHandles.Count;
-
             // Create an AsyncLock instance for the waiting operation.
             AsyncLock waitLock = new();
+            var timeoutCount = 0;
+            var total = _pendingWritesHandles.Count;
 
             while (_pendingWritesHandles.Count != 0)
             {
