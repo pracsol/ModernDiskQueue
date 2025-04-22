@@ -37,6 +37,15 @@ namespace ModernDiskQueue.Implementation
         /// This is only used during async initialization and disposal.
         /// </summary>
         protected readonly AsyncLock _configLockAsync = new();
+
+        // To avoid deadlocks we should use a consistent lock ordering priority
+        // when nesting locks or doing sequential operations:
+        // 1. _configLockAsync
+        // 2. _writerLockAsync
+        // 3. _transactionLogLockAsync
+        // 4. _entriesLockAsync
+        // 5. _checkedOutEntriesLockAsync
+
         private readonly AsyncLocal<bool> _holdsWriterLock = new();
         private readonly AsyncLocal<bool> _holdsEntriesLock = new();
         private readonly AsyncLocal<bool> _holdsCheckedOutEntriesLock = new();
@@ -144,7 +153,7 @@ namespace ModernDiskQueue.Implementation
         {
             // The finalizer should not be relied upon for cleanup, instead the object should be explicitly disposed
             // by the user invoking Dispose() or DisposeAsync(), either manually or through using or await using statements.
-            if (!_disposed)
+            if (!_disposed && _isAsyncMode)
             {
                 System.Diagnostics.Debug.Fail("PersistentQueueImpl was not properly disposed!");
             }
@@ -198,28 +207,65 @@ namespace ModernDiskQueue.Implementation
 
         public async Task<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken)
         {
-            try
+            if (_holdsEntriesLock.Value && _holdsCheckedOutEntriesLock.Value)
             {
-                using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                return _entries.Count + _checkedOutEntries.Count;
+            }
+            else if (_holdsEntriesLock.Value)
+            {
+                try
                 {
-                    _holdsEntriesLock.Value = true;
-                    try
+                    using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
                     {
-                        using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
-                        {
-                            _holdsCheckedOutEntriesLock.Value = true;
-                            return _entries.Count + _checkedOutEntries.Count;
-                        }
-                    }
-                    finally
-                    {
-                        _holdsCheckedOutEntriesLock.Value = false;
+                        _holdsCheckedOutEntriesLock.Value = true;
+                        return _entries.Count + _checkedOutEntries.Count;
                     }
                 }
+                finally
+                {
+                    _holdsCheckedOutEntriesLock.Value = false;
+                }
             }
-            finally
+            else if (_holdsCheckedOutEntriesLock.Value)
             {
-                _holdsEntriesLock.Value = false;
+                try
+                {
+                    using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsEntriesLock.Value = true;
+                        return _entries.Count + _checkedOutEntries.Count;
+                    }
+                }
+                finally
+                {
+                    _holdsEntriesLock.Value = false;
+                }
+            }
+            else
+            {
+                try
+                {
+                    using (await _entriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        _holdsEntriesLock.Value = true;
+                        try
+                        {
+                            using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                _holdsCheckedOutEntriesLock.Value = true;
+                                return _entries.Count + _checkedOutEntries.Count;
+                            }
+                        }
+                        finally
+                        {
+                            _holdsCheckedOutEntriesLock.Value = false;
+                        }
+                    }
+                }
+                finally
+                {
+                    _holdsEntriesLock.Value = false;
+                }
             }
         }
 
@@ -471,55 +517,36 @@ namespace ModernDiskQueue.Implementation
                     entry = first.Value ?? throw new Exception("Entry queue was in an invalid state: null entry");
 
                     // If data is there, just complete the operation and get out.
-                    if (entry.Data != null)
+                    if (entry.Data == null)
                     {
-                        _entries.RemoveFirst();
-
-                        try
+                        // Data needs loading, so load it with method that can work with existing lock.
+                        bool wasReadAheadSuccessful = await ReadAheadAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+                        if (!wasReadAheadSuccessful)
                         {
-                            // lock the checked out entries for addition of entry.
-                            using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
-                            {
-                                _holdsCheckedOutEntriesLock.Value = true;
-                                _checkedOutEntries.Add(new Entry(entry.FileNumber, entry.Start, entry.Length));
-                                return entry;
-                            }
-                        }
-                        finally
-                        {
-                            _holdsCheckedOutEntriesLock.Value = false;
+                            return null;
                         }
                     }
 
-                    // Data needs loading, so load it with method that can work with existing lock.
-                    bool waspagingSuccessful = await ReadAheadAsync_UnderLock(cancellationToken).ConfigureAwait(false);
-                    if (waspagingSuccessful)
+                    _entries.RemoveFirst();
+                    try
                     {
-                        _entries.RemoveFirst();
+                        // lock the checked out entries for addition of entry.
+                        using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            _holdsCheckedOutEntriesLock.Value = true;
+                            _checkedOutEntries.Add(new Entry(entry.FileNumber, entry.Start, entry.Length));
+                        }
                     }
-                    else
+                    finally
                     {
-                        return null;
+                        _holdsCheckedOutEntriesLock.Value = false;
                     }
-                }
-            }
-            finally
-            {
-                _holdsEntriesLock.Value = false;
-            }
-
-            try
-            {
-                using (await _checkedOutEntriesLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    _holdsCheckedOutEntriesLock.Value = true;
-                    _checkedOutEntries.Add(new Entry(entry.FileNumber, entry.Start, entry.Length));
                     return entry;
                 }
             }
             finally
             {
-                _holdsCheckedOutEntriesLock.Value = false;
+                _holdsEntriesLock.Value = false;
             }
         }
 
