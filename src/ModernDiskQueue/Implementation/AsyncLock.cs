@@ -10,16 +10,10 @@ namespace ModernDiskQueue.Implementation
     /// </summary>
     internal sealed class AsyncLock
     {
+        private volatile int _waiters = 0;
         private readonly SemaphoreSlim _semaphore = new(1, 1);
-        private readonly Task<IDisposable> _releaser;
-
-        /// <summary>
-        /// Initializes a new instance of the AsyncLock class.
-        /// </summary>
-        public AsyncLock()
-        {
-            _releaser = Task.FromResult((IDisposable)new Releaser(this));
-        }
+        private readonly AsyncLocal<(int recursionCount, int taskId)> _ownerInfo = new();
+        private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Asynchronously acquires the lock. The returned IDisposable releases the lock when disposed.
@@ -28,72 +22,77 @@ namespace ModernDiskQueue.Implementation
         /// <returns>A task representing the asynchronous operation, with an IDisposable that releases the lock.</returns>
         public async Task<IDisposable> LockAsync(CancellationToken cancellationToken = default)
         {
-            // Fast path if semaphore is available
-            if (_semaphore.CurrentCount > 0 &&
-                await _semaphore.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+            // Reentrant lock fast path
+            var currentTaskId = Environment.CurrentManagedThreadId;
+            var ownerInfo = _ownerInfo.Value;
+
+            if (ownerInfo.taskId == currentTaskId && ownerInfo.recursionCount > 0)
             {
-                return _releaser.Result;
+                // Already owned by this task, increment recursion count
+                _ownerInfo.Value = (ownerInfo.recursionCount + 1, currentTaskId);
+                return new Releaser(this, true);
             }
 
-            // Slower path with explicit await
-            await _semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-            return _releaser.Result;
+            // Fast path for uncontended case
+            if (Interlocked.CompareExchange(ref _waiters, 1, 0) == 0 &&
+                _semaphore.CurrentCount > 0 &&
+                _semaphore.Wait(0, cancellationToken))
+            {
+                _ownerInfo.Value = (1, currentTaskId);
+                return new Releaser(this, false);
+            }
+
+            // The contentious path
+            Interlocked.Increment(ref _waiters);
+            try
+            {
+                const int MaxRetries = 3;
+                for (int i = 0; i < MaxRetries; i++)
+                {
+                    if (await _semaphore.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false))
+                    {
+                        _ownerInfo.Value = (1, currentTaskId);
+                        return new Releaser(this, false);
+                    }
+                }
+                throw new TimeoutException($"Failed to acquire lock after {MaxRetries} attempts.");
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _waiters);
+            }
         }
 
-        /// <summary>
-        /// Asynchronously acquires the lock before the provided timeout expires. The returned IDisposable releases the lock when disposed.
-        /// </summary>
-        /// <param name="timeout">The maximum time to wait for the lock.</param>
-        /// <param name="cancellationToken">Optional cancellation token.</param>
-        /// <returns>A task representing the asynchronous operation, with an IDisposable that releases the lock.</returns>
-        public async Task<IDisposable?> TryLockAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        private void Release(bool isReentrant)
         {
-            if (await _semaphore.WaitAsync(timeout, cancellationToken).ConfigureAwait(false))
+            if (isReentrant)
             {
-                return _releaser.Result;
+                // Decrease recursion count
+                var info = _ownerInfo.Value;
+                _ownerInfo.Value = (info.recursionCount - 1, info.taskId);
             }
-            return null;
+            else
+            {
+                // Release the lock
+                _ownerInfo.Value = default;
+                _semaphore.Release();
+            }
         }
 
-        public async Task<IDisposable> LockAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        private class Releaser : IDisposable
         {
-            // Fast path if semaphore is available
-            if (_semaphore.CurrentCount > 0 &&
-                await _semaphore.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+            private readonly AsyncLock _lock;
+            private readonly bool _isReentrant;
+
+            public Releaser(AsyncLock @lock, bool isReentrant)
             {
-                return _releaser.Result;
-            }
-
-            // Use the specified timeout
-            if (await _semaphore.WaitAsync(timeout, cancellationToken).ConfigureAwait(false))
-            {
-                return _releaser.Result;
-            }
-
-            throw new TimeoutException($"Failed to acquire lock within {timeout.TotalSeconds} seconds.");
-        }
-
-        /// <summary>
-        /// A disposable struct that releases the lock when disposed.
-        /// </summary>
-        private sealed class Releaser : IDisposable, IAsyncDisposable
-        {
-            private readonly AsyncLock _toRelease;
-
-            internal Releaser(AsyncLock toRelease)
-            {
-                _toRelease = toRelease;
+                _lock = @lock;
+                _isReentrant = isReentrant;
             }
 
             public void Dispose()
             {
-                _toRelease._semaphore.Release();
-            }
-
-            public ValueTask DisposeAsync()
-            {
-                _toRelease._semaphore.Release();
-                return ValueTask.CompletedTask;
+                _lock.Release(_isReentrant);
             }
         }
     }
