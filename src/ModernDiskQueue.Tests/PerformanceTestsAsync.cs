@@ -390,7 +390,7 @@ namespace ModernDiskQueue.Tests
             };
 
             enqueueThread.Start();
-            Thread.Sleep(TimeSpan.FromSeconds(10));
+            Thread.Sleep(TimeSpan.FromSeconds(18));
 
             var rnd = new Random();
             var threads = new Thread[100];
