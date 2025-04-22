@@ -1,0 +1,800 @@
+namespace ModernDiskQueue.Tests
+{
+    using ModernDiskQueue.Tests.Models;
+    using NUnit.Framework;
+    using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Linq;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    [TestFixture, Explicit, SingleThreaded]
+    public class PerformanceTestsAsync : PersistentQueueTestsBase
+    {
+        private const int LargeCount = 1000000;
+        private const int SmallCount = 500;
+
+        protected override string QueuePath => "PerformanceTests";
+
+        private int _totalDequeues;
+
+        [Test, Description(
+            "With a mid-range SSD, this is some 20x slower " +
+            "than with a single flush (depends on disk speed)")]
+        public async Task Enqueue_million_items_with_100_flushes()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                for (int i = 0; i < 100; i++)
+                {
+                    await using (var session = await queue.OpenSessionAsync())
+                    {
+                        for (int j = 0; j < 10000; j++)
+                        {
+                            await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
+                        }
+                        await session.FlushAsync();
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public async Task Enqueue_million_items_with_single_flush()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < LargeCount; i++)
+                    {
+                        await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
+                    }
+                    await session.FlushAsync();
+                }
+            }
+        }
+
+        [Test]
+        public async Task write_heavy_multi_thread_workload()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await queue.HardDeleteAsync(false);
+            }
+
+            var rnd = new Random();
+            var threads = new Thread[200];
+
+            // enqueue threads
+            for (int i = 0; i < 100; i++)
+            {
+                var j = i;
+                threads[i] = new Thread(async () =>
+                {
+                    for (int k = 0; k < 10; k++)
+                    {
+                        await Task.Delay(rnd.Next(5));
+                        await using (var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(50)))
+                        {
+                            await using var s = await q.OpenSessionAsync();
+                            await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Thread {j} enqueue {k}"));
+                            await s.FlushAsync();
+                        }
+                    }
+                })
+                { IsBackground = true };
+                threads[i].Start();
+            }
+
+            // dequeue single
+            Thread.Sleep(1000);
+            var count = 0;
+            while (true)
+            {
+                byte[]? bytes;
+                await using (var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(50)))
+                {
+                    await using (var s = await q.OpenSessionAsync())
+                    {
+                        bytes = await s.DequeueAsync();
+                        await s.FlushAsync();
+                    }
+                }
+
+                if (bytes is null) break;
+                count++;
+                Console.WriteLine(Encoding.ASCII.GetString(bytes));
+            }
+            Assert.That(count, Is.EqualTo(1000), "did not receive all messages");
+        }
+
+        /// <summary>
+        /// This test simulates a read-heavy workload with multiple threads concurrenty dequeuing items from the queue.
+		/// Just as with the Enqueue_million_items_with_100_flushes test, this is heavily dependent on the host
+		/// system performance. To be able to complete in time, one may need to adjust the sleep duration before
+		/// the dequeue operation starts in order to give the enqueue operation more of a head start. One thread
+		/// performing 1000 write operations doesn't complete as quickly as 100 threads doing read operations.
+		/// To some extent the read_heavy and write_heavy tests can be used as performance profilers if you
+		/// know the demand that will be placed on the queue and can run the tests on a system with a similar
+		/// performance profile as your deployment target.
+        /// </summary>
+        [Test]
+        public async Task read_heavy_multi_thread_workload()
+        {
+            DateTime testStartTime = DateTime.Now;
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await queue.HardDeleteAsync(false);
+            }
+            // shared counter for total dequeues
+            int totalDequeues = 0;
+
+            // enqueue 1000 items in a single thread.
+            var enqueueThread = new Thread(async () =>
+            {
+                var enqueueStartTime = DateTime.Now;
+                for (int i = 0; i < 1000; i++)
+                {
+                    await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(50));
+                    await using var s = await q.OpenSessionAsync();
+                    await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
+                    await s.FlushAsync();
+                }
+                Console.WriteLine($"Enqueue thread finished, took {(DateTime.Now - enqueueStartTime).TotalSeconds} seconds.");
+            });
+
+            enqueueThread.Start();
+            //enqueueThread.Join(); // wait for the enqueue thread to finish
+            // If we don't wait for the enqueue thread to complete, the dequeue thread will start over top of it. 
+            // The dequeue threads will quickly outpace the writing (enqueue) thread if enough head start isn't
+            // given (thread.sleep). This also depends greatly on disk performance. Instead of doing a single flush
+            // on the writes, a flush per enqueue is going to be very slow. But if this test is to simulate
+            // a very active concurrent environment with more readers than writers, this may be a good way to 
+            // understand the performance limitations and characteristics.
+
+            Thread.Sleep(18000);
+            var rnd = new Random();
+            var threads = new Thread[200];
+
+            DateTime dequeueStartTime = DateTime.Now;
+
+            try
+            {
+                // dequeue threads
+                for (int i = 0; i < 100; i++)
+                {
+                    threads[i] = new Thread(async () =>
+                    {
+                        var count = 10;
+                        while (count > 0)
+                        {
+                            await Task.Delay(rnd.Next(5));
+                            await using (var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(80)))
+                            {
+                                using var s = await q.OpenSessionAsync();
+                                var data = await s.DequeueAsync();
+                                if (data != null)
+                                {
+                                    count--;
+                                    int newCount = Interlocked.Increment(ref totalDequeues);
+                                    //Console.WriteLine($"Thread {Thread.CurrentThread.ManagedThreadId} dequeued: {Encoding.ASCII.GetString(data)}, Total: {newCount}");
+                                }
+
+                                await s.FlushAsync();
+                            }
+                        }
+                    })
+                    { IsBackground = true };
+                    threads[i].Start();
+                }
+
+                for (int e = 0; e < 100; e++)
+                {
+                    if (!threads[e].Join(80_000)) Assert.Fail($"reader timeout on thread {e}");
+                }
+            }
+            catch (SuccessException) { }
+            catch (Exception ex)
+            {
+                Assert.Fail($"Exception during read-heavy workload: {ex.GetType().Name} {ex.Message} {ex.StackTrace}; Dequeue counter was at: {totalDequeues}.");
+            }
+            Console.WriteLine($"All dequeue threads finished, took {(DateTime.Now - dequeueStartTime).TotalSeconds} seconds. Total dequeues: {totalDequeues}.");
+            Console.WriteLine($"Total test time took {(DateTime.Now - testStartTime).TotalSeconds} seconds.");
+        }
+
+        [Test]
+        public async Task PerformanceProfiler_ReadHeavyMultiThread_StatsCollection()
+        {
+            // Pre-allocate metrics collections to async Task resizing
+            var metrics = new ConcurrentQueue<OperationMetrics>();
+            var _totalDequeues = 0;
+            var successfulThreads = 0;
+            var failedThreads = new ConcurrentBag<(int threadId, string reason)>();
+
+            DateTime testStartTime = DateTime.Now;
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await queue.HardDeleteAsync(false);
+            }
+
+            // Create a manualresetevent to signal thread completion.
+            var enqueueCompleted = new ManualResetEventSlim(false);
+            var dequeueCompleted = new ManualResetEventSlim(false);
+
+            // enqueue thread
+            var enqueueThread = new Thread(() =>
+            {
+                try
+                {
+                    Task enqueue = RunEnqueueOperationsSync(metrics, enqueueCompleted);
+                    enqueue.Wait();
+                    enqueueCompleted.Set();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Enqueue thread failed: {ex.Message}");
+                    enqueueCompleted.Set();
+                }
+                
+            })
+            { 
+                IsBackground = true 
+            };
+
+            enqueueThread.Start();
+            Thread.Sleep(18000);
+
+            var rnd = new Random();
+            var threads = new Thread[100];
+            var dequeueCompletedEvents = new ManualResetEventSlim[threads.Length];
+            DateTime dequeueStartTime = DateTime.Now;
+
+            try
+            {
+                // dequeue threads
+                for (int i = 0; i < 100; i++)
+                {
+                    dequeueCompletedEvents[i] = new ManualResetEventSlim(false);
+                    int threadIndex = i;
+
+                    threads[i] = new Thread(() =>
+                    {
+                        try
+                        {
+                            Task dequeue = RunDequeueOperationsSync(
+                                metrics,
+                                rnd,
+                                threadIndex,
+                                dequeueCompletedEvents[threadIndex]
+                                );
+                            dequeue.Wait();
+
+                            Interlocked.Increment(ref successfulThreads);
+                        }
+                        catch (Exception ex)
+                        {
+                            failedThreads.Add((threadIndex, ex.Message));
+                            dequeueCompletedEvents[threadIndex].Set();
+                        }
+                        
+                    })
+                    { IsBackground = true };
+                    threads[i].Start();
+                }
+
+                for (int e = 0; e < threads.Length; e++)
+                {
+                    if (!dequeueCompletedEvents[e].Wait(TimeSpan.FromMinutes(3)))
+                    {
+                        failedThreads.Add((e, "timeout"));
+                    }
+                }
+            }
+            finally
+            {
+                for (int i = 0; i < threads.Length; i++)
+                {
+                    dequeueCompletedEvents[i].Dispose();
+                }
+                enqueueCompleted.Dispose();
+
+                GeneratePerformanceReport(
+                    metrics.ToList(),
+                    testStartTime,
+                    dequeueStartTime,
+                    _totalDequeues,
+                    successfulThreads,
+                    failedThreads);
+
+
+                Assert.That(successfulThreads, Is.EqualTo(threads.Length), "Not all threads completed successfully.");
+            }
+        }
+
+        [Test]
+        public async Task PerformanceProfiler_ReadHeavyMultiThread_StatsCollection_v2()
+        {
+            // Pre-allocate metrics collections to async Task resizing
+            var metrics = new ConcurrentQueue<OperationMetrics>();
+            var _totalDequeues = 0;
+            var successfulThreads = 0;
+            var failedThreads = new ConcurrentBag<(int threadId, string reason)>();
+
+            DateTime testStartTime = DateTime.Now;
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await queue.HardDeleteAsync(false);
+            }
+
+            var threadsCompleted = new CountdownEvent(101);
+
+            // enqueue thread
+            var enqueueThread = new Thread(() =>
+            {
+                try
+                {
+                    Task.Run(async () =>
+                    {
+                        var threadId = Environment.CurrentManagedThreadId;
+                        var enqueueStartTime = DateTime.Now;
+                        var stopwatch = new Stopwatch();
+
+                        for (int i = 0; i < 1000; i++)
+                        {
+                            var metric = new OperationMetrics
+                            {
+                                ThreadId = threadId,
+                                ItemNumber = i,
+                                Operation = "enqueue",
+                                Time = DateTime.Now
+                            };
+
+                            stopwatch.Restart();
+                            await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(50));
+                            {
+                                metric.QueueCreateTime = stopwatch.Elapsed;
+
+                                stopwatch.Restart();
+                                await using var s = await q.OpenSessionAsync();
+                                metric.SessionTime = stopwatch.Elapsed;
+
+                                stopwatch.Restart();
+                                await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
+                                metric.OperationTime = stopwatch.Elapsed;
+
+                                stopwatch.Restart();
+                                await s.FlushAsync();
+                                metric.FlushTime = stopwatch.Elapsed;
+                            }
+                            metrics.Enqueue(metric);
+                        }
+                        Console.WriteLine($"Enqueue thread finished, took {(DateTime.Now - enqueueStartTime).TotalSeconds:F2} seconds.");
+                    }).Wait(TimeSpan.FromSeconds(60));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Enqueue thread failed: {ex.Message}");
+                }
+                finally
+                {
+                    threadsCompleted.Signal();
+                }
+
+            })
+            {
+                IsBackground = true
+            };
+
+            enqueueThread.Start();
+            Thread.Sleep(TimeSpan.FromSeconds(10));
+
+            var rnd = new Random();
+            var threads = new Thread[100];
+            DateTime dequeueStartTime = DateTime.Now;
+
+            try
+            {
+                // dequeue threads
+                for (int i = 0; i < 100; i++)
+                {
+                    int threadIndex = i;
+
+                    threads[i] = new Thread(() =>
+                    {
+                        try
+                        {
+                            Task.Run(async () =>
+                            {
+                                var threadId = Environment.CurrentManagedThreadId;
+                                var stopwatch = new Stopwatch();
+                                var count = 10;
+
+                                while (count > 0)
+                                {
+                                    await Task.Delay(rnd.Next(5));
+
+                                    var metric = new OperationMetrics
+                                    {
+                                        ThreadId = threadId,
+                                        Operation = "dequeue",
+                                        Time = DateTime.Now
+                                    };
+
+                                    stopwatch.Restart();
+                                    await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(80));
+                                    {
+
+                                        metric.QueueCreateTime = stopwatch.Elapsed;
+
+                                        stopwatch.Restart();
+                                        await using var s = await q.OpenSessionAsync();
+                                        {
+                                            metric.SessionTime = stopwatch.Elapsed;
+
+                                            stopwatch.Restart();
+                                            var data = await s.DequeueAsync();
+                                            metric.OperationTime = stopwatch.Elapsed;
+
+                                            if (data != null)
+                                            {
+                                                count--;
+                                                metric.ItemNumber = Interlocked.Increment(ref _totalDequeues);
+
+                                                stopwatch.Restart();
+                                                await s.FlushAsync();
+                                                metric.FlushTime = stopwatch.Elapsed;
+
+                                                metrics.Enqueue(metric);
+                                            }
+                                        }
+                                    }
+                                }
+                                Interlocked.Increment(ref successfulThreads);
+                            }).Wait(TimeSpan.FromSeconds(180));
+                        }
+                        catch (Exception ex)
+                        {
+                            failedThreads.Add((threadIndex, ex.Message));
+                        }
+                        finally
+                        {
+                            threadsCompleted.Signal();
+                        }
+
+                    })
+                    { IsBackground = true };
+                    threads[i].Start();
+                }
+
+                if (!threadsCompleted.Wait(TimeSpan.FromMinutes(3)))
+                {
+                    for (int i = 0; i < threads.Length; i++)
+                    {
+                        if (!threads[i].IsAlive)
+                        {
+                            failedThreads.Add((i, "timeout"));
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                GeneratePerformanceReport(
+                    metrics.ToList(),
+                    testStartTime,
+                    dequeueStartTime,
+                    _totalDequeues,
+                    successfulThreads,
+                    failedThreads);
+
+                Assert.That(successfulThreads, Is.EqualTo(threads.Length), "Not all threads completed successfully.");
+                threadsCompleted.Dispose();
+            }
+        }
+
+
+        [Test]
+        public async Task Enqueue_and_dequeue_million_items_same_queue()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < LargeCount; i++)
+                    {
+                        await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
+                    }
+                    await session.FlushAsync();
+                }
+
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < LargeCount; i++)
+                    {
+                        Ignore();
+                    }
+                    await session.FlushAsync();
+                }
+            }
+        }
+
+        private static void Ignore() { }
+
+        [Test]
+        public async Task Enqueue_and_dequeue_million_items_restart_queue()
+        {
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < LargeCount; i++)
+                    {
+                        await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
+                    }
+                    await session.FlushAsync();
+                }
+            }
+
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < LargeCount; i++)
+                    {
+                        Ignore();
+                    }
+                    await session.FlushAsync();
+                }
+            }
+        }
+
+        [Test]
+        public async Task Enqueue_and_dequeue_large_items_with_restart_queue()
+        {
+            var random = new Random();
+            var itemsSizes = new List<int>();
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < SmallCount; i++)
+                    {
+                        var data = new byte[random.Next(1024 * 512, 1024 * 1024)];
+                        itemsSizes.Add(data.Length);
+                        await session.EnqueueAsync(data);
+                    }
+
+                    await session.FlushAsync();
+                }
+            }
+
+            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            {
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < SmallCount; i++)
+                    {
+                        var dequeued = await session.DequeueAsync();
+                        Assert.That(itemsSizes[i], Is.EqualTo(dequeued?.Length ?? -1));
+                    }
+
+                    await session.FlushAsync();
+                }
+            }
+        }
+
+        private static void GeneratePerformanceReport(
+            List<OperationMetrics> metrics,
+            DateTime testStartTime,
+            DateTime dequeueStartTime,
+            int totalDequeues,
+            int successfulThreads,
+            IEnumerable<(int threadId, string reason)> failedThreads)
+        {
+            var totalTime = (DateTime.Now - testStartTime).TotalSeconds;
+            var dequeueTime = (DateTime.Now - dequeueStartTime).TotalSeconds;
+
+            var enqueueMetrics = metrics.Where(m => m.Operation == "enqueue").ToList();
+            var dequeueMetrics = metrics.Where(m => m.Operation == "dequeue").ToList();
+
+            Console.WriteLine("\n=== Overall Performance Report ===");
+            Console.WriteLine($"Total test time: {totalTime:F2} seconds");
+            Console.WriteLine($"Total successful dequeues: {totalDequeues}");
+            Console.WriteLine($"Successful threads: {successfulThreads}/100");
+
+            if (failedThreads.Any())
+            {
+                Console.WriteLine("\nFailed Threads:");
+                foreach (var (threadId, reason) in failedThreads)
+                {
+                    Console.WriteLine($"Thread {threadId}: {reason}");
+                }
+            }
+
+            if (enqueueMetrics.Count != 0)
+            {
+                Console.WriteLine("\n=== Enqueue Performance ===");
+                PrintOperationStats("Enqueue", enqueueMetrics);
+            }
+
+            if (dequeueMetrics.Count != 0)
+            {
+                Console.WriteLine("\n=== Dequeue Performance ===");
+                PrintOperationStats("Dequeue", dequeueMetrics);
+            }
+
+            // Overall throughput analysis
+            Console.WriteLine("\n=== Throughput Analysis ===");
+            var enqueueRate = enqueueMetrics.Count / (dequeueStartTime - testStartTime).TotalSeconds;
+            var dequeueRate = dequeueMetrics.Count / dequeueTime;
+            Console.WriteLine($"Enqueue rate: {enqueueRate:F2} items/second");
+            Console.WriteLine($"Dequeue rate: {dequeueRate:F2} items/second");
+        }
+
+        private static void PrintOperationStats(string operation, List<OperationMetrics> metrics)
+        {
+            var totalOps = metrics.Count;
+            var avgTotal = metrics.Average(m =>
+        (m.QueueCreateTime + m.SessionTime + m.OperationTime + m.FlushTime).TotalMilliseconds);
+
+            Console.WriteLine($"Total {operation}s: {totalOps}");
+            Console.WriteLine($"Average time per operation: {avgTotal:F2}ms");
+
+            Console.WriteLine("\nOperation Breakdown (averages in ms):");
+            Console.WriteLine($"Queue Creation: {metrics.Average(m => m.QueueCreateTime.TotalMilliseconds):F2}");
+            Console.WriteLine($"Session Creation: {metrics.Average(m => m.SessionTime.TotalMilliseconds):F2}");
+            Console.WriteLine($"{operation} Operation: {metrics.Average(m => m.OperationTime.TotalMilliseconds):F2}");
+            Console.WriteLine($"Flush Operation: {metrics.Average(m => m.FlushTime.TotalMilliseconds):F2}");
+
+            var totalTimes = metrics.Select(m =>
+        (m.QueueCreateTime + m.SessionTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
+        .OrderBy(t => t)
+        .ToList();
+
+            Console.WriteLine("\nLatency Percentiles (ms):");
+            Console.WriteLine($"P50: {GetPercentile(totalTimes, 0.5):F2}");
+            Console.WriteLine($"P90: {GetPercentile(totalTimes, 0.9):F2}");
+            Console.WriteLine($"P95: {GetPercentile(totalTimes, 0.95):F2}");
+            Console.WriteLine($"P99: {GetPercentile(totalTimes, 0.99):F2}");
+
+            // Show 5 slowest operations
+            var slowest = metrics.OrderByDescending(m =>
+        (m.QueueCreateTime + m.SessionTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
+        .Take(5);
+
+            Console.WriteLine($"\nSlowest {operation} Operations:");
+            foreach (var op in slowest)
+            {
+                Console.WriteLine(
+                    $"Thread {op.ThreadId}, Item {op.ItemNumber}: " +
+                    $"Total {(op.QueueCreateTime + op.SessionTime + op.OperationTime + op.FlushTime).TotalMilliseconds:F2}ms " +
+                    $"(Queue: {op.QueueCreateTime.TotalMilliseconds:F2}ms, " +
+                    $"Session: {op.SessionTime.TotalMilliseconds:F2}ms, " +
+                    $"Op: {op.OperationTime.TotalMilliseconds:F2}ms, " +
+                    $"Flush: {op.FlushTime.TotalMilliseconds:F2}ms)");
+            }
+        }
+
+        private static double GetPercentile(List<double> sequence, double percentile)
+        {
+            var sorted = sequence.OrderBy(x => x).ToList();
+            int N = sorted.Count;
+            double n = (N - 1) * percentile + 1;
+            if (n == 1) return sorted[0];
+            if (n == N) return sorted[N - 1];
+            int k = (int)n;
+            double d = n - k;
+            return sorted[k - 1] + d * (sorted[k] - sorted[k - 1]);
+        }
+
+        private async Task RunEnqueueOperationsSync(
+            ConcurrentQueue<OperationMetrics> metrics,
+            ManualResetEventSlim completedEvent)
+        {
+            var threadId = Environment.CurrentManagedThreadId;
+            var enqueueStartTime = DateTime.Now;
+            var stopwatch = new Stopwatch();
+
+            try
+            {
+                for (int i = 0; i < 1000; i++)
+                {
+                    var metric = new OperationMetrics
+                    {
+                        ThreadId = threadId,
+                        ItemNumber = i,
+                        Operation = "enqueue",
+                        Time = DateTime.Now
+                    };
+
+                    stopwatch.Restart();
+                    await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(50));
+                    {
+                        metric.QueueCreateTime = stopwatch.Elapsed;
+
+                        stopwatch.Restart();
+                        await using var s = await q.OpenSessionAsync();
+                        metric.SessionTime = stopwatch.Elapsed;
+
+                        stopwatch.Restart();
+                        await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
+                        metric.OperationTime = stopwatch.Elapsed;
+
+                        stopwatch.Restart();
+                        await s.FlushAsync();
+                        metric.FlushTime = stopwatch.Elapsed;
+                    }
+                    metrics.Enqueue(metric);
+                }
+                Console.WriteLine($"Enqueue thread finished, took {(DateTime.Now - enqueueStartTime).TotalSeconds:F2} seconds.");
+            }
+            finally
+            {
+                completedEvent.Set();
+            }
+        }
+
+        private async Task RunDequeueOperationsSync(
+            ConcurrentQueue<OperationMetrics> metrics,
+            Random rnd,
+            int threadIndex,
+            ManualResetEventSlim completedEvent)
+        {
+            var threadId = Environment.CurrentManagedThreadId;
+            var stopwatch = new Stopwatch();
+            var count = 10;
+
+            try
+            {
+                while (count > 0)
+                {
+                    await Task.Delay(rnd.Next(5));
+
+                    var metric = new OperationMetrics
+                    {
+                        ThreadId = threadId,
+                        Operation = "dequeue",
+                        Time = DateTime.Now
+                    };
+
+                    stopwatch.Restart();
+                    await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(80));
+                    {
+
+                        metric.QueueCreateTime = stopwatch.Elapsed;
+
+                        stopwatch.Restart();
+                        await using var s = await q.OpenSessionAsync();
+                        {
+                            metric.SessionTime = stopwatch.Elapsed;
+
+                            stopwatch.Restart();
+                            var data = await s.DequeueAsync();
+                            metric.OperationTime = stopwatch.Elapsed;
+
+                            if (data != null)
+                            {
+                                count--;
+                                metric.ItemNumber = Interlocked.Increment(ref _totalDequeues);
+
+                                stopwatch.Restart();
+                                await s.FlushAsync();
+                                metric.FlushTime = stopwatch.Elapsed;
+
+                                metrics.Enqueue(metric);
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                completedEvent.Set();
+            }
+        }
+    }
+}

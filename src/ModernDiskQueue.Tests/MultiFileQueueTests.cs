@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using System;
 using System.IO;
 // ReSharper disable AssignNullToNotNullAttribute
 
@@ -91,10 +92,12 @@ namespace ModernDiskQueue.Tests
                     using (var session = queue.OpenSession())
                     {
                         session.Enqueue(new[] { i });
+                        Console.WriteLine(queue.Internals.CurrentFileNumber);
                         session.Flush();
                     }
                 }
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
+                Console.WriteLine($"File number: {queue.Internals.CurrentFileNumber}");
             }
 
             using (var queue = new PersistentQueue(QueuePath, 10))
@@ -103,7 +106,9 @@ namespace ModernDiskQueue.Tests
                 {
                     using (var session = queue.OpenSession())
                     {
-                        Assert.That(i, Is.EqualTo(session.Dequeue()?[0]));
+                        var value = session.Dequeue();
+                        Console.WriteLine(value[0]);
+                        Assert.That(i, Is.EqualTo(value?[0]));
                         session.Flush();
                     }
                 }

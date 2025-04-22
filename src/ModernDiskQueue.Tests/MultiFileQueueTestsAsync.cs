@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 // ReSharper disable AssignNullToNotNullAttribute
@@ -92,10 +93,12 @@ namespace ModernDiskQueue.Tests
                     await using (var session = await queue.OpenSessionAsync())
                     {
                         await session.EnqueueAsync(new[] { i });
+                        Console.WriteLine(queue.Internals.CurrentFileNumber);
                         await session.FlushAsync();
                     }
                 }
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
+                Console.WriteLine($"File number: {queue.Internals.CurrentFileNumber}");
             }
 
             await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
@@ -105,6 +108,7 @@ namespace ModernDiskQueue.Tests
                     await using (var session = await queue.OpenSessionAsync())
                     {
                         var value = await session.DequeueAsync();
+                        Console.WriteLine(value[0]);
                         Assert.That(value, Is.Not.Null);
                         Assert.That(i, Is.EqualTo(value?[0]));
                         await session.FlushAsync();
