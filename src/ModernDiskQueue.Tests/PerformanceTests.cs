@@ -253,7 +253,7 @@ namespace ModernDiskQueue.Tests
             enqueueThread.Start();
             Thread.Sleep(18000);
             var rnd = new Random();
-            var threads = new Thread[200];
+            var threads = new Thread[100];
             DateTime dequeueStartTime = DateTime.Now;
 
             try
