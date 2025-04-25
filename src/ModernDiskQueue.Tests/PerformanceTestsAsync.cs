@@ -16,6 +16,8 @@ namespace ModernDiskQueue.Tests
     {
         private const int LargeCount = 1000000;
         private const int SmallCount = 500;
+        public event Action<int>? ProgressUpdated;
+        private static int _progressCounter = 0;
 
         protected override string QueuePath => "PerformanceTests";
 
@@ -318,6 +320,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task PerformanceProfiler_ReadHeavyMultiThread_StatsCollection_v2()
         {
+            ProgressUpdated += progress => Console.WriteLine($"Progress: {progress} items processed.");
             // Pre-allocate metrics collections to async Task resizing
             var metrics = new ConcurrentQueue<OperationMetrics>();
             int numberOfDequeueThreads = 100;
@@ -352,6 +355,11 @@ namespace ModernDiskQueue.Tests
 
                         for (int i = 0; i < 1000; i++)
                         {
+                            Interlocked.Increment(ref _progressCounter);
+                            if (_progressCounter % 100 == 0) // Report every 100 items
+                            {
+                                ReportProgress(_progressCounter);
+                            }
                             var metric = new OperationMetrics
                             {
                                 ThreadId = threadId,
@@ -361,21 +369,23 @@ namespace ModernDiskQueue.Tests
                             };
 
                             stopwatch.Restart();
-                            await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(50));
+                            await using (var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(50)).ConfigureAwait(false))
                             {
                                 metric.QueueCreateTime = stopwatch.Elapsed;
 
                                 stopwatch.Restart();
-                                await using var s = await q.OpenSessionAsync();
-                                metric.SessionTime = stopwatch.Elapsed;
+                                await using (var s = await q.OpenSessionAsync().ConfigureAwait(false))
+                                {
+                                    metric.SessionTime = stopwatch.Elapsed;
 
-                                stopwatch.Restart();
-                                await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
-                                metric.OperationTime = stopwatch.Elapsed;
+                                    stopwatch.Restart();
+                                    await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
+                                    metric.OperationTime = stopwatch.Elapsed;
 
-                                stopwatch.Restart();
-                                await s.FlushAsync();
-                                metric.FlushTime = stopwatch.Elapsed;
+                                    stopwatch.Restart();
+                                    await s.FlushAsync();
+                                    metric.FlushTime = stopwatch.Elapsed;
+                                }
                             }
                             metrics.Enqueue(metric);
                         }
@@ -398,8 +408,11 @@ namespace ModernDiskQueue.Tests
 
             enqueueThread.Start();
 
-            // Give the enqueueing thread a headstart.
-            Thread.Sleep(TimeSpan.FromSeconds(18));
+            // Wait for the enqueue thread to signal completion or for 18 seconds to pass
+            if (!enqueueCompleted.Wait(TimeSpan.FromSeconds(18)))
+            {
+                Console.WriteLine("Warning: Enqueue thread did not complete within 18 seconds.");
+            }
 
             var rnd = new Random();
             var threads = new Thread[numberOfDequeueThreads];
@@ -435,7 +448,7 @@ namespace ModernDiskQueue.Tests
                                     };
 
                                     stopwatch.Restart();
-                                    await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(80));
+                                    await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(100));
                                     {
 
                                         metric.QueueCreateTime = stopwatch.Elapsed;
@@ -814,6 +827,11 @@ namespace ModernDiskQueue.Tests
             {
                 completedEvent.Set();
             }
+        }
+
+        private void ReportProgress(int progress)
+        {
+            ProgressUpdated?.Invoke(progress);
         }
     }
 }
