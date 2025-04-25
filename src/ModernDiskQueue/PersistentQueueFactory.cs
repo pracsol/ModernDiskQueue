@@ -2,6 +2,7 @@
 namespace ModernDiskQueue
 {
     using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.Implementation.Logging;
     using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;

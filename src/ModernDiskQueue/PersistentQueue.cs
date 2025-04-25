@@ -67,7 +67,7 @@ namespace ModernDiskQueue
         /// Create or connect to a persistent store at the given storage path.
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
@@ -82,7 +82,7 @@ namespace ModernDiskQueue
         /// Create or connect to a persistent store at the given storage path.
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
@@ -151,7 +151,7 @@ namespace ModernDiskQueue
         /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist.</param>
@@ -171,7 +171,7 @@ namespace ModernDiskQueue
         /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist.</param>
@@ -193,7 +193,7 @@ namespace ModernDiskQueue
         /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <typeparam name="T"></typeparam>
@@ -213,7 +213,7 @@ namespace ModernDiskQueue
         /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         /// <typeparam name="T"></typeparam>
@@ -292,7 +292,7 @@ namespace ModernDiskQueue
         /// Asynchronously opens a read/write session with the queue.
         /// </summary>
         /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c> 
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
         public async Task<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default)
