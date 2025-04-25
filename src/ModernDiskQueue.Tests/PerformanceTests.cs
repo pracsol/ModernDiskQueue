@@ -204,12 +204,29 @@ namespace ModernDiskQueue.Tests
         {
             // Pre-allocate metrics collections to avoid resizing
             var metrics = new ConcurrentQueue<OperationMetrics>();
+
+            // Arrange test parameters
+            int numberOfDequeueThreads = 100;
+            int enqueueHeadstartInSeconds = 18;
+            int timeoutForQueueCreationDuringDequeueInSeconds = 100;
+            int timeoutForQueueCreationDuringEnqueueInSeconds = 50;
             var totalDequeues = 0;
             var successfulThreads = 0;
             var failedThreads = new ConcurrentBag<(int threadId, string reason)>();
 
             DateTime testStartTime = DateTime.Now;
-            using (var queue = new PersistentQueue(QueuePath)) { queue.HardDelete(false); }
+            using (var queue = new PersistentQueue(QueuePath))
+            {
+                queue.HardDelete(false);
+            }
+
+            var enqueueCompleted = new ManualResetEventSlim(false);
+            var dequeueCompletedEvents = new ManualResetEvent[numberOfDequeueThreads];
+
+            for (int i = 0; i < dequeueCompletedEvents.Length; i++)
+            {
+                dequeueCompletedEvents[i] = new ManualResetEvent(false);
+            }
 
             // enqueue thread
             var enqueueThread = new Thread(() =>
@@ -218,52 +235,75 @@ namespace ModernDiskQueue.Tests
                 var enqueueStartTime = DateTime.Now;
                 var stopwatch = new Stopwatch();
 
-                for (int i = 0; i < 1000; i++)
+                try
                 {
-                    var metric = new OperationMetrics
+                    for (int i = 0; i < 1000; i++)
                     {
-                        ThreadId = threadId,
-                        ItemNumber = i,
-                        Operation = "enqueue",
-                        Time = DateTime.Now
-                    };
-
-                    stopwatch.Restart();
-                    using var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(50));
-                    {
-                        metric.QueueCreateTime = stopwatch.Elapsed;
+                        var metric = new OperationMetrics
+                        {
+                            ThreadId = threadId,
+                            ItemNumber = i,
+                            Operation = "enqueue",
+                            Time = DateTime.Now
+                        };
 
                         stopwatch.Restart();
-                        using var s = q.OpenSession();
-                        metric.SessionTime = stopwatch.Elapsed;
+                        using var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(timeoutForQueueCreationDuringEnqueueInSeconds));
+                        {
+                            metric.QueueCreateTime = stopwatch.Elapsed;
 
-                        stopwatch.Restart();
-                        s.Enqueue(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
-                        metric.OperationTime = stopwatch.Elapsed;
+                            stopwatch.Restart();
+                            using (var s = q.OpenSession())
+                            {
+                                metric.SessionTime = stopwatch.Elapsed;
 
-                        stopwatch.Restart();
-                        s.Flush();
-                        metric.FlushTime = stopwatch.Elapsed;
+                                stopwatch.Restart();
+                                s.Enqueue(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
+                                metric.OperationTime = stopwatch.Elapsed;
+
+                                stopwatch.Restart();
+                                s.Flush();
+                                metric.FlushTime = stopwatch.Elapsed;
+                            }
+                        }
+                        metrics.Enqueue(metric);
                     }
-                    metrics.Enqueue(metric);
+                    Console.WriteLine($"Enqueue thread finished, took {(DateTime.Now - enqueueStartTime).TotalSeconds:F2} seconds.");
                 }
-                Console.WriteLine($"Enqueue thread finished, took {(DateTime.Now - enqueueStartTime).TotalSeconds:F2} seconds.");
-            });
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Enqueue thread failed: {ex.Message}");
+                }
+                finally
+                {
+                    enqueueCompleted.Set();
+                }
+            })
+            {
+                IsBackground = true
+            };
 
             enqueueThread.Start();
-            Thread.Sleep(18000);
+
+            // Wait for the enqueue thread to signal completion or for 18 seconds to pass
+            if (!enqueueCompleted.Wait(TimeSpan.FromSeconds(enqueueHeadstartInSeconds)))
+            {
+                Console.WriteLine($"Warning: Enqueue thread did not complete within {enqueueHeadstartInSeconds} second headstart.");
+            }
+
             var rnd = new Random();
-            var threads = new Thread[100];
+            var threads = new Thread[numberOfDequeueThreads];
             DateTime dequeueStartTime = DateTime.Now;
 
             try
             {
                 // dequeue threads
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < threads.Length; i++)
                 {
+                    var completionEvent = dequeueCompletedEvents[i];
                     threads[i] = new Thread(() =>
                     {
-                        var threadId = Environment.CurrentManagedThreadId;
+                        var threadIndex = Environment.CurrentManagedThreadId;
                         var stopwatch = new Stopwatch();
                         var count = 10;
 
@@ -275,13 +315,13 @@ namespace ModernDiskQueue.Tests
 
                                 var metric = new OperationMetrics
                                 {
-                                    ThreadId = threadId,
+                                    ThreadId = threadIndex,
                                     Operation = "dequeue",
                                     Time = DateTime.Now
                                 };
 
                                 stopwatch.Restart();
-                                using var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(80));
+                                using var q = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(timeoutForQueueCreationDuringDequeueInSeconds));
                                 {
 
                                     metric.QueueCreateTime = stopwatch.Elapsed;
@@ -311,25 +351,46 @@ namespace ModernDiskQueue.Tests
                             }
                             Interlocked.Increment(ref successfulThreads);
                         }
+                        catch (TimeoutException ex)
+                        {
+                            Console.WriteLine($"Thread {threadIndex} timed out trying to create the queue: {ex}");
+                            failedThreads.Add((threadIndex, ex.Message));
+                        }
                         catch (Exception ex)
                         {
-                            failedThreads.Add((threadId, ex.Message));
+                            failedThreads.Add((threadIndex, ex.Message));
+                        }
+                        finally
+                        {
+                            completionEvent.Set();
                         }
                     })
                     { IsBackground = true };
                     threads[i].Start();
                 }
 
-                for (int e = 0; e < 100; e++)
+                for (int e = 0; e < threads.Length; e++)
                 {
-                    if (!threads[e].Join(TimeSpan.FromMinutes(3)))
+                    if (!dequeueCompletedEvents[e].WaitOne(TimeSpan.FromMinutes(3)))
                     {
                         failedThreads.Add((e, "timeout"));
                     }
                 }
+
+                if (!enqueueCompleted.Wait(TimeSpan.FromMinutes(3)))
+                {
+                    Console.WriteLine("Enqueue thread timed out.");
+                }
             }
             finally
             {
+                // Clean up resources
+                for (int i = 0; i < dequeueCompletedEvents.Length; i++)
+                {
+                    dequeueCompletedEvents[i].Dispose();
+                }
+                enqueueCompleted.Dispose();
+
                 GeneratePerformanceReport(
                     metrics.ToList(),
                     testStartTime,
@@ -337,6 +398,8 @@ namespace ModernDiskQueue.Tests
                     totalDequeues,
                     successfulThreads,
                     failedThreads);
+
+                Assert.That(successfulThreads, Is.EqualTo(threads.Length), "Not all threads completed successfully.");
             }
         }
 

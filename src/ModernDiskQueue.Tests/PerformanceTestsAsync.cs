@@ -323,8 +323,13 @@ namespace ModernDiskQueue.Tests
             ProgressUpdated += progress => Console.WriteLine($"Progress: {progress} items processed.");
             // Pre-allocate metrics collections to async Task resizing
             var metrics = new ConcurrentQueue<OperationMetrics>();
+
+            // Arrange test parameters
             int numberOfDequeueThreads = 100;
-            var _totalDequeues = 0;
+            int enqueueHeadstartInSeconds = 18;
+            int timeoutForQueueCreationDuringDequeueInSeconds = 100;
+            int timeoutForQueueCreationDuringEnqueueInSeconds = 50;
+            var totalDequeues = 0;
             var successfulThreads = 0;
             var failedThreads = new ConcurrentBag<(int threadId, string reason)>();
 
@@ -369,7 +374,7 @@ namespace ModernDiskQueue.Tests
                             };
 
                             stopwatch.Restart();
-                            await using (var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(50)).ConfigureAwait(false))
+                            await using (var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(timeoutForQueueCreationDuringEnqueueInSeconds)).ConfigureAwait(false))
                             {
                                 metric.QueueCreateTime = stopwatch.Elapsed;
 
@@ -409,9 +414,9 @@ namespace ModernDiskQueue.Tests
             enqueueThread.Start();
 
             // Wait for the enqueue thread to signal completion or for 18 seconds to pass
-            if (!enqueueCompleted.Wait(TimeSpan.FromSeconds(18)))
+            if (!enqueueCompleted.Wait(TimeSpan.FromSeconds(enqueueHeadstartInSeconds)))
             {
-                Console.WriteLine("Warning: Enqueue thread did not complete within 18 seconds.");
+                Console.WriteLine($"Warning: Enqueue thread did not complete within {enqueueHeadstartInSeconds} seconds.");
             }
 
             var rnd = new Random();
@@ -448,7 +453,7 @@ namespace ModernDiskQueue.Tests
                                     };
 
                                     stopwatch.Restart();
-                                    await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(100));
+                                    await using var q = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(timeoutForQueueCreationDuringDequeueInSeconds));
                                     {
 
                                         metric.QueueCreateTime = stopwatch.Elapsed;
@@ -465,7 +470,7 @@ namespace ModernDiskQueue.Tests
                                             if (data != null)
                                             {
                                                 count--;
-                                                metric.ItemNumber = Interlocked.Increment(ref _totalDequeues);
+                                                metric.ItemNumber = Interlocked.Increment(ref totalDequeues);
 
                                                 stopwatch.Restart();
                                                 await s.FlushAsync();
@@ -478,6 +483,11 @@ namespace ModernDiskQueue.Tests
                                 }
                                 Interlocked.Increment(ref successfulThreads);
                             }).Wait();
+                        }
+                        catch (TimeoutException ex)
+                        {
+                            Console.WriteLine($"Thread {threadIndex} timed out trying to create the queue: {ex}");
+                            failedThreads.Add((threadIndex, ex.Message));
                         }
                         catch (Exception ex)
                         {
@@ -492,7 +502,6 @@ namespace ModernDiskQueue.Tests
                     { IsBackground = true };
                     threads[i].Start();
                 }
-
 
                 for (int i = 0; i < threads.Length; i++)
                 {
@@ -520,7 +529,7 @@ namespace ModernDiskQueue.Tests
                     metrics.ToList(),
                     testStartTime,
                     dequeueStartTime,
-                    _totalDequeues,
+                    totalDequeues,
                     successfulThreads,
                     failedThreads);
 
