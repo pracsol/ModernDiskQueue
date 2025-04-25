@@ -2,6 +2,8 @@
 {
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using ModernDiskQueue.Implementation.Logging;
     using ModernDiskQueue.PublicInterfaces;
 
     /// <inheritdoc cref="IPersistentQueueImpl{T}"/>
@@ -22,7 +24,7 @@
 
         new async Task InitializeAsync(CancellationToken cancellationToken)
         {
-            using (await _configLockAsync.LockAsync(cancellationToken).ConfigureAwait(false))
+            using (await _configLockAsync.LockAsync("configlock", cancellationToken).ConfigureAwait(false))
             {
                 _disposed = true;
                 await base.LockAndReadQueueAsync(cancellationToken);
