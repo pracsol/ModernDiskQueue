@@ -8,6 +8,8 @@
     using System.Threading;
     using System.Threading.Channels;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using ModernDiskQueue.Implementation.Logging;
 
     /// <summary>
     /// A wrapper around System.IO.File to help with
@@ -15,7 +17,8 @@
     /// </summary>
     internal class StandardFileDriver : IFileDriver
     {
-        public const int RetryLimit = 10;
+        private static readonly ILogger<StandardFileDriver> StaticLogger = LoggerAdapter.CreateLogger<StandardFileDriver>();
+        public const int RetryLimit = 15;
 
         // existing fields for sync operations
         private static readonly object _lock = new();
@@ -59,7 +62,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         return DirectoryExists_UnderLock(path, cancellationToken);
@@ -118,7 +121,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         await PrepareDeleteAsync_UnderLock(path, cancellationToken);
@@ -182,7 +185,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         Finalise_UnderLock(cancellationToken);
@@ -279,7 +282,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         return CreateNoShareFile_UnderLock(path);
@@ -298,52 +301,59 @@
         /// </summary>
         private static ILockFile CreateNoShareFile_UnderLock(string path)
         {
-            var currentProcess = Process.GetCurrentProcess();
-            var currentLockData = new LockFileData
+            try
             {
-                ProcessId = currentProcess.Id,
-                ThreadId = Environment.CurrentManagedThreadId,
-                ProcessStart = GetProcessStartAsUnixTimeMs(currentProcess),
-            };
-            var keyBytes = MarshallHelper.Serialize(currentLockData);
-
-            if (!File.Exists(path))
-            {
-                File.WriteAllBytes(path, keyBytes);
-            }
-
-            var lockBytes = File.ReadAllBytes(path); // will throw if OS considers the file locked
-            var fileLockData = MarshallHelper.Deserialize<LockFileData>(lockBytes);
-
-            if (fileLockData.ThreadId != currentLockData.ThreadId || fileLockData.ProcessId != currentLockData.ProcessId)
-            {
-                // The first two *should not* happen, but filesystems seem to have weird bugs.
-                // Is this for our own process?
-                if (fileLockData.ProcessId == currentLockData.ProcessId)
+                var currentProcess = Process.GetCurrentProcess();
+                var currentLockData = new LockFileData
                 {
-                    throw new Exception($"This queue is locked by another thread in this process. Thread id = {fileLockData.ThreadId}");
+                    ProcessId = currentProcess.Id,
+                    ThreadId = Environment.CurrentManagedThreadId,
+                    ProcessStart = GetProcessStartAsUnixTimeMs(currentProcess),
+                };
+                var keyBytes = MarshallHelper.Serialize(currentLockData);
+
+                if (!File.Exists(path))
+                {
+                    File.WriteAllBytes(path, keyBytes);
                 }
 
-                // Is it for a running process?
-                if (IsRunning(fileLockData))
+                var lockBytes = File.ReadAllBytes(path); // will throw if OS considers the file locked
+                var fileLockData = MarshallHelper.Deserialize<LockFileData>(lockBytes);
+
+                if (fileLockData.ThreadId != currentLockData.ThreadId || fileLockData.ProcessId != currentLockData.ProcessId)
                 {
-                    throw new Exception($"This queue is locked by another running process. Process id = {fileLockData.ProcessId}");
+                    // The first two *should not* happen, but filesystems seem to have weird bugs.
+                    // Is this for our own process?
+                    if (fileLockData.ProcessId == currentLockData.ProcessId)
+                    {
+                        throw new Exception($"This queue is locked by another thread in this process. Thread id = {fileLockData.ThreadId}");
+                    }
+
+                    // Is it for a running process?
+                    if (IsRunning(fileLockData))
+                    {
+                        throw new Exception($"This queue is locked by another running process. Process id = {fileLockData.ProcessId}");
+                    }
+
+                    // We have a lock from a dead process. Kill it.
+                    File.Delete(path);
+                    File.WriteAllBytes(path, keyBytes);
                 }
 
-                // We have a lock from a dead process. Kill it.
-                File.Delete(path);
-                File.WriteAllBytes(path, keyBytes);
-            }
-
-            var lockStream = new FileStream(path,
+                var lockStream = new FileStream(path,
                         FileMode.Create,
                         FileAccess.ReadWrite,
                         FileShare.None);
 
-            lockStream.Write(keyBytes, 0, keyBytes.Length);
-            lockStream.Flush(true);
-
-            return new LockFile(lockStream, path);
+                lockStream.Write(keyBytes, 0, keyBytes.Length);
+                lockStream.Flush(true);
+                return new LockFile(lockStream, path);
+            }
+            catch (Exception ex)
+            {
+                StaticLogger.LogError("Failed to create lock file on thread #{ThreadId}, {ErrorMessage}", Environment.CurrentManagedThreadId, ex.Message);
+                throw;
+            }
         }
 
         /// <summary>
@@ -398,7 +408,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         return FileExists_UnderLock(path, cancellationToken);
@@ -446,7 +456,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync().ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         DeleteRecursive_UnderLock(path, cancellationToken);
@@ -522,7 +532,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         await fileLock.DisposeAsync();
                     }
@@ -558,7 +568,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         CreateDirectory_UnderLock(path, cancellationToken);
@@ -592,12 +602,17 @@
                     try
                     {
                         File.Move(oldPath, newPath);
+                        if (i > 0)
+                        {
+                            StaticLogger.LogWarning("Moved file on attempt #{AttemptNumber}", i + 1);
+                        }
                         return true;
                     }
                     catch
                     {
                         Thread.Sleep(i * 100);
                     }
+                    StaticLogger.LogWarning("Sync move did not work on attempt #{AttemptNumber}", i + 1);
                 }
             }
             return false;
@@ -616,7 +631,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         return Move_UnderLock(oldPath, newPath, cancellationToken);
@@ -635,20 +650,24 @@
         /// </summary>
         private static bool Move_UnderLock(string oldPath, string newPath, CancellationToken cancellationToken = default)
         {
+            string oldFileName = oldPath[oldPath.LastIndexOf('\\')..];
+            string newFileName = newPath[newPath.LastIndexOf('\\')..];
             for (var i = 0; i < RetryLimit; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
                     File.Move(oldPath, newPath);
+                    StaticLogger.LogTrace("MoveAsync {OldFileName} to {NewFileName} on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
                     return true;
                 }
                 catch when (i < RetryLimit - 1)
                 {
                     Thread.Sleep(i * 100);
+                    StaticLogger.LogWarning("MoveAsync of {OldFileName} to {NewFIleName} did not work on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
                 }
             }
-
+            StaticLogger.LogError("FAILED to MoveAsync file {OldFileName} to {NewFileName} after {RetryLimit} attempts", oldFileName, newFileName, RetryLimit);
             return false;
         }
 
@@ -677,7 +696,7 @@
         {
             try
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
                     var stream = new FileStream(path,
@@ -715,7 +734,7 @@
         {
             try
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
                     var stream = new FileStream(
@@ -762,7 +781,7 @@
         {
             try
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
                     var stream = new FileStream(
@@ -968,7 +987,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         stream = new FileStream(path,
@@ -1043,7 +1062,7 @@
             bool needsBackup;
             try
             {
-                using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
 
@@ -1184,7 +1203,7 @@
             {
                 try
                 {
-                    using (await _asyncLock.LockAsync(cancellationToken).ConfigureAwait(false))
+                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
                         await WaitDeleteInternalAsync_UnderLock(path, cancellationToken);
