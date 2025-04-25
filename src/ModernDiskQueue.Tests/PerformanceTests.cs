@@ -210,6 +210,8 @@ namespace ModernDiskQueue.Tests
             int enqueueHeadstartInSeconds = 18;
             int timeoutForQueueCreationDuringDequeueInSeconds = 100;
             int timeoutForQueueCreationDuringEnqueueInSeconds = 50;
+            int timeoutForDequeueThreadsInMinutes = 3;
+            int timeoutForEnqueueThreadInMinutes = 3;
             var totalDequeues = 0;
             var successfulThreads = 0;
             var failedThreads = new ConcurrentBag<(int threadId, string reason)>();
@@ -255,7 +257,7 @@ namespace ModernDiskQueue.Tests
                             stopwatch.Restart();
                             using (var s = q.OpenSession())
                             {
-                                metric.SessionTime = stopwatch.Elapsed;
+                                metric.SessionCreateTime = stopwatch.Elapsed;
 
                                 stopwatch.Restart();
                                 s.Enqueue(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
@@ -329,7 +331,7 @@ namespace ModernDiskQueue.Tests
                                     stopwatch.Restart();
                                     using var s = q.OpenSession();
                                     {
-                                        metric.SessionTime = stopwatch.Elapsed;
+                                        metric.SessionCreateTime = stopwatch.Elapsed;
 
                                         stopwatch.Restart();
                                         var data = s.Dequeue();
@@ -371,13 +373,13 @@ namespace ModernDiskQueue.Tests
 
                 for (int e = 0; e < threads.Length; e++)
                 {
-                    if (!dequeueCompletedEvents[e].WaitOne(TimeSpan.FromMinutes(3)))
+                    if (!dequeueCompletedEvents[e].WaitOne(TimeSpan.FromMinutes(timeoutForDequeueThreadsInMinutes)))
                     {
                         failedThreads.Add((e, "timeout"));
                     }
                 }
 
-                if (!enqueueCompleted.Wait(TimeSpan.FromMinutes(3)))
+                if (!enqueueCompleted.Wait(TimeSpan.FromMinutes(timeoutForEnqueueThreadInMinutes)))
                 {
                     Console.WriteLine("Enqueue thread timed out.");
                 }
@@ -544,19 +546,19 @@ namespace ModernDiskQueue.Tests
         {
             var totalOps = metrics.Count;
             var avgTotal = metrics.Average(m =>
-        (m.QueueCreateTime + m.SessionTime + m.OperationTime + m.FlushTime).TotalMilliseconds);
+        (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds);
 
             Console.WriteLine($"Total {operation}s: {totalOps}");
             Console.WriteLine($"Average time per operation: {avgTotal:F2}ms");
 
             Console.WriteLine("\nOperation Breakdown (averages in ms):");
             Console.WriteLine($"Queue Creation: {metrics.Average(m => m.QueueCreateTime.TotalMilliseconds):F2}");
-            Console.WriteLine($"Session Creation: {metrics.Average(m => m.SessionTime.TotalMilliseconds):F2}");
+            Console.WriteLine($"Session Creation: {metrics.Average(m => m.SessionCreateTime.TotalMilliseconds):F2}");
             Console.WriteLine($"{operation} Operation: {metrics.Average(m => m.OperationTime.TotalMilliseconds):F2}");
             Console.WriteLine($"Flush Operation: {metrics.Average(m => m.FlushTime.TotalMilliseconds):F2}");
 
             var totalTimes = metrics.Select(m =>
-        (m.QueueCreateTime + m.SessionTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
+        (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
         .OrderBy(t => t)
         .ToList();
 
@@ -568,7 +570,7 @@ namespace ModernDiskQueue.Tests
 
             // Show 5 slowest operations
             var slowest = metrics.OrderByDescending(m =>
-        (m.QueueCreateTime + m.SessionTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
+        (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
         .Take(5);
 
             Console.WriteLine($"\nSlowest {operation} Operations:");
@@ -576,9 +578,9 @@ namespace ModernDiskQueue.Tests
             {
                 Console.WriteLine(
                     $"Thread {op.ThreadId}, Item {op.ItemNumber}: " +
-                    $"Total {(op.QueueCreateTime + op.SessionTime + op.OperationTime + op.FlushTime).TotalMilliseconds:F2}ms " +
+                    $"Total {(op.QueueCreateTime + op.SessionCreateTime + op.OperationTime + op.FlushTime).TotalMilliseconds:F2}ms " +
                     $"(Queue: {op.QueueCreateTime.TotalMilliseconds:F2}ms, " +
-                    $"Session: {op.SessionTime.TotalMilliseconds:F2}ms, " +
+                    $"Session: {op.SessionCreateTime.TotalMilliseconds:F2}ms, " +
                     $"Op: {op.OperationTime.TotalMilliseconds:F2}ms, " +
                     $"Flush: {op.FlushTime.TotalMilliseconds:F2}ms)");
             }

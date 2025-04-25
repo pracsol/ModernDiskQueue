@@ -10,7 +10,7 @@
 
         public TimeSpan QueueCreateTime { get; set; }
 
-        public TimeSpan SessionTime { get; set; }
+        public TimeSpan SessionCreateTime { get; set; }
 
         public TimeSpan OperationTime { get; set; }
 
