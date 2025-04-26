@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.Extensions.Logging;
+using NUnit.Framework;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,10 +11,17 @@ namespace ModernDiskQueue.Tests
     {
         private IPersistentQueue? _q;
 
+        private PersistentQueueFactory _factory;
         [SetUp]
         public async Task Setup()
         {
-            _q = await PersistentQueue.WaitForAsync("./LongTermDequeueTests", TimeSpan.FromSeconds(10));
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            _q = await _factory.WaitForAsync("./LongTermDequeueTests", TimeSpan.FromSeconds(10));
         }
 
         [TearDown]

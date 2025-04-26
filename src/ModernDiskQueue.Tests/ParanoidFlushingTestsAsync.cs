@@ -1,5 +1,6 @@
 ﻿namespace ModernDiskQueue.Tests
 {
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
     using System;
     using System.Threading.Tasks;
@@ -12,10 +13,23 @@
         private readonly byte[] _one = [1, 2, 3, 4];
         private readonly byte[] _two = [5, 6, 7, 8];
 
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public new void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            base.Setup();
+        }
+
         [Test]
         public async Task Paranoid_flushing_still_respects_session_rollback()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // Clean up leftover data from previous failed test runs
                 await queue.HardDeleteAsync(true);

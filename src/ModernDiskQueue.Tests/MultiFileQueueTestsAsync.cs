@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 using System;
 using System.IO;
@@ -11,10 +12,23 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./MultiFileQueue";
 
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public new void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            base.Setup();
+        }
+
         [Test]
         public async Task Can_limit_amount_of_items_in_queue_file()
         {
-            await using (IPersistentQueue queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (IPersistentQueue queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 Assert.That(10, Is.EqualTo(queue.MaxFileSize));
             }
@@ -23,7 +37,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Entering_more_than_count_of_items_will_work()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 11; i++)
                 {
@@ -40,7 +54,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task When_creating_more_items_than_allowed_in_first_file_will_create_additional_file()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 11; i++)
                 {
@@ -57,7 +71,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_resume_writing_to_second_file_when_restart_queue()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 11; i++)
                 {
@@ -69,7 +83,7 @@ namespace ModernDiskQueue.Tests
                 }
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 2; i++)
                 {
@@ -86,7 +100,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_dequeue_from_all_files()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 12; i++)
                 {
@@ -101,7 +115,7 @@ namespace ModernDiskQueue.Tests
                 Console.WriteLine($"File number: {queue.Internals.CurrentFileNumber}");
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 12; i++)
                 {
@@ -120,7 +134,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_dequeue_from_all_files_after_restart()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 12; i++)
                 {
@@ -133,7 +147,7 @@ namespace ModernDiskQueue.Tests
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 3; i++)
                 {
@@ -147,7 +161,7 @@ namespace ModernDiskQueue.Tests
             }
 
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -173,7 +187,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task After_reading_all_items_from_file_that_is_not_the_active_file_should_delete_file()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 12; i++) // 12 individual bytes, and a 10 byte file limit
                 {
@@ -186,7 +200,7 @@ namespace ModernDiskQueue.Tests
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath, 10))
+            await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 12; i++)
                 {

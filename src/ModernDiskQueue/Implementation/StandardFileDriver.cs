@@ -9,7 +9,7 @@
     using System.Threading.Channels;
     using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
-    using ModernDiskQueue.Implementation.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
 
     /// <summary>
     /// A wrapper around System.IO.File to help with
@@ -17,7 +17,8 @@
     /// </summary>
     internal class StandardFileDriver : IFileDriver
     {
-        private static readonly ILogger<StandardFileDriver> StaticLogger = LoggerAdapter.CreateLogger<StandardFileDriver>();
+        private readonly ILoggerFactory _loggerFactory;
+        private readonly ILogger<StandardFileDriver> _logger;
         public const int RetryLimit = 15;
 
         // existing fields for sync operations
@@ -34,6 +35,18 @@
 
         public readonly AsyncLock _asyncLock = new();
         private readonly AsyncLocal<bool> _holdsLock = new();
+
+        public StandardFileDriver()
+        {
+            _loggerFactory = NullLoggerFactory.Instance;
+            _logger = NullLogger<StandardFileDriver>.Instance;
+        }
+
+        public StandardFileDriver(ILoggerFactory loggerFactory)
+        {
+            _loggerFactory = loggerFactory;
+            _logger = loggerFactory?.CreateLogger<StandardFileDriver>() ?? NullLogger<StandardFileDriver>.Instance;
+        }
 
         public string GetFullPath(string path) => Path.GetFullPath(path);
         public string PathCombine(string a, string b) => Path.Combine(a, b);
@@ -56,7 +69,7 @@
         {
             if (_holdsLock.Value)
             {
-                return DirectoryExists_UnderLock(path, cancellationToken);
+                return DirectoryExists_UnderLock(path);
             }
             else
             {
@@ -65,7 +78,7 @@
                     using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
-                        return DirectoryExists_UnderLock(path, cancellationToken);
+                        return DirectoryExists_UnderLock(path);
                     }
                 }
                 finally
@@ -79,7 +92,7 @@
         /// Test for the existence of a directory
         /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
         /// </summary>
-        private static bool DirectoryExists_UnderLock(string path, CancellationToken cancellationToken = default)
+        private static bool DirectoryExists_UnderLock(string path)
         {
             return Directory.Exists(path);
         }
@@ -114,7 +127,7 @@
         {
             if (_holdsLock.Value)
             {
-                await PrepareDeleteAsync_UnderLock(path, cancellationToken);
+                await PrepareDeleteAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
                 return;
             }
             else
@@ -124,7 +137,7 @@
                     using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
-                        await PrepareDeleteAsync_UnderLock(path, cancellationToken);
+                        await PrepareDeleteAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
                         return;
                     }
                 }
@@ -142,14 +155,14 @@
         /// </summary>
         private async Task PrepareDeleteAsync_UnderLock(string path, CancellationToken cancellationToken = default)
         {
-            if (!(await FileExistsAsync(path, cancellationToken))) return;
+            if (!(await FileExistsAsync(path, cancellationToken).ConfigureAwait(false))) return;
             var dir = Path.GetDirectoryName(path) ?? "";
             var file = Path.GetFileNameWithoutExtension(path);
             var prefix = Path.GetRandomFileName();
             var deletePath = Path.Combine(dir, $"{file}_dc_{prefix}");
-            if (await MoveAsync(path, deletePath, cancellationToken))
+            if (await MoveAsync(path, deletePath, cancellationToken).ConfigureAwait(false))
             {
-                await _waitingDeletesAsync.Writer.WriteAsync(deletePath, cancellationToken);
+                await _waitingDeletesAsync.Writer.WriteAsync(deletePath, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -299,7 +312,7 @@
         /// Create and open a new file with no sharing between processes.
         /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
         /// </summary>
-        private static ILockFile CreateNoShareFile_UnderLock(string path)
+        private ILockFile CreateNoShareFile_UnderLock(string path)
         {
             try
             {
@@ -351,7 +364,7 @@
             }
             catch (Exception ex)
             {
-                StaticLogger.LogError("Failed to create lock file on thread #{ThreadId}, {ErrorMessage}", Environment.CurrentManagedThreadId, ex.Message);
+                _logger.LogTrace("Failed to create lock file on thread #{ThreadId}, {ErrorMessage}", Environment.CurrentManagedThreadId, ex.Message);
                 throw;
             }
         }
@@ -402,7 +415,7 @@
         {
             if (_holdsLock.Value)
             {
-                return FileExists_UnderLock(path, cancellationToken);
+                return FileExists_UnderLock(path);
             }
             else
             {
@@ -411,7 +424,7 @@
                     using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
-                        return FileExists_UnderLock(path, cancellationToken);
+                        return FileExists_UnderLock(path);
                     }
                 }
                 finally
@@ -425,7 +438,7 @@
         /// Test for the existence of a file
         /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
         /// </summary>
-        private bool FileExists_UnderLock(string path, CancellationToken cancellationToken = default)
+        private static bool FileExists_UnderLock(string path)
         {
             return File.Exists(path);
         }
@@ -450,7 +463,7 @@
         {
             if (_holdsLock.Value)
             {
-                DeleteRecursive_UnderLock(path, cancellationToken);
+                DeleteRecursive_UnderLock(path);
             }
             else
             {
@@ -459,7 +472,7 @@
                     using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
-                        DeleteRecursive_UnderLock(path, cancellationToken);
+                        DeleteRecursive_UnderLock(path);
                     }
                 }
                 finally
@@ -469,7 +482,7 @@
             }
         }
 
-        public void DeleteRecursive_UnderLock(string path, CancellationToken cancellationToken = default)
+        public static void DeleteRecursive_UnderLock(string path)
         {
             if (Path.GetPathRoot(path) == Path.GetFullPath(path)) throw new Exception("Request to delete root directory rejected");
             if (string.IsNullOrWhiteSpace(Path.GetDirectoryName(path)!)) throw new Exception("Request to delete root directory rejected");
@@ -505,7 +518,7 @@
         {
             try
             {
-                var lockFile = await CreateNoShareFileAsync(path, cancellationToken);
+                var lockFile = await CreateNoShareFileAsync(path, cancellationToken).ConfigureAwait(false);
                 return lockFile.Success();
             }
             catch (Exception ex)
@@ -526,7 +539,7 @@
         {
             if (_holdsLock.Value)
             {
-                await fileLock.DisposeAsync();
+                await fileLock.DisposeAsync().ConfigureAwait(false);
             }
             else
             {
@@ -534,7 +547,7 @@
                 {
                     using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
-                        await fileLock.DisposeAsync();
+                        await fileLock.DisposeAsync().ConfigureAwait(false);
                     }
                 }
                 finally
@@ -562,7 +575,7 @@
         {
             if (_holdsLock.Value)
             {
-                CreateDirectory_UnderLock(path, cancellationToken);
+                CreateDirectory_UnderLock(path);
             }
             else
             {
@@ -571,7 +584,7 @@
                     using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
-                        CreateDirectory_UnderLock(path, cancellationToken);
+                        CreateDirectory_UnderLock(path);
                     }
                 }
                 finally
@@ -585,7 +598,7 @@
         /// Attempt to create a directory. No error if the directory already exists.
         /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
         /// </summary>
-        private static void CreateDirectory_UnderLock(string path, CancellationToken cancellationToken = default)
+        private static void CreateDirectory_UnderLock(string path)
         {
             Directory.CreateDirectory(path);
         }
@@ -602,17 +615,12 @@
                     try
                     {
                         File.Move(oldPath, newPath);
-                        if (i > 0)
-                        {
-                            StaticLogger.LogWarning("Moved file on attempt #{AttemptNumber}", i + 1);
-                        }
                         return true;
                     }
                     catch
                     {
                         Thread.Sleep(i * 100);
                     }
-                    StaticLogger.LogWarning("Sync move did not work on attempt #{AttemptNumber}", i + 1);
                 }
             }
             return false;
@@ -648,7 +656,7 @@
         /// Rename a file, including its path
         /// <para>WARNING: Call must already have a lock on <see cref="_asyncLock"/>.</para>
         /// </summary>
-        private static bool Move_UnderLock(string oldPath, string newPath, CancellationToken cancellationToken = default)
+        private bool Move_UnderLock(string oldPath, string newPath, CancellationToken cancellationToken = default)
         {
             string oldFileName = oldPath[oldPath.LastIndexOf('\\')..];
             string newFileName = newPath[newPath.LastIndexOf('\\')..];
@@ -658,16 +666,16 @@
                 try
                 {
                     File.Move(oldPath, newPath);
-                    StaticLogger.LogTrace("MoveAsync {OldFileName} to {NewFileName} on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
+                    _logger.LogTrace("MoveAsync {OldFileName} to {NewFileName} on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
                     return true;
                 }
                 catch when (i < RetryLimit - 1)
                 {
                     Thread.Sleep(i * 100);
-                    StaticLogger.LogWarning("MoveAsync of {OldFileName} to {NewFIleName} did not work on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
+                    _logger.LogWarning("MoveAsync of {OldFileName} to {NewFIleName} did not work on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
                 }
             }
-            StaticLogger.LogError("FAILED to MoveAsync file {OldFileName} to {NewFileName} after {RetryLimit} attempts", oldFileName, newFileName, RetryLimit);
+            _logger.LogError("FAILED to MoveAsync file {OldFileName} to {NewFileName} after {RetryLimit} attempts", oldFileName, newFileName, RetryLimit);
             return false;
         }
 
@@ -975,10 +983,10 @@
         /// <param name="cancellationToken">Cancellation token</param>
         private async Task AtomicReadInternalAsync(string path, Func<FileStream, Task> action, CancellationToken cancellationToken)
         {
-            var fileExists = await FileExistsAsync(path + ".old_copy", cancellationToken);
+            var fileExists = await FileExistsAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
             if (fileExists)
             {
-                await WaitDeleteAsync(path, cancellationToken);
+                await WaitDeleteAsync(path, cancellationToken).ConfigureAwait(false);
             }
 
             FileStream? stream = null;
@@ -1072,17 +1080,17 @@
                     // Create backup if needed
                     if (needsBackup)
                     {
-                        await MoveAsync(path, path + ".old_copy", cancellationToken);
+                        await MoveAsync(path, path + ".old_copy", cancellationToken).ConfigureAwait(false);
                     }
 
                     // Ensure directory exists
                     var dir = Path.GetDirectoryName(path);
                     if (dir is not null)
                     {
-                        bool dirExists = await DirectoryExistsAsync(dir, cancellationToken);
+                        bool dirExists = await DirectoryExistsAsync(dir, cancellationToken).ConfigureAwait(false);
                         if (!dirExists)
                         {
-                            await CreateDirectoryAsync(dir, cancellationToken);
+                            await CreateDirectoryAsync(dir, cancellationToken).ConfigureAwait(false);
                         }
                     }
 
@@ -1146,7 +1154,7 @@
             }
             else
             {
-                await stream.FlushAsync(cancellationToken);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -1197,7 +1205,7 @@
         {
             if (_holdsLock.Value)
             {
-                await WaitDeleteInternalAsync_UnderLock(path, cancellationToken);
+                await WaitDeleteInternalAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -1206,7 +1214,7 @@
                     using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
-                        await WaitDeleteInternalAsync_UnderLock(path, cancellationToken);
+                        await WaitDeleteInternalAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
                     }
                 }
                 finally
@@ -1221,8 +1229,8 @@
         /// </summary>
         private async Task WaitDeleteInternalAsync_UnderLock(string path, CancellationToken cancellationToken)
         {
-                await PrepareDeleteAsync(path, cancellationToken);
-                await FinaliseAsync(cancellationToken);
+                await PrepareDeleteAsync(path, cancellationToken).ConfigureAwait(false);
+                await FinaliseAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 

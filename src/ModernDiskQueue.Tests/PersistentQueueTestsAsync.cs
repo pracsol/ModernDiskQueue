@@ -1,4 +1,5 @@
-﻿using ModernDiskQueue.Implementation;
+﻿using Microsoft.Extensions.Logging;
+using ModernDiskQueue.Implementation;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -12,14 +13,27 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./PersistentQueueTestsAsync";
 
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public new void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            base.Setup();
+        }
+
         [Test]
         public void Only_single_instance_of_queue_can_exists_at_any_one_time()
         {
             var invalidOperationException = Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
-                await using (await PersistentQueue.CreateAsync(QueuePath))
+                await using (await _factory.CreateAsync(QueuePath))
                 {
-                    await PersistentQueue.CreateAsync(QueuePath);
+                    await _factory.CreateAsync(QueuePath);
                 }
             });
             Assert.That(invalidOperationException, Is.Not.Null);
@@ -33,7 +47,7 @@ namespace ModernDiskQueue.Tests
             var lockFilePath = System.IO.Path.Combine(QueuePath, "lock");
             File.WriteAllText(lockFilePath, "78924759045");
 
-            await using (await PersistentQueue.CreateAsync(QueuePath))
+            await using (await _factory.CreateAsync(QueuePath))
             {
                 Assert.Pass();
             }
@@ -42,7 +56,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_create_new_queue()
         {
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 Assert.That(queue, Is.Not.Null);
             }
@@ -63,7 +77,7 @@ namespace ModernDiskQueue.Tests
 
             var invalidOperationException = Assert.ThrowsAsync<UnrecoverableException>(async () =>
             {
-                await using (var q = await PersistentQueue.CreateAsync(QueuePath)) { }
+                await using (var q = await _factory.CreateAsync(QueuePath)) { }
             });
 
             Assert.That(invalidOperationException, Is.Not.Null);
@@ -82,7 +96,7 @@ namespace ModernDiskQueue.Tests
             bool wasManuallyCleanedUp = false;
 
             // Create initial queue
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (await queue.OpenSessionAsync()) { }
             }
@@ -99,7 +113,7 @@ namespace ModernDiskQueue.Tests
                 // ACT
                 // Call HardDeleteAsync and log when it completes
                 Console.WriteLine("Calling HardDeleteAsync(false)");
-                await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+                await using (var queue = await _factory.CreateAsync(QueuePath))
                 {
                     await queue.HardDeleteAsync(false);
                 }
@@ -307,7 +321,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Dequeueing_from_empty_queue_will_return_null()
         {
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -321,7 +335,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_enqueue_data_in_queue()
         {
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -335,7 +349,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_dequeue_data_from_queue()
         {
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -350,7 +364,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Queueing_and_dequeueing_empty_data_is_handled()
         {
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -366,7 +380,7 @@ namespace ModernDiskQueue.Tests
         public async Task Can_enqueue_and_dequeue_data_after_restarting_queuec()
         {
             // First session: enqueue data
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -376,7 +390,7 @@ namespace ModernDiskQueue.Tests
             }
 
             // Second session: dequeue data
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -391,7 +405,7 @@ namespace ModernDiskQueue.Tests
         public async Task After_dequeue_from_queue_item_no_longer_on_queue()
         {
             // First session: enqueue data
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -401,7 +415,7 @@ namespace ModernDiskQueue.Tests
             }
 
             // Second session: dequeue and verify queue is empty
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -420,7 +434,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task After_dequeue_from_queue_item_no_longer_on_queue_with_queues_restarts()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -429,7 +443,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -438,7 +452,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -454,7 +468,7 @@ namespace ModernDiskQueue.Tests
         {
             // First session: enqueue data
             {
-                await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+                await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
                 {
                     await using (var session = await queue.OpenSessionAsync())
                     {
@@ -466,7 +480,7 @@ namespace ModernDiskQueue.Tests
 
             // Second session: dequeue but don't flush
             {
-                await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+                await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
                 {
                     await using (var session = await queue.OpenSessionAsync())
                     {
@@ -479,7 +493,7 @@ namespace ModernDiskQueue.Tests
 
             // Third session: verify item is still there
             {
-                await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+                await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
                 {
                     await using (var session = await queue.OpenSessionAsync())
                     {
@@ -496,7 +510,7 @@ namespace ModernDiskQueue.Tests
         {
             // First session: enqueue data but don't flush
             {
-                await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+                await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
                 {
                     await using (var session = await queue.OpenSessionAsync())
                     {
@@ -508,7 +522,7 @@ namespace ModernDiskQueue.Tests
 
             // Second session: verify queue is empty
             {
-                await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
+                await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(5)))
                 {
                     await using (var session = await queue.OpenSessionAsync())
                     {
@@ -523,7 +537,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Not_flushing_the_session_will_revert_dequeued_items_two_sessions_same_queue()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -532,7 +546,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session2 = await queue.OpenSessionAsync())
                 {
@@ -551,7 +565,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Two_sessions_off_the_same_queue_cannot_get_same_item()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -560,7 +574,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session2 = await queue.OpenSessionAsync())
                 {
@@ -576,7 +590,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Items_are_reverted_in_their_original_order()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -590,7 +604,7 @@ namespace ModernDiskQueue.Tests
 
             for (int i = 0; i < 4; i++)
             {
-                await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+                await using (var queue = await _factory.CreateAsync(QueuePath))
                 {
                     await using (var session = await queue.OpenSessionAsync())
                     {

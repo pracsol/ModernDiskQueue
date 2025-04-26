@@ -123,6 +123,7 @@ namespace ModernDiskQueue.Tests
             {
                 queue.HardDelete(false);
             }
+
             // shared counter for total dequeues
             int totalDequeues = 0;
 
@@ -546,7 +547,7 @@ namespace ModernDiskQueue.Tests
         {
             var totalOps = metrics.Count;
             var avgTotal = metrics.Average(m =>
-        (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds);
+                (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds);
 
             Console.WriteLine($"Total {operation}s: {totalOps}");
             Console.WriteLine($"Average time per operation: {avgTotal:F2}ms");
@@ -557,21 +558,29 @@ namespace ModernDiskQueue.Tests
             Console.WriteLine($"{operation} Operation: {metrics.Average(m => m.OperationTime.TotalMilliseconds):F2}");
             Console.WriteLine($"Flush Operation: {metrics.Average(m => m.FlushTime.TotalMilliseconds):F2}");
 
-            var totalTimes = metrics.Select(m =>
-        (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
-        .OrderBy(t => t)
-        .ToList();
+            var queueLockTimes = metrics.Select(m =>
+                (m.QueueCreateTime).TotalMilliseconds)
+                .OrderBy(t => t)
+                .ToList();
 
-            Console.WriteLine("\nLatency Percentiles (ms):");
+
+            var totalTimes = metrics.Select(m =>
+                (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
+                .OrderBy(t => t)
+                .ToList();
+
+            Console.WriteLine("\nEnqueue Operation Total Latency Percentiles (ms):");
             Console.WriteLine($"P50: {GetPercentile(totalTimes, 0.5):F2}");
             Console.WriteLine($"P90: {GetPercentile(totalTimes, 0.9):F2}");
             Console.WriteLine($"P95: {GetPercentile(totalTimes, 0.95):F2}");
             Console.WriteLine($"P99: {GetPercentile(totalTimes, 0.99):F2}");
 
+
+
             // Show 5 slowest operations
             var slowest = metrics.OrderByDescending(m =>
-        (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
-        .Take(5);
+                (m.QueueCreateTime + m.SessionCreateTime + m.OperationTime + m.FlushTime).TotalMilliseconds)
+                .Take(5);
 
             Console.WriteLine($"\nSlowest {operation} Operations:");
             foreach (var op in slowest)
@@ -584,6 +593,12 @@ namespace ModernDiskQueue.Tests
                     $"Op: {op.OperationTime.TotalMilliseconds:F2}ms, " +
                     $"Flush: {op.FlushTime.TotalMilliseconds:F2}ms)");
             }
+
+            Console.WriteLine($"\n{operation} Lock Time Latency Percentiles (ms):");
+            Console.WriteLine($"P50: {GetPercentile(queueLockTimes, 0.5):F2}");
+            Console.WriteLine($"P90: {GetPercentile(queueLockTimes, 0.9):F2}");
+            Console.WriteLine($"P95: {GetPercentile(queueLockTimes, 0.95):F2}");
+            Console.WriteLine($"P99: {GetPercentile(queueLockTimes, 0.99):F2}");
         }
 
         private static double GetPercentile(List<double> sequence, double percentile)

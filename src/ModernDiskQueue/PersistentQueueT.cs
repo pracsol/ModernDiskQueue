@@ -29,49 +29,6 @@ namespace ModernDiskQueue
         }
 
         /// <summary>
-        /// Create a new queue instance.
-        /// </summary>
-        /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
-        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
-        /// </remarks>
-        /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
-        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
-        /// <returns><see cref="PersistentQueue{T}"/></returns>
-        public new static async Task<PersistentQueue<T>> CreateAsync(string storagePath, CancellationToken cancellationToken = default)
-        {
-            // Create a new instance but don't initialize the queue yet
-            PersistentQueue<T> instance = new()
-            {
-                // Use the async factory method to initialize the queue
-                Queue = await PersistentQueueImpl<T>.CreateAsync(storagePath, cancellationToken).ConfigureAwait(false),
-            };
-            return instance;
-        }
-
-        /// <summary>
-        /// Create a new queue instance.
-        /// </summary>
-        /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
-        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
-        /// </remarks>
-        /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
-        /// <param name="maxSize">Maximum size of the queue file.</param>
-        /// <param name="throwOnConflict"><see cref="int"/></param>
-        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
-        /// <returns><see cref="PersistentQueue{T}"/></returns>
-        public new static async Task<PersistentQueue<T>> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
-        {
-            PersistentQueue<T> instance = new()
-            {
-                Queue = await PersistentQueueImpl<T>.CreateAsync(storagePath, maxSize, throwOnConflict, cancellationToken).ConfigureAwait(false),
-            };
-            // Use the async factory method to initialize the queue
-            return instance;
-        }
-
-        /// <summary>
         /// Open a read/write session
         /// </summary>
         public new IPersistentQueueSession<T> OpenSession()

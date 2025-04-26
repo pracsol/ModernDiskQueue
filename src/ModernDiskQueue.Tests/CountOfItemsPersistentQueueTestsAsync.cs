@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,11 +10,23 @@ namespace ModernDiskQueue.Tests
     public class CountOfItemsPersistentQueueTestsAsync : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./CountOfItemsTests";
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public new void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            base.Setup();
+        }
 
         [Test]
         public async Task Can_get_count_from_queue()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 Assert.That(0, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }
@@ -22,7 +35,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_enter_items_and_get_count_of_items()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 for (byte i = 0; i < 5; i++)
                 {
@@ -39,7 +52,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_get_count_of_items_after_queue_restart()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 for (byte i = 0; i < 5; i++)
                 {
@@ -51,7 +64,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 Assert.That(5, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }

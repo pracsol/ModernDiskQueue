@@ -6,16 +6,30 @@ namespace ModernDiskQueue.Tests
     using NUnit.Framework;
     using System.Threading.Tasks;
     using System;
+    using Microsoft.Extensions.Logging;
 
     [TestFixture]
     public class WriteFailureTestsAsync : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./WriteFailureTests";
 
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public new void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            base.Setup();
+        }
+
         [Test]
         public async Task EnqueueFailsIfDiskIsFullButDequeueStillWorks()
         {
-            await using var subject = await PersistentQueue.CreateAsync(QueuePath);
+            await using var subject = await _factory.CreateAsync(QueuePath);
             await subject.HardDeleteAsync(true);
 
             await using (var session = await subject.OpenSessionAsync())

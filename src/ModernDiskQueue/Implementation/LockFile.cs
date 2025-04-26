@@ -42,7 +42,7 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public async ValueTask DisposeAsync()
         {
-            await _stream.DisposeAsync();
+            await _stream.DisposeAsync().ConfigureAwait(false);
             try
             {
                 File.Delete(_path);

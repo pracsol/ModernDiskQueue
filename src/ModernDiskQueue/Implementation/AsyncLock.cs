@@ -2,6 +2,7 @@
 namespace ModernDiskQueue.Implementation
 {
     using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
     using ModernDiskQueue.Implementation.Logging;
     using ModernDiskQueue.PublicInterfaces;
     using System;
@@ -14,11 +15,28 @@ namespace ModernDiskQueue.Implementation
     /// </summary>
     internal sealed class AsyncLock
     {
-        private static readonly ILogger<AsyncLock> StaticLogger = LoggerAdapter.CreateLogger<AsyncLock>();
+        private readonly ILoggerFactory _loggerFactory;
+        private readonly ILogger<AsyncLock> _logger;
         private volatile int _waiters = 0;
         private readonly SemaphoreSlim _semaphore = new(1, 1);
         private readonly AsyncLocal<(int recursionCount, int taskId)> _ownerInfo = new();
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// Default constructor for AsyncLock should not be used. It is provided to support sync constructors initiating unused values.
+        /// </summary>
+        public AsyncLock()
+        {
+            // Default constructor will not be called by the async stack, but is provided for the sync stack to initialize instances in constructor.
+            _loggerFactory = NullLoggerFactory.Instance;
+            _logger = NullLogger<AsyncLock>.Instance;
+        }
+
+        public AsyncLock(ILoggerFactory loggerFactory)
+        {
+            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+            _logger = loggerFactory?.CreateLogger<AsyncLock>() ?? NullLogger<AsyncLock>.Instance;
+        }
 
         public async Task<IDisposable> LockAsync(CancellationToken cancellationToken = default)
         {
@@ -37,15 +55,15 @@ namespace ModernDiskQueue.Implementation
             var currentTaskId = Environment.CurrentManagedThreadId;
             var ownerInfo = _ownerInfo.Value;
 
-            StaticLogger.LogTrace("[AsyncLock] Attempting to acquire lock {LockName} by task {TaskId}", lockName, currentTaskId);
+            _logger.LogTrace("[AsyncLock] Attempting to acquire lock {LockName} by task {TaskId}", lockName, currentTaskId);
 
             // Reentrant lock fast path
             if (ownerInfo.taskId == currentTaskId && ownerInfo.recursionCount > 0)
             {
                 // Already owned by this task, increment recursion count
                 _ownerInfo.Value = (ownerInfo.recursionCount + 1, currentTaskId);
-                StaticLogger.LogTrace("[AsyncLock] Reentrant lock acquired by task {TaskId} after {ElapsedMilliseconds}ms", currentTaskId, stopWatch.ElapsedMilliseconds);
-                return new Releaser(this, true, currentTaskId, lockName);
+                _logger.LogTrace("[AsyncLock] Reentrant lock acquired by task {TaskId} after {ElapsedMilliseconds}ms", currentTaskId, stopWatch.ElapsedMilliseconds);
+                return new Releaser(_loggerFactory, this, true, currentTaskId, lockName);
             }
 
             // Fast path for uncontended case
@@ -54,8 +72,8 @@ namespace ModernDiskQueue.Implementation
                 _semaphore.Wait(0, cancellationToken))
             {
                 _ownerInfo.Value = (1, currentTaskId);
-                StaticLogger.LogTrace("[AsyncLock] Lock acquired by task {TaskId} after {ElapsedMilliseconds}ms", currentTaskId, stopWatch.ElapsedMilliseconds);
-                return new Releaser(this, false, currentTaskId, lockName);
+                _logger.LogTrace("[AsyncLock] Lock acquired by task {TaskId} after {ElapsedMilliseconds}ms", currentTaskId, stopWatch.ElapsedMilliseconds);
+                return new Releaser(_loggerFactory, this, false, currentTaskId, lockName);
             }
 
             // The contentious path
@@ -70,8 +88,8 @@ namespace ModernDiskQueue.Implementation
                     if (await _semaphore.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false))
                     {
                         _ownerInfo.Value = (1, currentTaskId);
-                        StaticLogger.LogTrace("[AsyncLock] Lock acquired by task {TaskId} after {ElapsedMilliseconds}ms and {RetryCount} of {MaxRetries} retries.", currentTaskId, stopWatch.ElapsedMilliseconds, i, MaxRetries);
-                        return new Releaser(this, false, currentTaskId, lockName);
+                        _logger.LogTrace("[AsyncLock] Lock acquired by task {TaskId} after {ElapsedMilliseconds}ms and {RetryCount} of {MaxRetries} retries.", currentTaskId, stopWatch.ElapsedMilliseconds, i, MaxRetries);
+                        return new Releaser(_loggerFactory, this, false, currentTaskId, lockName);
                     }
 
                     // Exponential backoff with jitter
@@ -105,14 +123,15 @@ namespace ModernDiskQueue.Implementation
 
         private class Releaser : IDisposable
         {
-            private static readonly ILogger<Releaser> StaticLogger = LoggerAdapter.CreateLogger<Releaser>();
+            private readonly ILogger<Releaser> _logger;
             private readonly AsyncLock _lock;
             private readonly bool _isReentrant;
             private readonly int _creatorThreadId;
             private readonly string _lockName;
 
-            public Releaser(AsyncLock @lock, bool isReentrant, int creatorThreadId, string lockName = "")
+            public Releaser(ILoggerFactory loggerFactory, AsyncLock @lock, bool isReentrant, int creatorThreadId, string lockName = "")
             {
+                _logger = loggerFactory?.CreateLogger<Releaser>() ?? NullLogger<Releaser>.Instance;
                 _lock = @lock;
                 _isReentrant = isReentrant;
                 _creatorThreadId = creatorThreadId;
@@ -121,7 +140,7 @@ namespace ModernDiskQueue.Implementation
 
             public void Dispose()
             {
-                StaticLogger.LogTrace("[AsyncLock] Release lock {LockName} from thread {Creator} on Thread {CurrentManagedThreadId}", _lockName, _creatorThreadId, Environment.CurrentManagedThreadId);
+                _logger.LogTrace("[AsyncLock] Release lock {LockName} from thread {Creator} on Thread {CurrentManagedThreadId}", _lockName, _creatorThreadId, Environment.CurrentManagedThreadId);
                 _lock.Release(_isReentrant);
             }
         }

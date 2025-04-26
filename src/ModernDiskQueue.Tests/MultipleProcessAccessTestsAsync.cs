@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute.Exceptions;
+using Microsoft.Extensions.Logging;
 
 // ReSharper disable PossibleNullReferenceException
 
@@ -14,6 +15,19 @@ namespace ModernDiskQueue.Tests
     public class MultipleProcessAccessTestsAsync : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./MultipleProcessAccessTests";
+
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public new void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            base.Setup();
+        }
 
         [Test,
          Description("Multiple PersistentQueue instances are " +
@@ -149,7 +163,7 @@ namespace ModernDiskQueue.Tests
         private async Task AddToQueueStringAsync(string data)
         {
             await Task.Delay(152);
-            await using var queue = await PersistentQueue.WaitForAsync<string>(QueuePath, TimeSpan.FromSeconds(30));
+            await using var queue = await _factory.WaitForAsync<string>(QueuePath, TimeSpan.FromSeconds(30));
             await using var session = await queue.OpenSessionAsync();
 
             await session.EnqueueAsync(data);
@@ -162,7 +176,7 @@ namespace ModernDiskQueue.Tests
             try
             {
                 await Task.Delay(121);
-                await using var queue = await PersistentQueue.WaitForAsync<string>(QueuePath, TimeSpan.FromSeconds(30));
+                await using var queue = await _factory.WaitForAsync<string>(QueuePath, TimeSpan.FromSeconds(30));
                 await using var session = await queue.OpenSessionAsync();
                 data = await session.DequeueAsync();
                 await session.FlushAsync();
@@ -177,7 +191,7 @@ namespace ModernDiskQueue.Tests
         private async Task AddToQueueAsync(byte[] data)
         {
             await Task.Delay(152);
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(30)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(30)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -190,7 +204,7 @@ namespace ModernDiskQueue.Tests
         private async Task<byte[]?> ReadQueueAsync()
         {
             await Task.Delay(121);
-            await using (var queue = await PersistentQueue.WaitForAsync(QueuePath, TimeSpan.FromSeconds(30)))
+            await using (var queue = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(30)))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {

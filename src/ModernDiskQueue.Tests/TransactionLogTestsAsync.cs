@@ -1,5 +1,6 @@
 namespace ModernDiskQueue.Tests
 {
+    using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Implementation;
     using NUnit.Framework;
     using System;
@@ -12,12 +13,25 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./TransactionLogTests";
 
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public new void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            base.Setup();
+        }
+
         [Test]
         public async Task Transaction_log_size_shrink_after_queue_disposed()
         {
             long txSizeWhenOpen;
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 queue.Internals.ParanoidFlushing = false;
                 await using (var session = await queue.OpenSessionAsync())
@@ -46,7 +60,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Count_of_items_will_remain_fixed_after_dequeueing_without_flushing()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 queue.Internals.ParanoidFlushing = false;
                 await using (var session = await queue.OpenSessionAsync())
@@ -69,7 +83,7 @@ namespace ModernDiskQueue.Tests
                     //	await session.FlushAsync(); explicitly removed so no dequeues get committed.
                 }
             }
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 int finalCountOfItems = await queue.GetEstimatedCountOfItemsInQueueAsync();
                 Assert.That(10, Is.EqualTo(finalCountOfItems));
@@ -79,7 +93,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Dequeue_items_that_were_not_flushed_will_appear_after_queue_restart()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -101,7 +115,7 @@ namespace ModernDiskQueue.Tests
                     //	await session.FlushAsync(); explicitly removed so dequeued items not removed.
                 }
             }
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -120,7 +134,7 @@ namespace ModernDiskQueue.Tests
         {
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            await using var queue = await PersistentQueue.CreateAsync(QueuePath);
+            await using var queue = await _factory.CreateAsync(QueuePath);
             queue.SuggestedMaxTransactionLogSize = 32; // single entry
             queue.Internals.ParanoidFlushing = false;
 
@@ -158,7 +172,7 @@ namespace ModernDiskQueue.Tests
         {
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -180,7 +194,7 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -200,7 +214,7 @@ namespace ModernDiskQueue.Tests
         {
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -220,7 +234,7 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -235,7 +249,7 @@ namespace ModernDiskQueue.Tests
         {
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -255,7 +269,7 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -270,7 +284,7 @@ namespace ModernDiskQueue.Tests
         {
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -290,7 +304,7 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -305,7 +319,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_handle_transaction_with_only_zero_length_entries()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -319,7 +333,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -336,7 +350,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_handle_end_separator_used_as_data()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -351,7 +365,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -364,7 +378,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_handle_start_separator_used_as_data()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -379,7 +393,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -392,7 +406,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_handle_zero_length_entries_at_start()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -410,7 +424,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -430,7 +444,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Can_handle_zero_length_entries_at_end()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -446,7 +460,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -464,7 +478,7 @@ namespace ModernDiskQueue.Tests
         {
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = false;
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -488,7 +502,7 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -513,7 +527,7 @@ namespace ModernDiskQueue.Tests
         public async Task Can_restore_data_when_a_transaction_set_is_partially_overwritten_when_throwOnConflict_is_false()
         {
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -556,7 +570,7 @@ namespace ModernDiskQueue.Tests
         {
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -578,7 +592,7 @@ namespace ModernDiskQueue.Tests
                 Console.WriteLine($"Size of corrupt transaction.log: {txLogInfo.Length}");
             }
 
-            await (await PersistentQueue.CreateAsync(QueuePath)).DisposeAsync();
+            await (await _factory.CreateAsync(QueuePath)).DisposeAsync();
 
             txLogInfo.Refresh();
             Console.WriteLine($"Size of reset transaction.log: {txLogInfo.Length}");
@@ -590,7 +604,7 @@ namespace ModernDiskQueue.Tests
         {
             var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -611,7 +625,7 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -626,7 +640,7 @@ namespace ModernDiskQueue.Tests
             }
 
             var data = new List<int>();
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {

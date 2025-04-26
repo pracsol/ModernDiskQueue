@@ -1,6 +1,8 @@
 ﻿
 namespace ModernDiskQueue.Tests
 {
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
     using ModernDiskQueue.Implementation;
     using NUnit.Framework;
     using System;
@@ -14,6 +16,7 @@ namespace ModernDiskQueue.Tests
         private Process? _otherProcess;
         private Process? _currentProcess;
         private int _currentThread;
+        private PersistentQueueFactory _factory;
 
         [OneTimeSetUp]
         public void OneTimeSetUp()
@@ -24,6 +27,12 @@ namespace ModernDiskQueue.Tests
             if (File.Exists("TestDummyProcess.exe")) _otherProcess = Process.Start("TestDummyProcess.exe");
             else if (File.Exists("TestDummyProcess")) _otherProcess = Process.Start("TestDummyProcess");
             else Assert.Inconclusive("Can't start test process");
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
         }
 
         [OneTimeTearDown]
@@ -40,7 +49,7 @@ namespace ModernDiskQueue.Tests
             WriteLockFile(queueName, _otherProcess!.Id, _currentThread, _otherProcess.StartTime.AddSeconds(1));
 
             //ACT
-            await using var queue = await PersistentQueue<string>.CreateAsync(queueName);
+            await using var queue = await _factory.CreateAsync<string>(queueName);
         }
 
         [Test]
@@ -53,7 +62,7 @@ namespace ModernDiskQueue.Tests
             try
             {
                 //ACT
-                using var queue = await PersistentQueue<string>.CreateAsync(queueName);
+                using var queue = await _factory.CreateAsync<string>(queueName);
             }
             catch (InvalidOperationException ex)
             {
@@ -74,7 +83,7 @@ namespace ModernDiskQueue.Tests
             try
             {
                 //ACT
-                using var queue = await PersistentQueue<string>.CreateAsync(queueName);
+                using var queue = await _factory.CreateAsync<string>(queueName);
             }
             catch (InvalidOperationException ex)
             {

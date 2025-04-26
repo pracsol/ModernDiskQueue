@@ -1,5 +1,6 @@
 namespace ModernDiskQueue.Tests
 {
+    using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Implementation;
     using ModernDiskQueue.PublicInterfaces;
     using ModernDiskQueue.Tests.Helpers;
@@ -16,6 +17,19 @@ namespace ModernDiskQueue.Tests
     public class PersistentQueueSessionTestsAsync : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./PersistentQueueSessionTest";
+
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public new void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+            base.Setup();
+        }
 
         [Test]
         public async Task Errors_raised_during_pending_write_will_be_thrown_on_flush()
@@ -73,7 +87,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task If_data_stream_is_truncated_will_raise_error()
         {
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             await using (var session = await queue.OpenSessionAsync())
             {
                 await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
@@ -86,7 +100,7 @@ namespace ModernDiskQueue.Tests
 
             Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
-                await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+                await using (var queue = await _factory.CreateAsync(QueuePath))
                 {
                     await using (var session = await queue.OpenSessionAsync())
                     {
@@ -102,7 +116,7 @@ namespace ModernDiskQueue.Tests
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
             PersistentQueue.DefaultSettings.ParanoidFlushing = true;
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -116,7 +130,7 @@ namespace ModernDiskQueue.Tests
             }
 
             byte[]? bytes;
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -133,7 +147,7 @@ namespace ModernDiskQueue.Tests
         {
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -146,7 +160,7 @@ namespace ModernDiskQueue.Tests
                 fs.SetLength(2);//corrupt the file
             }
 
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
@@ -156,7 +170,7 @@ namespace ModernDiskQueue.Tests
             }
 
             byte[]? bytes, corruptBytes;
-            await using (var queue = await PersistentQueue.CreateAsync(QueuePath))
+            await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {

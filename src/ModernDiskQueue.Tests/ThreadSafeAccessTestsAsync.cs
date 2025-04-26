@@ -1,5 +1,6 @@
 ﻿namespace ModernDiskQueue.Tests
 {
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
     using System;
     using System.Threading;
@@ -8,6 +9,18 @@
     [TestFixture, SingleThreaded]
     public class ThreadSafeAccessTestsAsync
     {
+        private PersistentQueueFactory _factory;
+        [SetUp]
+        public void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+        }
+
         /// <summary>
         /// Earlier version of test that didn't coordinate threads and tasks well.
         /// </summary>
@@ -23,7 +36,7 @@
             var rnd = new Random();
             Exception? lastException = null;
 
-            IPersistentQueue subject = await PersistentQueue.CreateAsync("queue_ta");
+            IPersistentQueue subject = await _factory.CreateAsync("queue_ta");
             var t1 = new Thread(async () =>
             {
                 try
@@ -113,7 +126,7 @@
             Exception? producerException = null;
             Exception? consumerException = null;
 
-            IPersistentQueue subject = await PersistentQueue.CreateAsync("queue_ta");
+            IPersistentQueue subject = await _factory.CreateAsync("queue_ta");
 
             var producerThread = new Thread(() =>
             {
@@ -248,7 +261,7 @@
 
                         for (int i = 0; i < target; i++)
                         {
-                            await using (var subject = await PersistentQueue.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
+                            await using (var subject = await _factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
                             {
                                 await using (var session = await subject.OpenSessionAsync())
                                 {
@@ -279,7 +292,7 @@
 
                         for (int i = 0; i < target; i++)
                         {
-                            await using (var subject = await PersistentQueue.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
+                            await using (var subject = await _factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
                             {
                                 await using (var session = await subject.OpenSessionAsync())
                                 {
@@ -345,7 +358,7 @@
 
                     for (int i = 0; i < target; i++)
                     {
-                        await using (var subject = await PersistentQueue.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
+                        await using (var subject = await _factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
                         {
                             await using (var session = await subject.OpenSessionAsync())
                             {
@@ -373,7 +386,7 @@
 
                     for (int i = 0; i < target; i++)
                     {
-                        await using (var subject = await PersistentQueue.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
+                        await using (var subject = await _factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
                         {
                             await using (var session = await subject.OpenSessionAsync())
                             {

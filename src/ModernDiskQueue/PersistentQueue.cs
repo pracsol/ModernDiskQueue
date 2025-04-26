@@ -1,4 +1,7 @@
-﻿using ModernDiskQueue.Implementation;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using ModernDiskQueue.Implementation;
+using ModernDiskQueue.Implementation.Logging;
 using ModernDiskQueue.PublicInterfaces;
 using System;
 using System.Collections;
@@ -16,8 +19,9 @@ namespace ModernDiskQueue
     /// <para>If you want to share the store between threads in one process, you may share the Persistent Queue and
     /// have each thread call `OpenSession` for itself.</para>
     /// </summary>
-    public class PersistentQueue : IPersistentQueue
+    public partial class PersistentQueue : IPersistentQueue
     {
+        private readonly ILogger<PersistentQueue> _logger;
         /// <summary>
         /// The queue implementation instance, or null if not connected
         /// </summary>
@@ -34,20 +38,25 @@ namespace ModernDiskQueue
         /// <para>Throws InvalidOperationException if another instance is attached to the backing store.</para>
         /// </summary>
         /// <remarks>
-        /// For async operations, do not use constructor. Instead use <see cref="CreateAsync(string, CancellationToken)"/> or <see cref="IPersistentQueueFactory"/>
+        /// For async operations, do not use constructor. Instead use <see cref="IPersistentQueueFactory"/>
         /// </remarks>
         public PersistentQueue(string storagePath)
         {
+            _logger = NullLogger<PersistentQueue>.Instance;
             Queue = new PersistentQueueImpl(storagePath);
         }
 
         /// <summary>
         /// This constructor is only for use by derived classes.
         /// </summary>
-        protected PersistentQueue() { }
-
-        internal PersistentQueue(IPersistentQueueImpl queue)
+        protected PersistentQueue()
         {
+            _logger = NullLogger<PersistentQueue>.Instance;
+        }
+
+        internal PersistentQueue(PersistentQueueImpl queue)
+        {
+            _logger = NullLogger<PersistentQueue>.Instance;
             Queue = queue;
         }
 
@@ -60,39 +69,8 @@ namespace ModernDiskQueue
         /// </summary>
         public PersistentQueue(string storagePath, int maxSize, bool throwOnConflict = true)
         {
+            _logger = NullLogger<PersistentQueue>.Instance;
             Queue = new PersistentQueueImpl(storagePath, maxSize, throwOnConflict);
-        }
-
-        /// <summary>
-        /// Create or connect to a persistent store at the given storage path.
-        /// </summary>
-        /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
-        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
-        /// </remarks>
-        /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
-        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
-        /// <returns><see cref="PersistentQueue"/></returns>
-        public static async Task<PersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default)
-        {
-            return new PersistentQueue(await PersistentQueueImpl.CreateAsync(storagePath, cancellationToken));
-        }
-
-        /// <summary>
-        /// Create or connect to a persistent store at the given storage path.
-        /// </summary>
-        /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
-        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
-        /// </remarks>
-        /// <param name="storagePath">Path to the directory facilitating the storage queue.</param>
-        /// <param name="maxSize">Maximum size of the queue file.</param>
-        /// <param name="throwOnConflict"><see cref="int"/></param>
-        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
-        /// <returns></returns>
-        public static async Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
-        {
-            return new PersistentQueue(await PersistentQueueImpl.CreateAsync(storagePath, maxSize, throwOnConflict, cancellationToken));
         }
 
         /// <summary>
@@ -144,91 +122,6 @@ namespace ModernDiskQueue
         }
 
         /// <summary>
-        /// Asynchronously waits a specified maximum time for exclusive access to a queue.
-        /// The queue is opened with default max file size (32MiB) and conflicts set to throw exceptions.
-        /// <para>If sharing storage between processes, the resulting queue should disposed
-        /// as soon as possible.</para>
-        /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
-        /// </summary>
-        /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
-        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
-        /// </remarks>
-        /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist.</param>
-        /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown.</param>
-        /// <param name="cancellationToken"><see cref="CancellationToken"/> to monitor for cancellation requests.</param>
-        /// <exception cref="TimeoutException">Lock on file could not be acquired</exception>
-        public static async Task<IPersistentQueue> WaitForAsync(string storagePath, TimeSpan maxWait, CancellationToken cancellationToken = default)
-        {
-            return await WaitForAsync(() => PersistentQueue.CreateAsync(storagePath, cancellationToken), maxWait, storagePath, cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Asynchronously waits a specified maximum time for exclusive access to a queue.
-        /// The queue is opened with default max file size (32MiB) and conflicts set to throw exceptions.
-        /// <para>If sharing storage between processes, the resulting queue should disposed
-        /// as soon as possible.</para>
-        /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
-        /// </summary>
-        /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
-        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
-        /// </remarks>
-        /// <param name="storagePath">Directory path for queue storage. This will be created if it doesn't already exist.</param>
-        /// <param name="maxSize">Maximum size in bytes for each storage file. Files will be rotated after reaching this limit.</param>
-        /// <param name="throwOnConflict">When true, if data files are damaged, throw an InvalidOperationException. This will stop program flow.</param>
-        /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown.</param>
-        /// <param name="cancellationToken"><see cref="CancellationToken"/> to monitor for cancellation requests.</param>
-        /// <exception cref="TimeoutException">Lock on file could not be acquired</exception>
-        public static async Task<IPersistentQueue> WaitForAsync(string storagePath, int maxSize, bool throwOnConflict, TimeSpan maxWait, CancellationToken cancellationToken = default)
-        {
-            return await WaitForAsync(() => PersistentQueue.CreateAsync(storagePath, maxSize, throwOnConflict, cancellationToken), maxWait, storagePath, cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Wait a maximum time to open an exclusive session.
-        /// The queue is opened with default max file size (32MiB) and conflicts set to throw exceptions.
-        /// <para>If sharing storage between processes, the resulting queue should disposed
-        /// as soon as possible.</para>
-        /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
-        /// </summary>
-        /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
-        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
-        /// </remarks>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="storagePath"></param>
-        /// <param name="maxWait"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        public static async Task<IPersistentQueue<T>> WaitForAsync<T>(string storagePath, TimeSpan maxWait, CancellationToken cancellationToken = default)
-        {
-            return await WaitForAsync(() => PersistentQueue<T>.CreateAsync(storagePath, cancellationToken), maxWait, storagePath, cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Wait a maximum time to open an exclusive session.
-        /// <para>If sharing storage between processes, the resulting queue should disposed
-        /// as soon as possible.</para>
-        /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
-        /// </summary>
-        /// <remarks>
-        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
-        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
-        /// </remarks>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="storagePath"></param>
-        /// <param name="maxSize"></param>
-        /// <param name="throwOnConflict"></param>
-        /// <param name="maxWait"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        public static async Task<IPersistentQueue<T>> WaitForAsync<T>(string storagePath, int maxSize, bool throwOnConflict, TimeSpan maxWait, CancellationToken cancellationToken = default)
-        {
-            return await WaitForAsync(() => PersistentQueue<T>.CreateAsync(storagePath, maxSize, throwOnConflict, cancellationToken), maxWait, storagePath, cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
         /// Wait a maximum time to open an exclusive session.
         /// <para>If sharing storage between processes, the resulting queue should disposed
         /// as soon as possible.</para>
@@ -264,7 +157,7 @@ namespace ModernDiskQueue
         {
             var local = Interlocked.Exchange(ref Queue, null);
             if (local == null) return;
-            await local.DisposeAsync();
+            await local.DisposeAsync().ConfigureAwait(false);
             GC.SuppressFinalize(this);
         }
 
@@ -301,7 +194,7 @@ namespace ModernDiskQueue
             cancellationToken.ThrowIfCancellationRequested();
 
             if (Queue == null) throw new Exception("This queue has been disposed");
-            return await Queue.OpenSessionAsync(cancellationToken);
+            return await Queue.OpenSessionAsync(cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -317,7 +210,7 @@ namespace ModernDiskQueue
         public async Task<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken = default)
         {
             if (Queue == null) return 0;
-            return await Queue.GetEstimatedCountOfItemsInQueueAsync(cancellationToken);
+            return await Queue.GetEstimatedCountOfItemsInQueueAsync(cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -403,87 +296,6 @@ namespace ModernDiskQueue
                 sw.Stop();
             }
             throw new TimeoutException($"Could not acquire a lock on '{lockName}' in the time specified");
-        }
-
-        private static async Task<T> WaitForAsync<T>(Func<Task<T>> generator, TimeSpan maxWait, string lockName, CancellationToken cancellationToken = default)
-        {
-            var sw = new Stopwatch();
-            try
-            {
-                sw.Start();
-                do
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    try
-                    {
-                        return await generator().ConfigureAwait(false);
-                    }
-                    catch (DirectoryNotFoundException)
-                    {
-                        throw new Exception("Target storagePath does not exist or is not accessible");
-                    }
-                    catch (PlatformNotSupportedException ex)
-                    {
-                        Log("Blocked by " + ex.GetType()?.Name + "; " + ex.Message + Environment.NewLine + Environment.NewLine + ex.StackTrace);
-                        throw;
-                    }
-                    catch
-                    {
-                        await Task.Delay(50, cancellationToken).ConfigureAwait(false);
-                    }
-                } while (sw.Elapsed < maxWait);
-            }
-            finally
-            {
-                sw.Stop();
-            }
-            throw new TimeoutException($"Could not acquire a lock on '{lockName}' in the time specified");
-        }
-
-        /// <summary>
-        /// Static settings that affect all queue instances created in this process
-        /// </summary>
-        public static class DefaultSettings
-        {
-            /// <summary>
-            /// Initial setting: false
-            /// <p>This setting allows sharing of the queue file across multiple processes and users. You
-            /// will probably want to set this to <c>true</c> if you are synchronising across containers
-            /// or are using network storage.</p>
-            /// <p>If true, files that are created will be given read/write access for all users</p>
-            /// <p>If false, files that are created will be left at default permissions of the running process</p>
-            /// </summary>
-            public static bool SetFilePermissions { get; set; } = false;
-
-            /// <summary>
-            /// Initial setting: false
-            /// <para>Setting this to true will prevent some file-system level errors from stopping the queue.</para>
-            /// <para>Only use this if uptime is more important than correctness of data</para>
-            /// </summary>
-            public static bool AllowTruncatedEntries { get; set; }
-
-            /// <summary>
-            /// Initial setting: true
-            /// <para>Safe, available for tests and performance.</para>
-            /// <para>If true, trim and flush waiting transactions on dispose</para>
-            /// </summary>
-            public static bool TrimTransactionLogOnDispose { get; set; } = true;
-
-            /// <summary>
-            /// Initial setting: true
-            /// <para>Setting this to false may cause unexpected data loss in some failure conditions.</para>
-            /// <para>If true, each transaction commit will flush the transaction log.</para>
-            /// <para>This is slow, but ensures the log is correct per transaction in the event of a hard termination (i.e. power failure)</para>
-            /// </summary>
-            public static bool ParanoidFlushing { get; set; } = true;
-
-            /// <summary>
-            /// Initial setting: 10000 (10 sec).
-            /// Maximum time for IO operations (including read &amp; write) to complete.
-            /// If any individual operation takes longer than this, an exception will occur.
-            /// </summary>
-            public static int FileTimeoutMilliseconds { get; set; } = 10_000;
         }
     }
 }
