@@ -1,10 +1,13 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.Extensions.Logging;
+using NUnit.Framework;
+using NSubstitute;
 using System;
 using System.Threading.Tasks;
 // ReSharper disable AssignNullToNotNullAttribute
 
 namespace ModernDiskQueue.Tests
 {
+
     [TestFixture, SingleThreaded]
     public class GenericQueueTestsAsync
     {
@@ -13,10 +16,22 @@ namespace ModernDiskQueue.Tests
         // If not, one of the files will fail complaining that the lock is still held.
         private const string QueueName = "./GenericQueueTestsAsync";
 
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
+        [SetUp]
+        public void Setup()
+        {
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddConsole();
+            });
+            _factory = new PersistentQueueFactory(loggerFactory);
+        }
+
         [Test]
         public async Task Round_trip_value_type()
         {
-            await using PersistentQueue<int> queue = await PersistentQueue<int>.CreateAsync(QueueName+"int");
+            await using PersistentQueue<int> queue = await _factory.CreateAsync<int>(QueueName+"int");
             await using var session = await queue.OpenSessionAsync();
 
             await session.EnqueueAsync(7);
@@ -36,7 +51,7 @@ namespace ModernDiskQueue.Tests
         {
             // Use different queue for each test case so that we don't get errors when running tests concurrently.
             var hash = valueToTest.GetHashCode().ToString("X8");
-            await using var queue = await PersistentQueue<string>.CreateAsync($"./GenericQueueTests3{hash}");
+            await using var queue = await _factory.CreateAsync<string>($"./GenericQueueTests3{hash}");
             await using var session = await queue.OpenSessionAsync();
 
             while (await session.DequeueAsync() != null) { Console.WriteLine("Removing old data"); }
@@ -52,7 +67,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Round_trip_complex_type()
         {
-            await using var queue = await PersistentQueue<TestClass>.CreateAsync(QueueName+"TC");
+            await using var queue = await _factory.CreateAsync<TestClass>(QueueName+"TC");
             await using var session = await queue.OpenSessionAsync();
 
             var testObject = new TestClass(7, "TestString", null);
@@ -75,7 +90,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Round_trip_DateTimeOffset()
         {
-            await using var queue   = await PersistentQueue<DateTimeOffset>.CreateAsync(QueueName+"TC2");
+            await using var queue   = await _factory.CreateAsync<DateTimeOffset>(QueueName+"TC2");
             await using var session = await queue.OpenSessionAsync();
 
             var testObject = DateTimeOffset.Now;

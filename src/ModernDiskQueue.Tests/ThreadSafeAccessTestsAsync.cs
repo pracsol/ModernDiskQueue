@@ -2,6 +2,7 @@
 {
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
+    using NSubstitute;
     using System;
     using System.Threading;
     using System.Threading.Tasks;
@@ -9,7 +10,7 @@
     [TestFixture, SingleThreaded]
     public class ThreadSafeAccessTestsAsync
     {
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public void Setup()
         {

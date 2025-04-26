@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using NSubstitute;
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
@@ -16,7 +17,7 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./MultipleProcessAccessTests";
 
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {

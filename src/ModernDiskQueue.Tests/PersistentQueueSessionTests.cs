@@ -8,6 +8,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 // ReSharper disable PossibleNullReferenceException
 
@@ -21,6 +22,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Errors_raised_during_pending_write_will_be_thrown_on_flush()
         {
+            var loggerFactory = Substitute.For<ILoggerFactory>();
             var limitedSizeStream = new MemoryStream(new byte[4]);
             var fileStream = new FileStreamWrapper(limitedSizeStream);
             var queueStub = PersistentQueueWithMemoryStream(fileStream);
@@ -28,7 +30,7 @@ namespace ModernDiskQueue.Tests
             var pendingWriteException = Assert.Throws<AggregateException>(() =>
             {
                 // Create a session with a write buffer size of 1,048,576
-                using (var session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000))
+                using (var session = new PersistentQueueSession(loggerFactory, queueStub, fileStream, 1024 * 1024, 1000))
                 {
                     // Send in an excessively large amount of data to write, 67,000,000+.
                     // This will exceed the write buffer and the size of the stream.
@@ -47,6 +49,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Errors_raised_during_flush_write_will_be_thrown_as_is()
         {
+            var loggerFactory = Substitute.For<ILoggerFactory>();
             var limitedSizeStream = new MemoryStream(new byte[4]);
             var fileStream = new FileStreamWrapper(limitedSizeStream);
             var queueStub = PersistentQueueWithMemoryStream(fileStream);
@@ -54,7 +57,7 @@ namespace ModernDiskQueue.Tests
             var notSupportedException = Assert.Throws<NotSupportedException>(() =>
             {
                 // Create a session with a write buffer size of 1,048,576
-                using (var session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000))
+                using (var session = new PersistentQueueSession(loggerFactory, queueStub, fileStream, 1024 * 1024, 1000))
                 {
                     // Send in a small amount of data to write, which is less than
                     // the write buffer size, but greater than the stream size.

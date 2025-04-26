@@ -12,8 +12,8 @@
         public ISerializationStrategy<T> SerializationStrategy { get; set; } = new DefaultSerializationStrategy<T>();
 
         /// <inheritdoc cref="IPersistentQueueSession{T}"/>
-        public PersistentQueueSession(ILoggerFactory loggerFactory, IPersistentQueueImpl queue, IFileStream currentStream, int writeBufferSize, int timeoutLimit) : base(loggerFactory, queue, currentStream,
-            writeBufferSize, timeoutLimit)
+        public PersistentQueueSession(ILoggerFactory loggerFactory, IPersistentQueueImpl queue, IFileStream currentStream, int writeBufferSize, int timeoutLimit) 
+            : base(loggerFactory, queue, currentStream, writeBufferSize, timeoutLimit)
         {
         }
 

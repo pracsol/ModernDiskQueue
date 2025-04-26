@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
+using NSubstitute;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -12,7 +13,7 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./MultiFileQueue";
 
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {

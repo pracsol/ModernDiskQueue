@@ -2,6 +2,7 @@
 {
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
+    using NSubstitute;
     using System;
     using System.Threading.Tasks;
 
@@ -13,7 +14,7 @@
         private readonly byte[] _one = [1, 2, 3, 4];
         private readonly byte[] _two = [5, 6, 7, 8];
 
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {

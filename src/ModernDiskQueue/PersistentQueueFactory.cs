@@ -53,7 +53,6 @@ namespace ModernDiskQueue
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
         public async Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            var logger = _loggerFactory.CreateLogger<PersistentQueueImpl>();
             var queue = new PersistentQueueImpl(_loggerFactory, storagePath, maxSize, throwOnConflict, true);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
             return new PersistentQueue(queue);
@@ -70,7 +69,6 @@ namespace ModernDiskQueue
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
         public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            var logger = _loggerFactory.CreateLogger<PersistentQueueImpl<T>>();
             var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, Constants._32Megabytes, true, true);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
             return new PersistentQueue<T>(queue);

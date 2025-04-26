@@ -3,6 +3,7 @@ namespace ModernDiskQueue.Tests
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Implementation;
     using NUnit.Framework;
+    using NSubstitute;
     using System;
     using System.Collections.Generic;
     using System.IO;
@@ -13,7 +14,7 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./TransactionLogTests";
 
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {

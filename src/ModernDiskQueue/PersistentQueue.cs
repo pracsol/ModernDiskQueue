@@ -1,17 +1,16 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using ModernDiskQueue.Implementation;
-using ModernDiskQueue.Implementation.Logging;
-using ModernDiskQueue.PublicInterfaces;
-using System;
-using System.Collections;
-using System.Diagnostics;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace ModernDiskQueue
+﻿namespace ModernDiskQueue
 {
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.Implementation.Logging;
+    using ModernDiskQueue.PublicInterfaces;
+    using System;
+    using System.Collections;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Threading;
+    using System.Threading.Tasks;
     /// <summary>
     /// Default persistent queue <see cref="IPersistentQueue"/>
     /// <para>This queue establishes exclusive use of the storage until it is disposed.</para>

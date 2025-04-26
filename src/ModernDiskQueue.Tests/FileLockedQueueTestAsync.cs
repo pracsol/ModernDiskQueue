@@ -5,6 +5,7 @@ namespace ModernDiskQueue.Tests
     using Microsoft.Extensions.Logging.Abstractions;
     using ModernDiskQueue.Implementation;
     using NUnit.Framework;
+    using NSubstitute;
     using System;
     using System.Diagnostics;
     using System.IO;
@@ -16,7 +17,7 @@ namespace ModernDiskQueue.Tests
         private Process? _otherProcess;
         private Process? _currentProcess;
         private int _currentThread;
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
 
         [OneTimeSetUp]
         public void OneTimeSetUp()

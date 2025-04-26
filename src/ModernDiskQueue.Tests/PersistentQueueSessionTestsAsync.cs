@@ -5,7 +5,6 @@ namespace ModernDiskQueue.Tests
     using ModernDiskQueue.PublicInterfaces;
     using ModernDiskQueue.Tests.Helpers;
     using NSubstitute;
-    using NSubstitute.Core;
     using NUnit.Framework;
     using System;
     using System.IO;
@@ -18,7 +17,7 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./PersistentQueueSessionTest";
 
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {
@@ -34,6 +33,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Errors_raised_during_pending_write_will_be_thrown_on_flush()
         {
+            var loggerFactory = Substitute.For<ILoggerFactory>();
             // Create a super small memory stream.
             var limitedSizeStream = new MemoryStream(new byte[4]);
             var fileStream = new FileStreamWrapper(limitedSizeStream);
@@ -42,7 +42,7 @@ namespace ModernDiskQueue.Tests
             var notSupportedException = Assert.ThrowsAsync<NotSupportedException>(async () =>
             {
                 // Create a session with a write buffer size of 1,048,576
-                await using (var session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000))
+                await using (var session = new PersistentQueueSession(loggerFactory, queueStub, fileStream, 1024 * 1024, 1000))
                 {
                     // Send in an excessively large amount of data to write, 67,000,000+.
                     // This will exceed the write buffer and the size of the stream.
@@ -62,6 +62,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task Errors_raised_during_flush_write_will_be_thrown_as_is()
         {
+            var loggerFactory = Substitute.For<ILoggerFactory>();
             // Create a super small memory stream.
             var limitedSizeStream = new MemoryStream(new byte[4]);
             var fileStream = new FileStreamWrapper(limitedSizeStream);
@@ -70,7 +71,7 @@ namespace ModernDiskQueue.Tests
             var notSupportedException = Assert.ThrowsAsync<NotSupportedException>(async () =>
             {
                 // Create a session with a write buffer size of 1,048,576
-                PersistentQueueSession session = new PersistentQueueSession(queueStub, fileStream, 1024 * 1024, 1000);
+                PersistentQueueSession session = new PersistentQueueSession(loggerFactory, queueStub, fileStream, 1024 * 1024, 1000);
                 await using (session)
                 {
                     // Send in a small amount of data to write, which is less than

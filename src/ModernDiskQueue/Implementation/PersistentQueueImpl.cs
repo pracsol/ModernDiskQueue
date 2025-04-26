@@ -1207,10 +1207,10 @@ namespace ModernDiskQueue.Implementation
 
                 // Quick check to see if the lock file already exists and return quickly.
                 // This won't give the process an opportunity to overwrite the file (if unlocked).
-                if (await _file.FileExistsAsync(target, cancellationToken).ConfigureAwait(false))
-                {
-                    return Maybe<bool>.Fail(new Exception("Quick test shows file already exists."));
-                }
+                //if (await _file.FileExistsAsync(target, cancellationToken).ConfigureAwait(false))
+                //{
+                //    return Maybe<bool>.Fail(new Exception("Quick test shows file already exists."));
+                //}
 
                 Maybe<ILockFile> result = await _file.CreateLockFileAsync(target, cancellationToken).ConfigureAwait(false);
 

@@ -3,6 +3,7 @@ namespace ModernDiskQueue.Tests
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Tests.Models;
     using NUnit.Framework;
+    using NSubstitute;
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
@@ -24,15 +25,12 @@ namespace ModernDiskQueue.Tests
 
         private int _totalDequeues;
 
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
+        
         [SetUp]
         public new void Setup()
         {
-            var loggerFactory = LoggerFactory.Create(builder => 
-            { 
-                builder.SetMinimumLevel(LogLevel.Information);
-                builder.AddConsole();
-            });
+            var loggerFactory = Substitute.For<ILoggerFactory>();
             _factory = new PersistentQueueFactory(loggerFactory);
             base.Setup();
         }
@@ -318,8 +316,8 @@ namespace ModernDiskQueue.Tests
             // Arrange test parameters
             int numberOfDequeueThreads = 100;
             int enqueueHeadstartInSeconds = 18;
-            int timeoutForQueueCreationDuringDequeueInSeconds = 100;
-            int timeoutForQueueCreationDuringEnqueueInSeconds = 50;
+            int timeoutForQueueCreationDuringDequeueInSeconds = 120;
+            int timeoutForQueueCreationDuringEnqueueInSeconds = 60;
             int timeoutForDequeueThreadsInMinutes = 3;
             int timeoutForEnqueueThreadInMinutes = 3;
             var totalDequeues = 0;

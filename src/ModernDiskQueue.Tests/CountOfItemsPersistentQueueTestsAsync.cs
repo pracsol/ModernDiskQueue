@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
+using NSubstitute;
 using System.Threading;
 using System.Threading.Tasks;
 // ReSharper disable PossibleNullReferenceException
@@ -10,7 +11,7 @@ namespace ModernDiskQueue.Tests
     public class CountOfItemsPersistentQueueTestsAsync : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./CountOfItemsTests";
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {

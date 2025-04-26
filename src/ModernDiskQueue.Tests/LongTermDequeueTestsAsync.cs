@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using NUnit.Framework;
+using NSubstitute;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,7 +12,7 @@ namespace ModernDiskQueue.Tests
     {
         private IPersistentQueue? _q;
 
-        private PersistentQueueFactory _factory;
+        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public async Task Setup()
         {
