@@ -10,8 +10,8 @@
     {
         public PersistentQueueImpl(string path) : base(path) { }
         public PersistentQueueImpl(string path, int maxFileSize, bool throwOnConflict) : base(path, maxFileSize, throwOnConflict) { }
-        internal PersistentQueueImpl(ILoggerFactory loggerFactory, string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode)
-            : base(loggerFactory, path, maxFileSize, throwOnConflict, isAsyncMode) { }
+        internal PersistentQueueImpl(ILoggerFactory loggerFactory, string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode, ModernDiskQueueOptions options, IFileDriver fileDriver)
+            : base(loggerFactory, path, maxFileSize, throwOnConflict, isAsyncMode, options, fileDriver) { }
 
         public new IPersistentQueueSession<T> OpenSession()
         {

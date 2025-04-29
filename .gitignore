@@ -39,3 +39,4 @@ build
 publish/
 publishprofiles/
 /TestTrimmedExecutable/Properties/PublishProfiles/FolderProfile.pubxml.user
+/src/ModernDiskQueue.Tests/TestResults

@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Threading;
 
 namespace ModernDiskQueue.Implementation
 {
@@ -16,7 +17,17 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public static void TryAllowReadWriteForAll(string path)
         {
-            if (!PersistentQueue.DefaultSettings.SetFilePermissions) return;
+            TryAllowReadWriteForAll(path, PersistentQueue.DefaultSettings.SetFilePermissions);
+        }
+
+        /// <summary>
+        /// Set read-write access for all users, or ignore if not possible
+        /// </summary>
+        /// <param name="path">path of object on which to set permissions.</param>
+        /// <param name="setFilePermissions"><see cref="ModernDiskQueueOptions.SetFilePermissions"/></param>
+        public static void TryAllowReadWriteForAll(string path, bool setFilePermissions)
+        {
+            if (!setFilePermissions) return;
             try
             {
                 if (Directory.Exists(path)) Directory_RWX_all(path);

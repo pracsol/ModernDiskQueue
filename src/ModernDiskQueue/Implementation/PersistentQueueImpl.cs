@@ -74,7 +74,9 @@ namespace ModernDiskQueue.Implementation
         /// <param name="maxFileSize">The maximum file size of the queue.</param>
         /// <param name="throwOnConflict"></param>
         /// <param name="isAsyncMode">Typically set to true. This parameter differentiates the constructor.</param>
-        internal PersistentQueueImpl(ILoggerFactory loggerFactory, string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode)
+        /// <param name="options"><see cref="ModernDiskQueueOptions"/> for the queue, including file size, flushing behavior, and more.</param>
+        /// <param name="fileDriver">Implementation of <see cref="IFileDriver"/></param>
+        internal PersistentQueueImpl(ILoggerFactory loggerFactory, string path, int maxFileSize, bool throwOnConflict, bool isAsyncMode, ModernDiskQueueOptions options, IFileDriver fileDriver)
         {
             ArgumentNullException.ThrowIfNull(loggerFactory);
             _loggerFactory = loggerFactory;
@@ -86,13 +88,14 @@ namespace ModernDiskQueue.Implementation
             _configLockAsync = new AsyncLock(_loggerFactory);
 
             _isAsyncMode = isAsyncMode;
-            _file = new StandardFileDriver(_loggerFactory);
+            _file = fileDriver;
             _throwOnConflict = throwOnConflict;
             MaxFileSize = maxFileSize;
-            TrimTransactionLogOnDispose = PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose;
-            ParanoidFlushing = PersistentQueue.DefaultSettings.ParanoidFlushing;
-            AllowTruncatedEntries = PersistentQueue.DefaultSettings.AllowTruncatedEntries;
-            FileTimeoutMilliseconds = PersistentQueue.DefaultSettings.FileTimeoutMilliseconds;
+            TrimTransactionLogOnDispose = options.TrimTransactionLogOnDispose;
+            ParanoidFlushing = options.ParanoidFlushing;
+            AllowTruncatedEntries = options.AllowTruncatedEntries;
+            FileTimeoutMilliseconds = options.FileTimeoutMilliseconds;
+            SetFilePermissions = options.SetFilePermissions;
             SuggestedMaxTransactionLogSize = Constants._32Megabytes;
             SuggestedReadBuffer = 1024 * 1024;
             SuggestedWriteBuffer = 1024 * 1024;
@@ -193,6 +196,8 @@ namespace ModernDiskQueue.Implementation
 
         public int FileTimeoutMilliseconds { get; set; }
 
+        public bool SetFilePermissions { get; set; }
+
         public void SetFileDriver(IFileDriver newFileDriver)
         {
             _file = newFileDriver;
@@ -268,13 +273,8 @@ namespace ModernDiskQueue.Implementation
         public async ValueTask DisposeAsync()
         {
             var stopwatch = Stopwatch.StartNew();
-            _logger.LogTrace("[PQI] Disposing queue on thread {CurrentThread}", Environment.CurrentManagedThreadId);
             // First check if already disposed to avoid unnecessary work
-            if (_disposed)
-            {
-                _logger.LogTrace("[PQI] Queue already disposed on thread {CurrentThread}", Environment.CurrentManagedThreadId);
-            }
-            else
+            if (!_disposed)
             {
                 using (await _configLockAsync.LockAsync("configlock").ConfigureAwait(false))
                 {
@@ -309,7 +309,6 @@ namespace ModernDiskQueue.Implementation
                     }
                 }
             }
-            _logger.LogTrace("[PQI] Disposed queue in {ElapsedTime}ms on thread {CurrentThread}", stopwatch.ElapsedMilliseconds, Environment.CurrentManagedThreadId);
         }
 
         public void AcquireWriter(IFileStream stream, Func<IFileStream, Task<long>> action, Action<IFileStream> onReplaceStream)
@@ -1073,7 +1072,6 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private async Task UnlockQueueAsync(CancellationToken cancellationToken = default)
         {
-            _logger.LogTrace("[PQI] Unlocking queue on thread {CurrentThread}", Environment.CurrentManagedThreadId);
             try
             {
                 if (_holdsWriterLock.Value)
@@ -1100,10 +1098,6 @@ namespace ModernDiskQueue.Implementation
             {
                 _logger.LogError(ex, "An error occurred while unlocking the queue");
                 throw;
-            }
-            finally
-            {
-                _logger.LogTrace("[PQI] Finished unlocking queue on thread {CurrentThread}", Environment.CurrentManagedThreadId);
             }
         }
 
@@ -1161,7 +1155,6 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         private async Task<Maybe<bool>> LockQueueAsync(CancellationToken cancellationToken = default)
         {
-            _logger.LogTrace("[PQI] Locking queue on thread {CurrentThread}", Environment.CurrentManagedThreadId);
             try
             {
                 if (_holdsWriterLock.Value)
@@ -1188,10 +1181,6 @@ namespace ModernDiskQueue.Implementation
             {
                 _logger.LogError(ex, "An error occurred while locking the queue");
                 throw;
-            }
-            finally
-            {
-                _logger.LogTrace("[PQI] Finished locking queue on thread {CurrentThread}", Environment.CurrentManagedThreadId);
             }
         }
 

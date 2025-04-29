@@ -1,6 +1,6 @@
 ﻿namespace ModernDiskQueue
 {
-public partial class PersistentQueue
+    public partial class PersistentQueue
     {
         /// <summary>
         /// Static settings that affect all queue instances created in this process

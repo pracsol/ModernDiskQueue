@@ -349,6 +349,7 @@
                     }
 
                     // We have a lock from a dead process. Kill it.
+                    _logger.LogTrace("Overwriting the existing (but abandoned) lock file.");
                     File.Delete(path);
                     File.WriteAllBytes(path, keyBytes);
                 }
@@ -360,6 +361,7 @@
 
                 lockStream.Write(keyBytes, 0, keyBytes.Length);
                 lockStream.Flush(true);
+                _logger.LogTrace("Created lock file at {path}", path);
                 return new LockFile(lockStream, path);
             }
             catch (Exception ex)
@@ -672,7 +674,7 @@
                 catch when (i < RetryLimit - 1)
                 {
                     Thread.Sleep(i * 100);
-                    _logger.LogWarning("MoveAsync of {OldFileName} to {NewFIleName} did not work on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
+                    _logger.LogTrace("MoveAsync of {OldFileName} to {NewFIleName} did not work on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
                 }
             }
             _logger.LogError("FAILED to MoveAsync file {OldFileName} to {NewFileName} after {RetryLimit} attempts", oldFileName, newFileName, RetryLimit);

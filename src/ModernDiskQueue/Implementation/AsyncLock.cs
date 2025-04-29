@@ -55,14 +55,11 @@ namespace ModernDiskQueue.Implementation
             var currentTaskId = Environment.CurrentManagedThreadId;
             var ownerInfo = _ownerInfo.Value;
 
-            _logger.LogTrace("[AsyncLock] Attempting to acquire lock {LockName} by task {TaskId}", lockName, currentTaskId);
-
             // Reentrant lock fast path
             if (ownerInfo.taskId == currentTaskId && ownerInfo.recursionCount > 0)
             {
                 // Already owned by this task, increment recursion count
                 _ownerInfo.Value = (ownerInfo.recursionCount + 1, currentTaskId);
-                _logger.LogTrace("[AsyncLock] Reentrant lock acquired by task {TaskId} after {ElapsedMilliseconds}ms", currentTaskId, stopWatch.ElapsedMilliseconds);
                 return new Releaser(_loggerFactory, this, true, currentTaskId, lockName);
             }
 
@@ -72,7 +69,6 @@ namespace ModernDiskQueue.Implementation
                 _semaphore.Wait(0, cancellationToken))
             {
                 _ownerInfo.Value = (1, currentTaskId);
-                _logger.LogTrace("[AsyncLock] Lock acquired by task {TaskId} after {ElapsedMilliseconds}ms", currentTaskId, stopWatch.ElapsedMilliseconds);
                 return new Releaser(_loggerFactory, this, false, currentTaskId, lockName);
             }
 
@@ -88,7 +84,6 @@ namespace ModernDiskQueue.Implementation
                     if (await _semaphore.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false))
                     {
                         _ownerInfo.Value = (1, currentTaskId);
-                        _logger.LogTrace("[AsyncLock] Lock acquired by task {TaskId} after {ElapsedMilliseconds}ms and {RetryCount} of {MaxRetries} retries.", currentTaskId, stopWatch.ElapsedMilliseconds, i, MaxRetries);
                         return new Releaser(_loggerFactory, this, false, currentTaskId, lockName);
                     }
 
@@ -140,7 +135,6 @@ namespace ModernDiskQueue.Implementation
 
             public void Dispose()
             {
-                _logger.LogTrace("[AsyncLock] Release lock {LockName} from thread {Creator} on Thread {CurrentManagedThreadId}", _lockName, _creatorThreadId, Environment.CurrentManagedThreadId);
                 _lock.Release(_isReentrant);
             }
         }

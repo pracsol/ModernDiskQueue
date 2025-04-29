@@ -3,7 +3,9 @@ namespace ModernDiskQueue
 {
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
+    using Microsoft.Extensions.Options;
     using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -17,29 +19,49 @@ namespace ModernDiskQueue
     {
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<PersistentQueueFactory> _logger;
+        private readonly ModernDiskQueueOptions _options;
+        private readonly IFileDriver _fileDriver;
+
+        /// <summary>
+        /// Create a new instance of <see cref="PersistentQueueFactory"/>.
+        /// </summary>
+        public PersistentQueueFactory()
+            : this(NullLoggerFactory.Instance, new ModernDiskQueueOptions()) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
-        public PersistentQueueFactory(ILoggerFactory loggerFactory)
+        public PersistentQueueFactory(ILoggerFactory loggerFactory) 
+            : this(loggerFactory, Options.Create(new ModernDiskQueueOptions()), new StandardFileDriver()) {}
+
+        /// <summary>
+        /// Create a new instance of <see cref="PersistentQueueFactory"/>.
+        /// </summary>
+        /// <param name="options">Default options.</param>
+        public PersistentQueueFactory(ModernDiskQueueOptions options)
+            : this(NullLoggerFactory.Instance, Options.Create(options), new StandardFileDriver()) { }
+
+        /// <summary>
+        /// Create a new instance of <see cref="PersistentQueueFactory"/>.
+        /// </summary>
+        /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
+        /// <param name="options">Default options.</param>
+        public PersistentQueueFactory(ILoggerFactory loggerFactory, ModernDiskQueueOptions options)
+            : this (loggerFactory, Options.Create(options), new StandardFileDriver()) {}
+
+        /// <summary>
+        /// Create a new instance of <see cref="PersistentQueueFactory"/>.
+        /// </summary>
+        /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
+        /// <param name="options">Default options.</param>
+        /// <param name="fileDriver"><see cref="IFileDriver"/> implementation.</param>
+        public PersistentQueueFactory(ILoggerFactory loggerFactory, IOptions<ModernDiskQueueOptions> options, IFileDriver fileDriver)
         {
-            _loggerFactory = loggerFactory;
+            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
             _logger = loggerFactory?.CreateLogger<PersistentQueueFactory>() ?? NullLogger<PersistentQueueFactory>.Instance;
-        }
-
-        /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
-        public PersistentQueue<T> Create<T>(string storagePath)
-        {
-            return new PersistentQueue<T>(storagePath);
-        }
-
-        /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
-        public PersistentQueue<T> Create<T>(string storagePath, int maxSize, bool throwOnConflict = true)
-        {
-            return new PersistentQueue<T>(storagePath, maxSize, throwOnConflict);
+            _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+            _fileDriver = fileDriver ?? throw new ArgumentNullException(nameof(fileDriver));
         }
 
         /// <inheritdoc/>
@@ -53,7 +75,9 @@ namespace ModernDiskQueue
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
         public async Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            var queue = new PersistentQueueImpl(_loggerFactory, storagePath, maxSize, throwOnConflict, true);
+            _logger.LogInformation("Creating queue at {storagePath} with options: {Options}", storagePath, _options);
+            SetGlobalDefaultsFromFactoryOptions(_options);
+            var queue = new PersistentQueueImpl(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, _fileDriver);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
             return new PersistentQueue(queue);
         }
@@ -69,7 +93,9 @@ namespace ModernDiskQueue
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
         public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, Constants._32Megabytes, true, true);
+            _logger.LogInformation("Creating queue at {storagePath} with options: {Options}", storagePath, _options);
+            SetGlobalDefaultsFromFactoryOptions(_options);
+            var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, Constants._32Megabytes, true, true, _options, _fileDriver);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
             return new PersistentQueue<T>(queue);
         }
@@ -173,13 +199,14 @@ namespace ModernDiskQueue
                     {
                         return await generator().ConfigureAwait(false);
                     }
-                    catch (DirectoryNotFoundException)
+                    catch (DirectoryNotFoundException ex)
                     {
+                        _logger.LogError("Error while waiting for queue: {Message}", ex.Message);
                         throw new Exception("Target storagePath does not exist or is not accessible");
                     }
                     catch (PlatformNotSupportedException ex)
                     {
-                        _logger.LogError(ex, "Blocked by {ExceptionName}; {ErrorMessage}\n\n{StackTrace}", ex.GetType()?.Name, ex.Message, ex.StackTrace);
+                        _logger.LogError(ex, "Error while waiting for queue. Blocked by {ExceptionName}; {ErrorMessage}\n\n{StackTrace}", ex.GetType()?.Name, ex.Message, ex.StackTrace);
                         throw;
                     }
                     catch
@@ -193,6 +220,17 @@ namespace ModernDiskQueue
                 sw.Stop();
             }
             throw new TimeoutException($"Could not acquire a lock on '{lockName}' in the time specified");
+        }
+
+        private void SetGlobalDefaultsFromFactoryOptions(ModernDiskQueueOptions options)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
+            PersistentQueue.DefaultSettings.AllowTruncatedEntries = options.AllowTruncatedEntries;
+            PersistentQueue.DefaultSettings.ParanoidFlushing = options.ParanoidFlushing;
+            PersistentQueue.DefaultSettings.SetFilePermissions = options.SetFilePermissions;
+            PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose = options.TrimTransactionLogOnDispose;
+            PersistentQueue.DefaultSettings.FileTimeoutMilliseconds = options.FileTimeoutMilliseconds;
         }
     }
 }

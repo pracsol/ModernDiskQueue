@@ -107,10 +107,31 @@ namespace ModernDiskQueue.PublicInterfaces
 		/// </summary>
 		bool AllowTruncatedEntries { get; set; }
 
-		/// <summary>
-		/// Approximate size of the queue. Used for testing
-		/// </summary>
-		int EstimatedCountOfItemsInQueue { get; }
+        /// <summary>
+        /// Gets or sets the timeout value for file operations.
+        /// </summary>
+        /// <remarks>
+        /// Maximum time for IO operations (including read &amp; write) to complete.
+        /// If any individual operation takes longer than this, an exception will occur.
+        /// </remarks>
+        int FileTimeoutMilliseconds { get; set; }
+
+        /// <summary>
+        /// Gets or sets the file stream sharing option.
+        /// </summary>
+        /// <remarks>
+        /// <p>This setting allows sharing of the queue file across multiple processes and users. You
+        /// will probably want to set this to <c>true</c> if you are synchronising across containers
+        /// or are using network storage.</p>
+        /// <p>If true, files that are created will be given read/write access for all users</p>
+        /// <p>If false, files that are created will be left at default permissions of the running process</p>
+        /// </remarks>
+        bool SetFilePermissions { get; set; }
+
+        /// <summary>
+        /// Approximate size of the queue. Used for testing
+        /// </summary>
+        int EstimatedCountOfItemsInQueue { get; }
 
         /// <summary>
 		/// Approximate size of the queue. Used for testing

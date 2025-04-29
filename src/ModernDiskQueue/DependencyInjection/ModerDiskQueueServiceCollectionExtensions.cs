@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using ModernDiskQueue.Implementation;
+using ModernDiskQueue.PublicInterfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,19 +15,6 @@ namespace ModernDiskQueue.DependencyInjection
     public static class ModerDiskQueueServiceCollectionExtensions
     {
         /// <summary>
-        /// Adds ModernDiskQueue services to the specified <see cref="IServiceCollection"/>.
-        /// </summary>
-        /// <param name="services">Implementation of <see cref="IServiceCollection"/></param>
-        /// <returns></returns>
-        public static IServiceCollection AddModernDiskQueue(this IServiceCollection services)
-        {
-            // set default options and consolidate to chained method.
-            // Register your components here
-            services.AddSingleton<IPersistentQueueFactory, PersistentQueueFactory>();
-            return services;
-        }
-
-        /// <summary>
         /// Adds ModernDiskQueue services to the specified <see cref="IServiceCollection"/> with the specified options.
         /// </summary>
         /// <param name="services">Implementation of <see cref="IServiceCollection"/></param>
@@ -33,11 +22,20 @@ namespace ModernDiskQueue.DependencyInjection
         /// <returns></returns>
         public static IServiceCollection AddModernDiskQueue(
             this IServiceCollection services,
-            Action<ModernDiskQueueOptions> configure)
+            Action<ModernDiskQueueOptions>? configure = null)
         {
-            services.Configure(configure);
+            if (configure != null)
+            {
+                services.Configure(configure);
+            }
+            else
+            {
+                services.Configure<ModernDiskQueueOptions>(_ => { });
+            }
+            
             // Register services
             services.AddSingleton<IPersistentQueueFactory, PersistentQueueFactory>();
+            services.AddSingleton<IFileDriver, StandardFileDriver>();
             return services;
         }
     }
