@@ -1,8 +1,10 @@
-﻿using ModernDiskQueue.Implementation.CrossPlatform.Unix;
+﻿using Microsoft.Extensions.Logging;
+using ModernDiskQueue.Implementation.CrossPlatform.Unix;
 using System;
 using System.IO;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Threading.Tasks;
 
 namespace ModernDiskQueue.Implementation
 {
@@ -22,6 +24,11 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Set read-write access for all users, or ignore if not possible
         /// </summary>
+        /// <remarks>
+        /// This overload was created to support the retrieval of the SetFilePermissions from the ModernDiskQueueOptions class
+        /// injected into StandardFileDriver and PersistentQueueImpl, instead of the PersistentQueue.DefaultSettings static class.
+        /// As such, it should only be used by the async methods in those classes.
+        /// </remarks>
         /// <param name="path">path of object on which to set permissions.</param>
         /// <param name="setFilePermissions"><see cref="ModernDiskQueueOptions.SetFilePermissions"/></param>
         public static void TryAllowReadWriteForAll(string path, bool setFilePermissions)

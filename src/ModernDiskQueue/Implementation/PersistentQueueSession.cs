@@ -77,7 +77,6 @@ namespace ModernDiskQueue.Implementation
         public async ValueTask EnqueueAsync(byte[] data, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _logger.LogTrace("[PQS] Enqueu started on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
             _buffer.Add(data);
             _bufferSize += data.Length;
 
@@ -85,7 +84,6 @@ namespace ModernDiskQueue.Implementation
             {
                 await FlushBufferAsync(cancellationToken).ConfigureAwait(false);
             }
-            _logger.LogTrace("[PQS] Enqueue completed on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
         }
 
         /// <summary>
@@ -113,7 +111,6 @@ namespace ModernDiskQueue.Implementation
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                _logger.LogTrace("[PQS] Dequeue started on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
                 // Use the async dequeue method in the queue implementation if available
                 Entry? entry = await _queue.DequeueAsync(cancellationToken).ConfigureAwait(false);
 
@@ -129,9 +126,10 @@ namespace ModernDiskQueue.Implementation
 
                 return entry.Data;
             }
-            finally
+            catch (Exception ex)
             {
-                _logger.LogTrace("[PQS] Dequeue completed on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
+                _logger.LogError(ex, "Error while dequeueing object: {Message}", ex.Message);
+                throw;
             }
         }
 
@@ -298,8 +296,6 @@ namespace ModernDiskQueue.Implementation
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            _logger.LogTrace("[PQS] FlushAsync started on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
-
             var fails = new List<Exception>();
             // I don't think I need this method since we're not using the ManualResetEvents
             // that were used by the sync code.
@@ -337,7 +333,6 @@ namespace ModernDiskQueue.Implementation
             // Commit transactions using async if available
             await _queue.CommitTransactionAsync(_operations, cancellationToken).ConfigureAwait(false);
             _operations.Clear();
-            _logger.LogTrace("[PQS] FlushAsync completed on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
         }
 
         private void WaitForPendingWrites(List<Exception> exceptions)
@@ -551,7 +546,6 @@ namespace ModernDiskQueue.Implementation
                 _currentStream.Dispose();
 
             GC.SuppressFinalize(this);
-            _logger.LogTrace("[PQS] Disposing of session on thread {CurrentThread}", Environment.CurrentManagedThreadId);
         }
 
         /// <summary>

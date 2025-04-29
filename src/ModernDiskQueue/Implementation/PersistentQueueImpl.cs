@@ -527,7 +527,6 @@ namespace ModernDiskQueue.Implementation
             }
             finally
             {
-                _logger.LogTrace("[PQI] Disposed queue on thread {CurrentThread}", Environment.CurrentManagedThreadId);
                 _holdsEntriesLock.Value = false;
             }
         }
@@ -1217,7 +1216,7 @@ namespace ModernDiskQueue.Implementation
         private void CreateDirectory(string s)
         {
             _file.CreateDirectory(s);
-            SetPermissions.TryAllowReadWriteForAll(s);
+            SetPermissions.TryAllowReadWriteForAll(s, SetFilePermissions);
         }
 
         private string TransactionLog => _file.PathCombine(_path, "transaction.log");

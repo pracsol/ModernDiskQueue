@@ -2,6 +2,7 @@
 {
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
+    using Microsoft.Extensions.Options;
     using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Collections.Generic;
@@ -19,6 +20,7 @@
     {
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<StandardFileDriver> _logger;
+        private readonly ModernDiskQueueOptions _options;
         public const int RetryLimit = 15;
 
         // existing fields for sync operations
@@ -40,12 +42,14 @@
         {
             _loggerFactory = NullLoggerFactory.Instance;
             _logger = NullLogger<StandardFileDriver>.Instance;
+            _options = new();
         }
 
-        public StandardFileDriver(ILoggerFactory loggerFactory)
+        public StandardFileDriver(ILoggerFactory loggerFactory, IOptions<ModernDiskQueueOptions> options)
         {
             _loggerFactory = loggerFactory;
             _logger = loggerFactory?.CreateLogger<StandardFileDriver>() ?? NullLogger<StandardFileDriver>.Instance;
+            _options = options.Value;
         }
 
         public string GetFullPath(string path) => Path.GetFullPath(path);
@@ -668,13 +672,11 @@
                 try
                 {
                     File.Move(oldPath, newPath);
-                    _logger.LogTrace("MoveAsync {OldFileName} to {NewFileName} on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
                     return true;
                 }
                 catch when (i < RetryLimit - 1)
                 {
                     Thread.Sleep(i * 100);
-                    _logger.LogTrace("MoveAsync of {OldFileName} to {NewFIleName} did not work on attempt #{AttemptNumber}", oldFileName, newFileName, i + 1);
                 }
             }
             _logger.LogError("FAILED to MoveAsync file {OldFileName} to {NewFileName} after {RetryLimit} attempts", oldFileName, newFileName, RetryLimit);
@@ -802,7 +804,7 @@
                             0x10000,
                             FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
 
-                    SetPermissions.TryAllowReadWriteForAll(dataFilePath);
+                    SetPermissions.TryAllowReadWriteForAll(dataFilePath, _options.SetFilePermissions);
                     return (IFileStream)new FileStreamWrapper(stream);
                 }
             }
@@ -1007,7 +1009,7 @@
                             0x10000,
                             FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-                        SetPermissions.TryAllowReadWriteForAll(path);
+                        SetPermissions.TryAllowReadWriteForAll(path, _options.SetFilePermissions);
                     }
                 }
                 finally
@@ -1107,7 +1109,7 @@
                             0x10000,
                             FileOptions.Asynchronous | FileOptions.WriteThrough | FileOptions.SequentialScan);
 
-                        SetPermissions.TryAllowReadWriteForAll(path);
+                        SetPermissions.TryAllowReadWriteForAll(path, _options.SetFilePermissions);
 
                         // Execute the write action
                         await action(stream!).ConfigureAwait(false);
