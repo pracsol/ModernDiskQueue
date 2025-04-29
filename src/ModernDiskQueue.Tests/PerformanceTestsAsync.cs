@@ -2,8 +2,8 @@ namespace ModernDiskQueue.Tests
 {
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Tests.Models;
-    using NUnit.Framework;
     using NSubstitute;
+    using NUnit.Framework;
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
@@ -26,7 +26,7 @@ namespace ModernDiskQueue.Tests
         private int _totalDequeues;
 
         private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
-        
+
         [SetUp]
         public new void Setup()
         {
@@ -287,7 +287,7 @@ namespace ModernDiskQueue.Tests
                 }
 
                 Console.WriteLine($"All dequeue threads finished, took {(DateTime.Now - dequeueStartTime).TotalSeconds} seconds. Total dequeues: {totalDequeues}.");
-                
+
                 if (!enqueueCompleted.Wait(TimeSpan.FromMinutes(timeoutForEnqueueThreadInMinutes)))
                 {
                     Console.WriteLine("Enqueue thread timed out.");

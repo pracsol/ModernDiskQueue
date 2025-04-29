@@ -1,10 +1,9 @@
 namespace ModernDiskQueue
 {
-    using System;
-    using System.Threading.Tasks;
-
-    using System.Threading;
     using ModernDiskQueue.PublicInterfaces;
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// A queue tied to a specific persistent storage backing.

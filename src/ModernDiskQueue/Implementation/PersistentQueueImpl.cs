@@ -1,5 +1,8 @@
 namespace ModernDiskQueue.Implementation
 {
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Buffers;
     using System.Collections.Generic;
@@ -8,10 +11,6 @@ namespace ModernDiskQueue.Implementation
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using ModernDiskQueue.Implementation.Logging;
-    using ModernDiskQueue.PublicInterfaces;
 
     /// <summary>
     /// A persistent queue implementation.

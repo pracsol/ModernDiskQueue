@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using ModernDiskQueue.Implementation;
 using ModernDiskQueue.PublicInterfaces;
 using ModernDiskQueue.Tests.Helpers;
@@ -8,7 +9,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 // ReSharper disable PossibleNullReferenceException
 

@@ -1,12 +1,9 @@
-﻿using NUnit.Framework;
-using NSubstitute;
+﻿using Microsoft.Extensions.Logging;
+using NUnit.Framework;
 using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
-using NSubstitute.Exceptions;
-using Microsoft.Extensions.Logging;
 
 // ReSharper disable PossibleNullReferenceException
 
@@ -17,7 +14,7 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./MultipleProcessAccessTests";
 
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
+        private PersistentQueueFactory _factory;
         [SetUp]
         public new void Setup()
         {
@@ -114,7 +111,7 @@ namespace ModernDiskQueue.Tests
                     producerDone.Set();
                 }
             });
-            var t2 = new Thread(() => 
+            var t2 = new Thread(() =>
             {
                 try
                 {

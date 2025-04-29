@@ -3,7 +3,6 @@ namespace ModernDiskQueue.Implementation
 {
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
-    using ModernDiskQueue.Implementation.Logging;
     using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Buffers;
@@ -483,7 +482,8 @@ namespace ModernDiskQueue.Implementation
             // Link cancellation token
             if (cancellationToken.CanBeCanceled)
             {
-                cancellationToken.Register(() => {
+                cancellationToken.Register(() =>
+                {
                     tcs.TrySetCanceled();
                     registerWaitHandle.Unregister(null);
                 }, false);

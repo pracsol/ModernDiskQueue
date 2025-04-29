@@ -1,6 +1,6 @@
-﻿using System.IO;
-using ModernDiskQueue.Implementation;
+﻿using ModernDiskQueue.Implementation;
 using NUnit.Framework;
+using System.IO;
 
 namespace ModernDiskQueue.Tests
 {
@@ -23,7 +23,7 @@ namespace ModernDiskQueue.Tests
                     session.Flush();
                 }
             }
-            
+
             using (var session = subject.OpenSession())
             {
                 // Switch to a file system that fails on write.
@@ -38,7 +38,7 @@ namespace ModernDiskQueue.Tests
                     Assert.Throws<IOException>(() => { session.Flush(); }, "should have thrown an exception when trying to write");
                 }
             }
-            
+
             // Restore driver so we can dispose correctly.
             subject.Internals.SetFileDriver(new StandardFileDriver());
         }

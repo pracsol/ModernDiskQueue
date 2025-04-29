@@ -1,20 +1,19 @@
 ﻿
 namespace ModernDiskQueue.Tests
 {
-    using System.IO;
+    using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Implementation;
     using NUnit.Framework;
-    using NSubstitute;
-    using System.Threading.Tasks;
     using System;
-    using Microsoft.Extensions.Logging;
+    using System.IO;
+    using System.Threading.Tasks;
 
     [TestFixture]
     public class WriteFailureTestsAsync : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./WriteFailureTests";
 
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
+        private PersistentQueueFactory _factory;
         [SetUp]
         public new void Setup()
         {
@@ -41,7 +40,7 @@ namespace ModernDiskQueue.Tests
                     await session.FlushAsync();
                 }
             }
-            
+
             await using (var session = await subject.OpenSessionAsync())
             {
                 // Switch to a file system that fails on write.
@@ -77,7 +76,7 @@ namespace ModernDiskQueue.Tests
                     }
                 }
             }
-            
+
         }
     }
 }

@@ -2,8 +2,8 @@
 {
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.PublicInterfaces;
-    using System.Threading.Tasks;
     using System.Threading;
+    using System.Threading.Tasks;
 
     /// <inheritdoc cref="IPersistentQueueSession{T}"/>
     public class PersistentQueueSession<T> : PersistentQueueSession, IPersistentQueueSession<T>
@@ -12,8 +12,8 @@
         public ISerializationStrategy<T> SerializationStrategy { get; set; } = new DefaultSerializationStrategy<T>();
 
         /// <inheritdoc cref="IPersistentQueueSession{T}"/>
-        public PersistentQueueSession(ILoggerFactory loggerFactory, IPersistentQueueImpl queue, IFileStream currentStream, int writeBufferSize, int timeoutLimit) 
-            : base(loggerFactory, queue, currentStream, writeBufferSize, timeoutLimit)
+        public PersistentQueueSession(ILoggerFactory loggerFactory, IPersistentQueueImpl queue, IFileStream currentStream, int writeBufferSize, int timeoutLimit) : base(loggerFactory, queue, currentStream,
+            writeBufferSize, timeoutLimit)
         {
         }
 

@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-[assembly:InternalsVisibleTo("ModernDiskQueue.Tests")]
+[assembly: InternalsVisibleTo("ModernDiskQueue.Tests")]
 namespace ModernDiskQueue.Implementation
 {
     using ModernDiskQueue.PublicInterfaces;

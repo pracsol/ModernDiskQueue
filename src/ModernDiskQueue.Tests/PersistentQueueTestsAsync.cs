@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using ModernDiskQueue.Implementation;
-using NUnit.Framework;
 using NSubstitute;
+using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -475,7 +475,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
                         await session.FlushAsync();
-                    }                    
+                    }
                 }
             }
 

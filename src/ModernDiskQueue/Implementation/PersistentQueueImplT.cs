@@ -1,9 +1,9 @@
 ﻿namespace ModernDiskQueue.Implementation
 {
-    using System.Threading;
-    using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.PublicInterfaces;
+    using System.Threading;
+    using System.Threading.Tasks;
 
     /// <inheritdoc cref="IPersistentQueueImpl{T}"/>
     internal class PersistentQueueImpl<T> : PersistentQueueImpl, IPersistentQueueImpl<T>

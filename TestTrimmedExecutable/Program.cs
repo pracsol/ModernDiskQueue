@@ -1,12 +1,10 @@
 ﻿namespace TestTrimmedExecutable
 {
+    using Microsoft.Extensions.DependencyInjection;
     using ModernDiskQueue;
-    using ModernDiskQueue.Implementation;
-    using ModernDiskQueue.PublicInterfaces;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Runtime.Serialization;
-    using Microsoft.Extensions.DependencyInjection;
-    using System.Diagnostics.CodeAnalysis;
     using System.Threading.Tasks;
 
     public static class Program
@@ -39,7 +37,7 @@
                         arguments[splitted[0]] = splitted[1];
                     }
                 }
-                if (arguments.TryGetValue("writeoutput", out string? writeoutput)) 
+                if (arguments.TryGetValue("writeoutput", out string? writeoutput))
                 {
                     isConsoleLoggingEnabled = writeoutput.Equals("true", StringComparison.InvariantCultureIgnoreCase);
                     if (isConsoleLoggingEnabled) Console.WriteLine($"Console logging enabled = {isConsoleLoggingEnabled}");

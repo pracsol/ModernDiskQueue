@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
-using NUnit.Framework;
 using NSubstitute;
+using NUnit.Framework;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -38,7 +38,7 @@ namespace ModernDiskQueue.Tests
         public async Task can_enqueue_during_a_long_dequeue()
         {
             if (_q == null) throw new InvalidOperationException("Queue is null");
-            
+
             var s1 = await _q.OpenSessionAsync();
 
             await using (var s2 = await _q.OpenSessionAsync())

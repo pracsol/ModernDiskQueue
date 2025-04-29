@@ -1,8 +1,8 @@
 ﻿using ModernDiskQueue.Implementation;
 using ModernDiskQueue.PublicInterfaces;
 using System;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ModernDiskQueue
 {

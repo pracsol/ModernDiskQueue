@@ -2,10 +2,6 @@
 using ModernDiskQueue.Implementation;
 using ModernDiskQueue.PublicInterfaces;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ModernDiskQueue.DependencyInjection
 {
@@ -32,7 +28,7 @@ namespace ModernDiskQueue.DependencyInjection
             {
                 services.Configure<ModernDiskQueueOptions>(_ => { });
             }
-            
+
             // Register services
             services.AddSingleton<IPersistentQueueFactory, PersistentQueueFactory>();
             services.AddSingleton<IFileDriver, StandardFileDriver>();

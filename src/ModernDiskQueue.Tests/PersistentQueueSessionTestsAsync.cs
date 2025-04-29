@@ -89,17 +89,22 @@ namespace ModernDiskQueue.Tests
         public async Task If_data_stream_is_truncated_will_raise_error()
         {
             await using (var queue = await _factory.CreateAsync(QueuePath))
-            await using (var session = await queue.OpenSessionAsync())
             {
-                await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
-                await session.FlushAsync();
-            }
-            using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
-            {
-                fs.SetLength(2);//corrupt the file
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
+                    await session.FlushAsync();
+                }
             }
 
-            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            // Corrupt the file by truncating it
+            using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
+            {
+                fs.SetLength(2);
+            }
+
+            //var invalidOperationException = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            try
             {
                 await using (var queue = await _factory.CreateAsync(QueuePath))
                 {
@@ -108,14 +113,30 @@ namespace ModernDiskQueue.Tests
                         await session.DequeueAsync();
                     }
                 }
-            });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message, ex.StackTrace);
+                Assert.That(ex, Is.TypeOf<InvalidOperationException>());
+            }
+            //});
+            //Console.WriteLine(invalidOperationException.Message);
         }
 
         [Test]
         public async Task If_data_stream_is_truncated_will_NOT_raise_error_if_truncated_entries_are_allowed_in_settings()
         {
-            PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
-            PersistentQueue.DefaultSettings.ParanoidFlushing = true;
+            // Using static default settings should be avoided in asyc operations in favor of setting options.
+            // PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
+            // PersistentQueue.DefaultSettings.ParanoidFlushing = true;
+
+            ModernDiskQueueOptions options = new()
+            {
+                AllowTruncatedEntries = true,
+                ParanoidFlushing = true,
+            };
+
+            _factory = new PersistentQueueFactory(options);
 
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {

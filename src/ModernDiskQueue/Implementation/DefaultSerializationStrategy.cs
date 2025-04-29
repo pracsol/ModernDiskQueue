@@ -7,7 +7,7 @@ namespace ModernDiskQueue.Implementation
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    
+
     /// <summary>
     /// This class performs basic serialization from objects of Type T to byte arrays suitable for use in DiskQueue sessions.
     /// <p></p>

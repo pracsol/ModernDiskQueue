@@ -1,9 +1,9 @@
-﻿using System;
+﻿using ModernDiskQueue.Implementation;
+using ModernDiskQueue.PublicInterfaces;
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using ModernDiskQueue.Implementation;
-using ModernDiskQueue.PublicInterfaces;
 
 namespace ModernDiskQueue.Tests
 {
@@ -15,10 +15,10 @@ namespace ModernDiskQueue.Tests
         {
             _realDriver = new StandardFileDriver();
         }
-        
-        public string GetFullPath(string path)=> Path.GetFullPath(path);
+
+        public string GetFullPath(string path) => Path.GetFullPath(path);
         public bool DirectoryExists(string path) => Directory.Exists(path);
-        public string PathCombine(string a, string b) => Path.Combine(a,b);
+        public string PathCombine(string a, string b) => Path.Combine(a, b);
 
         public Maybe<ILockFile> CreateLockFile(string path)
         {
@@ -32,9 +32,9 @@ namespace ModernDiskQueue.Tests
 
         public void ReleaseLock(ILockFile fileLock) { }
 
-        public async Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = default) 
+        public async Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = default)
         {
-            
+
         }
 
         public void PrepareDelete(string path)
@@ -123,7 +123,7 @@ namespace ModernDiskQueue.Tests
         }
         public void DeleteRecursive(string path) { }
 
-        public Task DeleteRecursiveAsync(string path, CancellationToken cancellationToken = default) 
+        public Task DeleteRecursiveAsync(string path, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

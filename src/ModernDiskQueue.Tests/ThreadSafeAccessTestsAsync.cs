@@ -1,8 +1,8 @@
 ﻿namespace ModernDiskQueue.Tests
 {
     using Microsoft.Extensions.Logging;
-    using NUnit.Framework;
     using NSubstitute;
+    using NUnit.Framework;
     using System;
     using System.Threading;
     using System.Threading.Tasks;

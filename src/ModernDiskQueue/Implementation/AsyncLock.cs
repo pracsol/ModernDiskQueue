@@ -3,8 +3,6 @@ namespace ModernDiskQueue.Implementation
 {
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
-    using ModernDiskQueue.Implementation.Logging;
-    using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Diagnostics;
     using System.Threading;

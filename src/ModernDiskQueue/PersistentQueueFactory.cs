@@ -32,8 +32,8 @@ namespace ModernDiskQueue
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
-        public PersistentQueueFactory(ILoggerFactory loggerFactory) 
-            : this(loggerFactory, Options.Create(new ModernDiskQueueOptions()), new StandardFileDriver()) {}
+        public PersistentQueueFactory(ILoggerFactory loggerFactory)
+            : this(loggerFactory, Options.Create(new ModernDiskQueueOptions()), new StandardFileDriver()) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
@@ -48,7 +48,7 @@ namespace ModernDiskQueue
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         /// <param name="options">Default options.</param>
         public PersistentQueueFactory(ILoggerFactory loggerFactory, ModernDiskQueueOptions options)
-            : this (loggerFactory, Options.Create(options), new StandardFileDriver()) {}
+            : this(loggerFactory, Options.Create(options), new StandardFileDriver()) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.

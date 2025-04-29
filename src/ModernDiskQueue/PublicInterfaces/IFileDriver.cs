@@ -2,8 +2,8 @@
 {
     using ModernDiskQueue.Implementation;
     using System;
-    using System.Threading.Tasks;
     using System.Threading;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// Interface for file access mechanism. For test and advanced users only.

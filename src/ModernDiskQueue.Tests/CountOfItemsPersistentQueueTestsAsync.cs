@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
-using NUnit.Framework;
 using NSubstitute;
-using System.Threading;
+using NUnit.Framework;
 using System.Threading.Tasks;
 // ReSharper disable PossibleNullReferenceException
 

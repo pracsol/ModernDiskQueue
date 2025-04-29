@@ -1,5 +1,7 @@
 ﻿namespace ModernDiskQueue.Implementation
 {
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
     using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Collections.Generic;
@@ -8,8 +10,6 @@
     using System.Threading;
     using System.Threading.Channels;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Logging.Abstractions;
 
     /// <summary>
     /// A wrapper around System.IO.File to help with
@@ -1231,8 +1231,8 @@
         /// </summary>
         private async Task WaitDeleteInternalAsync_UnderLock(string path, CancellationToken cancellationToken)
         {
-                await PrepareDeleteAsync(path, cancellationToken).ConfigureAwait(false);
-                await FinaliseAsync(cancellationToken).ConfigureAwait(false);
+            await PrepareDeleteAsync(path, cancellationToken).ConfigureAwait(false);
+            await FinaliseAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
