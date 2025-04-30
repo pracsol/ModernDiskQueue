@@ -248,13 +248,15 @@ If you need the transaction semantics of sessions across multiple processes, try
 ## More Detailed Examples
 
 ### Dependency Injection
-For the async support, a simple factory pattern was implemented as the vehicle to create queue objects. At present, this was done to perform async initialization tasks which couldn't be done inside constructors, but it will also allow continued feature development such as caching or pooling, if that makes sense some day.
+For the async support, a simple factory pattern was implemented as the vehicle to create queue objects. This was done to perform internal async initialization tasks which couldn't be done inside constructors, but it will also allow continued feature development such as caching or pooling, if that makes sense some day.
 
 A registration helper was built to allow the factory to be registered with a DI container. This is done by calling `services.AddModernDiskQueue()` in your `ConfigureServices` method. By doing this, your logging context will be used by the library.
 
-There is presently no support for registering individual queues in the DI container. Instead, it is contemplated that queues will be created via async initialization in a hosted startup pattern or created and disposed for discrete operations if multiprocess usage of the same storage queue is a design requirement.
+There is presently no support for registering individual queues in the DI container. Instead, it is contemplated that queues will be created via async initialization in a hosted startup pattern (like a `BackgroundService` or any `IHostedService`) or created and disposed for discrete operations if multiprocess usage of the same storage queue is a design requirement.
 
-#### Async Initialization
+#### Async Initialization in Hosted Startup Pattern
+This is a simple example of how to use the factory in a hosted service. It assumes that the storage queue will be created on service startup and disposed when the service is shut down - that is to say, that the service will be using the queue exclusively and will not be worried about other processes needing access.
+
 Service configuration:
 ```csharp
 services.AddLogging(builder =>
@@ -294,6 +296,34 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	_localStorageService.InitializeService();
 	// now do work
 	[...]
+}
+```
+
+#### Discrete Queue Creation and Disposal
+This is an example of a service that creates and disposes of a queue for each operation. This is useful if you are using the same storage location across multiple processes, or if you want to ensure that the lock on the queue is dropped as soon as possible. It is less performant but is more friendly to cross-process access to the same storage queue.
+```csharp
+public class MyService
+{
+	private readonly IPersistentQueueFactory _factory;
+	public MyService(IPersistentQueueFactory factory)
+	{
+		_factory = factory;
+	}
+	public async Task DoWork()
+	{
+		await using (var queue = await _factory.WaitForAsync("myStoragePath", TimeSpan.FromSeconds(5)))
+		{
+			await using (var session = await queue.OpenSessionAsync())
+			{
+				var data = await session.DequeueAsync();
+				if (data != null)
+				{
+					await session.FlushAsync();
+					// do work with data
+				}
+			}
+		}
+	}
 }
 ```
 
