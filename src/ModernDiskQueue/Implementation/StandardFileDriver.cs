@@ -881,11 +881,11 @@
                 {
                     await Task.Delay(i * 100, cancellationToken).ConfigureAwait(false);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     if (i >= RetryLimit)
                     {
-                        PersistentQueue.Log("Exceeded retry limit during async read");
+                        _logger.LogError(ex, "Exceeded retry limit during async read.");
                         return false;
                     }
                 }
