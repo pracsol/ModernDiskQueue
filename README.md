@@ -9,7 +9,7 @@
 ## Description
 ModernDiskQueue is a fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue.
 
-**MDQ v2.*** - Added first-class async operations and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two implementations should not be invoked interchangeably.
+**MDQ v2.*** - Added first-class async support and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two APIs should not be invoked interchangeably or within the same context.
 
 **MDQ v1.\*** - Upgraded the runtime to .NET 8, but otherwise functionally equivalent to the original DiskQueue synchronous library.
 
@@ -37,22 +37,23 @@ issues with DiskQueue -- although it tries to work around them.
 ### Asynchronous Operation (first supported in v2)
 * `PersistentQueueFactory.WaitForAsync(..)` is the main entry point. This will attempt to gain an exclusive lock on the given storage location by calling `.CreateAsync(..)` until the specified timeout expires. `CreateAsync` gracefully fails if the queue is locked and contention is detected. On first use, a directory will be created with the required files inside of it.
 * This returned queue object can be shared amongst threads. Each thread should call `OpenSessionAsync()` to get its own session object.
-* ALWAYS wrap your `IPersistentQueue` and `IPersistentQueueSession` in an `await using()` block, or otherwise call `DisposeAsync()` manually. Failure to do this will result in lock contention -- you will get errors that the queue is still in use. Be careful about using the simplified `await using` declarations introduced in C# 8.0 (no `{}`) when conducting multiple operations. Generally, you have more control over the scope of the object using the classic `await using [obj] {..}` statements.
+* Generally speaking, ALWAYS wrap your `IPersistentQueue` and `IPersistentQueueSession` in an `await using()` block, or otherwise call `DisposeAsync()` manually. Failure to do this will result in lock contention -- you will get errors that the queue is still in use. Be careful about using the simplified `await using` declarations introduced in C# 8.0 (no `{}`) when conducting multiple operations. Generally, you have more control over the scope of the object using the classic `await using [obj] {..}` statements.
 * DO NOT implement queues or sessions using the synchronous patterns when using the asynchronous API. The two implementations are not interchangeable and will cause deadlocks or other issues if you try to mix them. This is largely because the lock awareness mechanisms under the hood are necessarily different for the sync and async APIs. Specifically, use the `PersistentQueueFactory` and its `.CreateAsync()` or `.WaitForAsync()` methods instead of the `PersistentQueue` constructors or the `IPersistentQueue.Create()` or `.WaitFor()` static methods. Always use methods suffixed by *Async* instead of the synchronous equivalents.
-* Generic-typed queues are supported with the `.CreateAsync<T>` and `WaitForAsync<T>` methods.
+* Generic-typed queues are supported with the `.CreateAsync<T>` and `WaitForAsync<T>` methods of the `PersistentQueueFactory` class.
 
-### Dependency Injection (first supported in v2)
+### Dependency Injection Containers (first supported in v2)
 * The `PersistentQueueFactory` can be registered with your DI container. This will allow you to inject the factory into your classes and use it to create queues. Use `services.AddModernDiskQueue()` to register the factory with the default settings.
 * You can also use `services.AddModernDiskQueue(options => { ... })` to configure the factory with custom default settings. This overrides the GlobalDefaults static values implemented in the original synchronous API.
 * Your logging context will be passed to the factory, so you can use your DI container's logging framework to log messages from the queue.
 
 ### Original Synchronous Operation
+ - The original sync operations of DiskQueue have been preserved in v2. All the implementation guidance for the original DiskQueue is still supported.
  - `PersistentQueue.WaitFor(...)` is the main entry point. This will attempt to gain an exclusive lock
    on the given storage location. On first use, a directory will be created with the required files
    inside it.
  - This queue object can be shared among threads. Each thread should call `OpenSession()` to get its 
    own session object.
- - Both `IPersistentQueue`s and `IPersistentQueueSession`s should be wrapped in `using()` clauses, or otherwise
+ - Both `IPersistentQueue` and `IPersistentQueueSession` objects should be wrapped in `using()` clauses, or otherwise
    disposed of properly. Failure to do this will result in lock contention -- you will get errors that the queue
    is still in use.
  - There is also a generic-typed `PersistentQueue<T>(...);` which will handle the serialisation and deserialization of elements in the queue. Use `new PersistentQueue<T>(...)` in place of `new PersistentQueue(...)` or `PersistentQueue.WaitFor<T>(...)` in place of `PersistentQueue.WaitFor(...)` in any of the examples below.
