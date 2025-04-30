@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PackageId>ModernDiskQueue</PackageId>
-    <Description>A fork of DiskQueue, updated for the current LTS .net runtime</Description>
+    <Description>A fork of DiskQueue, implementing first-class async support on the current LTS .NET runtime</Description>
     <PackageIcon>MDQLogo-small.png</PackageIcon>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
