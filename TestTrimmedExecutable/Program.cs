@@ -2,6 +2,7 @@
 {
     using Microsoft.Extensions.DependencyInjection;
     using ModernDiskQueue;
+    using ModernDiskQueue.DependencyInjection;
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Runtime.Serialization;
@@ -131,7 +132,7 @@
         private static void ConfigureServices(IServiceCollection services)
         {
             // Register PersistentQueueFactory as a singleton
-            services.AddSingleton<PersistentQueueFactory>();
+            services.AddModernDiskQueue();
         }
 
         public static int TestSimpleObjectQueueing(int inputInt)

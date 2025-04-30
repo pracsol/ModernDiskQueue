@@ -8,7 +8,7 @@
     <PublishTrimmed>true</PublishTrimmed>
     <SelfContained>true</SelfContained>
     <TrimMode>full</TrimMode>
-    <Version>1.0.0</Version>
+    <Version>1.2.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
