@@ -172,6 +172,7 @@ namespace ModernDiskQueue.Implementation
 #else
         ~PersistentQueueImpl()
         {
+            // cannot call disposeasync from finalizer so hopefully not relied upon.
             if (_disposed) return;
             Dispose();
         }
@@ -877,7 +878,7 @@ namespace ModernDiskQueue.Implementation
                 }
                 catch (Exception ex)
                 {
-                    PersistentQueue.Log(ex.ToString() ?? "");
+                    _logger.LogError(ex, "Error wiating for transaction log. {ErrorMessage}", ex.Message);
 
                     if (++retryCount >= maxRetries)
                         throw new TimeoutException("Could not acquire transaction log lock");
@@ -1864,6 +1865,7 @@ namespace ModernDiskQueue.Implementation
                 catch (EndOfStreamException ex)
                 {
                     PersistentQueue.Log($"Truncation {ex}");
+
                 }
             });
             if (!ok) PersistentQueue.Log("Could not access meta state");
@@ -1884,11 +1886,15 @@ namespace ModernDiskQueue.Implementation
                 }
                 catch (EndOfStreamException ex)
                 {
-                    PersistentQueue.Log($"Truncation {ex}");
+                    // This error is normal when queue is new
+                    _logger.LogWarning(ex, "Truncation error while reading meta state. This is normal when the queue is newly created.");
                 }
             }, cancellationToken).ConfigureAwait(false);
 
-            if (!ok) PersistentQueue.Log("Could not access meta state");
+            if (!ok)
+            {
+                _logger.LogWarning("Could not access meta state");
+            }
         }
 
         private void TrimTransactionLogIfNeeded(long txLogSize)
