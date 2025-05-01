@@ -3,14 +3,18 @@
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.DependencyInjection;
+    using ModernDiskQueue.Tests.Models;
     using NUnit.Framework;
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
 
     internal class DependencyInjectionTests
     {
         string QueuePath = "./DIConsumerTests";
         private ServiceProvider _serviceProvider;
+        InMemoryLoggerProvider _logProvider = new();
 
         [SetUp]
         public void Setup()
@@ -22,6 +26,7 @@
             {
                 builder.SetMinimumLevel(LogLevel.Trace);
                 builder.AddConsole();
+                builder.AddProvider(_logProvider);
             });
 
             // Add options configuration
@@ -173,6 +178,7 @@
             // Arrange
             int originalTimeout = 0;
             int changedTimeout = 0;
+            // Arrange
             var factory = _serviceProvider.GetRequiredService<IPersistentQueueFactory>();
 
             // Act
@@ -180,9 +186,41 @@
             {
 
             }
+            await using (var queue = await factory.CreateAsync<string>(QueuePath))
+            {
 
+            }
             // Assert
+
+            var logsFromFactory = _logProvider.GetMessages("PersistentQueueFactory");
+            var logs = _logProvider.LogEntries;
+
+
+            Assert.That(logs.Count(entry =>
+                entry.Level == LogLevel.Information &&
+                entry.Category.Contains("ModernDiskQueue.PersistentQueueFactory") &&
+                entry.Message.Contains("Creating queue at")) == 2,
+                "Expected two informational entries from factory when queue is created");
+
+            Assert.That(logs.Any(entry =>
+                entry.Level == LogLevel.Trace &&
+                entry.Category.Contains("ModernDiskQueue.Implementation.StandardFileDriver") &&
+                entry.Message.Contains("Created lock file")),
+                "Expected trace/verbose entry from IFileDriver when lock file created.");
+
+            Assert.That(logs.Any(entry =>
+                entry.Level == LogLevel.Trace &&
+                entry.Category.Contains("ModernDiskQueue.Implementation.StandardFileDriver") &&
+                entry.Message.Contains("Released lock file")),
+                "Expected trace/verbose entry from IFileDriver when lock file released.");
+
+            Assert.That(logs.Count(entry =>
+                entry.Level == LogLevel.Trace &&
+                entry.Category.Contains("ModernDiskQueue.PersistentQueue") &&
+                entry.Message.Contains("Disposing of queue")) == 2,
+                "Expected two trace/verbose entries, one each from PersistentQueue and PersistentQueue<T> when disposing.");
             // assert that log messages were received from work done in log factory and standard file driver.
         }
+        
     }
 }

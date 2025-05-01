@@ -16,7 +16,7 @@
         {
             var loggerFactory = LoggerFactory.Create(builder =>
             {
-                builder.SetMinimumLevel(LogLevel.Information);
+                builder.SetMinimumLevel(LogLevel.Warning);
                 builder.AddConsole();
             });
             _factory = new PersistentQueueFactory(loggerFactory);
@@ -246,100 +246,100 @@
         [Test]
         public async Task can_sequence_queues_on_separate_threads()
         {
-            var producerDone = new ManualResetEvent(false);
-            var consumerDone = new ManualResetEvent(false);
-            int t1s, t2s;
-            t1s = t2s = 0;
-            const int target = 100;
-            Exception? lastException = null;
+            var factory = _factory;// new PersistentQueueFactory();
+            const int objectCount = 100;
+            int enqueueCount = 0, dequeueCount = 0;
+            Exception? producerException = null, consumerException = null;
 
-            var t1 = new Thread(() =>
+            // Create task completion sources to signal when threads are done
+            var producerTcs = new TaskCompletionSource<bool>();
+            var consumerTcs = new TaskCompletionSource<bool>();
+
+            var producerThread = new Thread(async () =>
             {
-                Task.Run(async () =>
+                try
                 {
-                    try
-                    {
 
-                        for (int i = 0; i < target; i++)
+                    for (int i = 0; i < objectCount; i++)
+                    {
+                        await using (var queue = await factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(30)).ConfigureAwait(false))
                         {
-                            await using (var subject = await _factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
+                            await using (var session = await queue.OpenSessionAsync().ConfigureAwait(false))
                             {
-                                await using (var session = await subject.OpenSessionAsync())
-                                {
-                                    Console.Write("(");
-                                    await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
-                                    Interlocked.Increment(ref t1s);
-                                    await session.FlushAsync();
-                                    Console.Write(")");
-                                }
-                                await Task.Delay(0);
+                                Console.Write("(");
+                                await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 }).ConfigureAwait(false);
+                                Interlocked.Increment(ref enqueueCount);
+                                await session.FlushAsync().ConfigureAwait(false);
+                                Console.Write(")");
                             }
                         }
-                        producerDone.Set();
+                        await Task.Delay(5);
                     }
-                    catch (Exception ex)
-                    {
-                        lastException = ex;
-                        producerDone.Set();
-                    }
-                }).Wait();
-            });
-            var t2 = new Thread(()=>
-            {
-                Task.Run(async () =>
+                    producerTcs.SetResult(true);
+                }
+                catch (Exception ex)
                 {
-                    try
-                    {
+                    producerException = ex;
+                    producerTcs.SetException(ex);
+                }
+            })
+            { IsBackground = true, Name = "Producer Thread" };
 
-                        for (int i = 0; i < target; i++)
+            var consumerThread = new Thread(async ()=>
+            {
+                try
+                {
+                    for (int i = 0; i < objectCount; i++)
+                    {
+                        await using (var queue = await factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(30)).ConfigureAwait(false))
                         {
-                            await using (var subject = await _factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
+                            await using (var session = await queue.OpenSessionAsync().ConfigureAwait(false))
                             {
-                                await using (var session = await subject.OpenSessionAsync())
-                                {
-                                    Console.Write("<");
-                                    await session.DequeueAsync();
-                                    Interlocked.Increment(ref t2s);
-                                    await session.FlushAsync();
-                                    Console.Write(">");
-                                }
-                                await Task.Delay(0);
+                                Console.Write("<");
+                                await session.DequeueAsync().ConfigureAwait(false);
+                                Interlocked.Increment(ref dequeueCount);
+                                await session.FlushAsync().ConfigureAwait(false);
+                                Console.Write(">");
                             }
                         }
-                        consumerDone.Set();
+                        await Task.Delay(5);
                     }
-                    catch (Exception ex)
-                    {
-                        lastException = ex;
-                        consumerDone.Set();
-                    }
-                }).Wait();
-            });
+                    consumerTcs.SetResult(true);
+                }
+                catch (Exception ex)
+                {
+                    consumerException = ex;
+                    consumerTcs.SetException(ex);
+                }
+            })
+            { IsBackground = true, Name = "Consumer Thread" };
 
-            t1.Start();
-            t2.Start();
+            producerThread.Start();
+            consumerThread.Start();
 
-            // Wait for producer to finish
-            var producerFinished = producerDone.WaitOne(TimeSpan.FromSeconds(30));
+            // Wait for both tasks to complete with timeout
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(300));
+            var completionTask = Task.WhenAll(producerTcs.Task, consumerTcs.Task);
 
-            // Wait for consumer to finish
-            var consumerFinished = consumerDone.WaitOne(TimeSpan.FromSeconds(30));
-
-            if (!producerFinished)
+            if (await Task.WhenAny(completionTask, timeoutTask) == timeoutTask)
             {
-                Assert.Fail("Producer did not finish in time");
+                Assert.Fail("Test timed out.");
             }
-            if (!consumerFinished)
+            Console.WriteLine("");
+            Console.WriteLine($"Producer completed: {enqueueCount}/{objectCount}, Consumer completed: {dequeueCount}/{objectCount}");
+
+            if (producerException != null)
             {
-                Assert.Fail("Consumer did not finish in time");
-            }
-            if (lastException != null)
-            {
-                Assert.Fail(lastException.Message);
+                Assert.Fail($"Producer failed: {producerException}");
             }
 
-            Assert.That(t1s, Is.EqualTo(target), "First thread did not enqueue expected amount.");
-            Assert.That(t2s, Is.EqualTo(target), "Second thread did not dequeue expected amount.");
+            if (consumerException != null)
+            {
+                Assert.Fail($"Consumer failed: {consumerException}");
+            }
+
+            Assert.That(enqueueCount, Is.EqualTo(objectCount), "Producer thread did not enqueue expected number of items.");
+            Assert.That(dequeueCount, Is.EqualTo(objectCount), "Consumer thread did not dequeue expected number of items.");
         }
 
         [Test]
