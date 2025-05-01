@@ -249,14 +249,16 @@ If you need the transaction semantics of sessions across multiple processes, try
 ## More Detailed Examples
 
 ### Dependency Injection
-For the async support, a simple factory pattern was implemented as the vehicle to create queue objects. This was done to perform internal async initialization tasks which couldn't be done inside constructors, but it will also allow continued feature development such as caching or pooling, if that makes sense some day.
+For the async support, a simple factory pattern was implemented as the vehicle to create queue objects. This was done to perform internal async initialization tasks which couldn't be done inside constructors, and it will facilitate additional feature development.
 
-A registration helper was built to allow the factory to be registered with a DI container. This is done by calling `services.AddModernDiskQueue()` in your `ConfigureServices` method. By doing this, your logging context will be used by the library.
+A registration helper was built to allow the factory to be registered with your DI container. This is done by calling `services.AddModernDiskQueue()` in your `ConfigureServices` method. By doing this, your logging context will be used by the library.
 
-There is presently no support for registering individual queues in the DI container. Instead, it is contemplated that queues will be created via async initialization in a hosted startup pattern (like a `BackgroundService` or any `IHostedService`) or created and disposed for discrete operations if multiprocess usage of the same storage queue is a design requirement.
+There is presently no support for registering individual queues in the DI container. Instead, it is contemplated that queues will be created via async initialization in a hosted startup pattern (like a `BackgroundService` or any `IHostedService`). Alternatively, queues may be created and disposed for discrete operations if multiprocess usage of the same storage queue is a design requirement.
 
 #### Async Initialization in Hosted Startup Pattern
-This is a simple example of how to use the factory in a hosted service. It assumes that the storage queue will be created on service startup and disposed when the service is shut down - that is to say, that the service will be using the queue exclusively and will not be worried about other processes needing access.
+This is a conceptual example of how to use the factory in a hosted service. It assumes that the storage queue will be created on service startup and disposed when the service is shut down - that is to say, that the service will be using the queue exclusively and will not be worried about other processes needing access.
+
+This simple example performs eager initialization using a nullable field, but you can implement with a lazy task or other approaches.
 
 Service configuration:
 ```csharp
@@ -274,7 +276,7 @@ Application infrastructure service implementing MDQ:
 public class LocalStorageService 
 {
 	private readonly IPersistentQueueFactory _factory;
-	private IPersistentQueue myQueue;
+	private IPersistentQueue? myQueue;
 	
 	public LocalStorageService(IPersistentQueueFactory factory)
 	{
