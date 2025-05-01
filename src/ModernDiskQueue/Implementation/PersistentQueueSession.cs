@@ -76,6 +76,7 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public async ValueTask EnqueueAsync(byte[] data, CancellationToken cancellationToken = default)
         {
+            _logger.LogTrace("Thread {ThreadID} enqueueing data.", Environment.CurrentManagedThreadId);
             cancellationToken.ThrowIfCancellationRequested();
             _buffer.Add(data);
             _bufferSize += data.Length;
@@ -109,6 +110,7 @@ namespace ModernDiskQueue.Implementation
         public async ValueTask<byte[]?> DequeueAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            _logger.LogTrace("Thread {ThreadID} dequeueing data.", Environment.CurrentManagedThreadId);
             try
             {
                 // Use the async dequeue method in the queue implementation if available

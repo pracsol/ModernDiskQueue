@@ -18,11 +18,17 @@
     /// </summary>
     public partial class PersistentQueue : IPersistentQueue
     {
-        private readonly ILogger<PersistentQueue> _logger;
+        private readonly ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
+        private readonly ILogger<PersistentQueue> _logger = NullLogger<PersistentQueue>.Instance;
         /// <summary>
         /// The queue implementation instance, or null if not connected
         /// </summary>
         protected IPersistentQueueImpl? Queue;
+
+        /// <summary>
+        /// Gets or sets the ILogger instance to use.
+        /// </summary>
+        protected virtual ILogger Logger => _logger;
 
         /// <summary>
         /// Logging action for non-critical faults. Defaults to Console.WriteLine.
@@ -39,7 +45,6 @@
         /// </remarks>
         public PersistentQueue(string storagePath)
         {
-            _logger = NullLogger<PersistentQueue>.Instance;
             Queue = new PersistentQueueImpl(storagePath);
         }
 
@@ -48,12 +53,12 @@
         /// </summary>
         protected PersistentQueue()
         {
-            _logger = NullLogger<PersistentQueue>.Instance;
         }
 
-        internal PersistentQueue(PersistentQueueImpl queue)
+        internal PersistentQueue(ILoggerFactory loggerFactory, PersistentQueueImpl queue)
         {
-            _logger = NullLogger<PersistentQueue>.Instance;
+            _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+            _logger = loggerFactory?.CreateLogger<PersistentQueue>() ?? NullLogger<PersistentQueue>.Instance;
             Queue = queue;
         }
 
@@ -66,7 +71,6 @@
         /// </summary>
         public PersistentQueue(string storagePath, int maxSize, bool throwOnConflict = true)
         {
-            _logger = NullLogger<PersistentQueue>.Instance;
             Queue = new PersistentQueueImpl(storagePath, maxSize, throwOnConflict);
         }
 
@@ -156,6 +160,7 @@
             if (local == null) return;
             await local.DisposeAsync().ConfigureAwait(false);
             GC.SuppressFinalize(this);
+            Logger.LogTrace("Thread {ThreadID} is disposing of queue object.", Environment.CurrentManagedThreadId);
         }
 
         /// <summary>

@@ -33,14 +33,14 @@ namespace ModernDiskQueue
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         public PersistentQueueFactory(ILoggerFactory loggerFactory)
-            : this(loggerFactory, Options.Create(new ModernDiskQueueOptions()), new StandardFileDriver()) { }
+            : this(loggerFactory, Options.Create(new ModernDiskQueueOptions()), new StandardFileDriver(loggerFactory, Options.Create(new ModernDiskQueueOptions()))) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="options">Default options.</param>
         public PersistentQueueFactory(ModernDiskQueueOptions options)
-            : this(NullLoggerFactory.Instance, Options.Create(options), new StandardFileDriver()) { }
+            : this(NullLoggerFactory.Instance, Options.Create(options), new StandardFileDriver(NullLoggerFactory.Instance, Options.Create(options))) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
@@ -48,7 +48,7 @@ namespace ModernDiskQueue
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         /// <param name="options">Default options.</param>
         public PersistentQueueFactory(ILoggerFactory loggerFactory, ModernDiskQueueOptions options)
-            : this(loggerFactory, Options.Create(options), new StandardFileDriver()) { }
+            : this(loggerFactory, Options.Create(options), new StandardFileDriver(loggerFactory, Options.Create(options))) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
@@ -75,11 +75,11 @@ namespace ModernDiskQueue
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
         public async Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("Creating queue at {storagePath} with options: {Options}", storagePath, _options);
+            _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options);
             SetGlobalDefaultsFromFactoryOptions(_options);
             var queue = new PersistentQueueImpl(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, _fileDriver);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
-            return new PersistentQueue(queue);
+            return new PersistentQueue(_loggerFactory, queue);
         }
 
         /// <inheritdoc/>
@@ -93,11 +93,11 @@ namespace ModernDiskQueue
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
         public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("Creating queue at {storagePath} with options: {Options}", storagePath, _options);
+            _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options);
             SetGlobalDefaultsFromFactoryOptions(_options);
             var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, Constants._32Megabytes, true, true, _options, _fileDriver);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
-            return new PersistentQueue<T>(queue);
+            return new PersistentQueue<T>(_loggerFactory, queue);
         }
 
         /// <summary>
@@ -188,6 +188,9 @@ namespace ModernDiskQueue
         private async Task<T> WaitForAsync<T>(Func<Task<T>> generator, TimeSpan maxWait, string lockName, CancellationToken cancellationToken = default)
         {
             var sw = new Stopwatch();
+            var random = new Random();
+            int retryCount = 0;
+
             try
             {
                 sw.Start();
@@ -211,6 +214,15 @@ namespace ModernDiskQueue
                     }
                     catch
                     {
+                        // Exponential backoff with jitter
+                        retryCount++;
+                        // Base delay increases exponentially (50ms * 2^retryCount)
+                        double baseDelay = Math.Min(50 * Math.Pow(2, retryCount), 1000); // Cap at 1 second
+                        // Add jitter of ±25%
+                        int jitterPercent = random.Next(-25, 26);
+                        int delayMs = (int)(baseDelay * (1 + jitterPercent / 100.0));
+
+                        _logger.LogTrace("Queue locked. Thread {ThreadID} Retrying queue access in {DelayMs}ms", Environment.CurrentManagedThreadId, delayMs);
                         await Task.Delay(50, cancellationToken).ConfigureAwait(false);
                     }
                 } while (sw.Elapsed < maxWait);

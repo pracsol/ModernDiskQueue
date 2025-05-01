@@ -318,6 +318,7 @@
         /// </summary>
         private ILockFile CreateNoShareFile_UnderLock(string path)
         {
+            _logger.LogTrace("Thread {ThreadID} attempting to create lock file.", Environment.CurrentManagedThreadId);
             try
             {
                 var currentProcess = Process.GetCurrentProcess();
@@ -365,12 +366,12 @@
 
                 lockStream.Write(keyBytes, 0, keyBytes.Length);
                 lockStream.Flush(true);
-                _logger.LogTrace("Created lock file at {path}", path);
+                _logger.LogTrace("Thread {ThreadID} created lock file at {path}", Environment.CurrentManagedThreadId, path);
                 return new LockFile(lockStream, path);
             }
             catch (Exception ex)
             {
-                _logger.LogTrace("Failed to create lock file on thread #{ThreadId}, {ErrorMessage}", Environment.CurrentManagedThreadId, ex.Message);
+                _logger.LogTrace("Thread {ThreadID} failed to create lock file, {ErrorMessage}", Environment.CurrentManagedThreadId, ex.Message);
                 throw;
             }
         }
@@ -561,6 +562,7 @@
                     _holdsLock.Value = false;
                 }
             }
+            _logger.LogTrace("Thread {ThreadID} released lock file.", Environment.CurrentManagedThreadId);
         }
 
         /// <summary>

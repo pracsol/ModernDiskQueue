@@ -1,14 +1,20 @@
-﻿using ModernDiskQueue.Implementation;
-using ModernDiskQueue.PublicInterfaces;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace ModernDiskQueue
+﻿namespace ModernDiskQueue
 {
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.PublicInterfaces;
+    using System;
+    using System.Runtime.CompilerServices;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     /// <inheritdoc />
     public class PersistentQueue<T> : PersistentQueue, IPersistentQueue<T>
     {
+        private readonly ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
+        private readonly ILogger<PersistentQueue<T>> _logger = NullLogger<PersistentQueue<T>>.Instance;
+
         private PersistentQueue() { }
 
         /// <inheritdoc />
@@ -23,10 +29,17 @@ namespace ModernDiskQueue
             Queue = new PersistentQueueImpl<T>(storagePath, maxSize, throwOnConflict);
         }
 
-        internal PersistentQueue(IPersistentQueueImpl<T> queue)
+        internal PersistentQueue(ILoggerFactory loggerFactory, IPersistentQueueImpl<T> queue)
         {
+            _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+            _logger = loggerFactory?.CreateLogger<PersistentQueue<T>>() ?? NullLogger<PersistentQueue<T>>.Instance;
             Queue = queue;
         }
+
+        /// <summary>
+        /// Sets the ILogger instance.
+        /// </summary>
+        protected override ILogger Logger => _logger;
 
         /// <summary>
         /// Open a read/write session
