@@ -43,5 +43,14 @@
         /// If any individual operation takes longer than this, an exception will occur.
         /// </summary>
         public int FileTimeoutMilliseconds { get; set; } = 10_000;
+
+        /// <summary>
+        /// Gets a string representation of the options values.
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            return $"AllowTruncatedEntries: {AllowTruncatedEntries}; FileTimeoutInMilliseconds: {FileTimeoutMilliseconds}; ParanoidFlushing: {ParanoidFlushing}; SetFilePermissions {SetFilePermissions}; TrimTransactionLogOnDispose: {TrimTransactionLogOnDispose};";
+        }
     }
 }

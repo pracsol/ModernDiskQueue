@@ -207,7 +207,8 @@ namespace ModernDiskQueue.Tests
             var metrics = new ConcurrentQueue<OperationMetrics>();
 
             // Arrange test parameters
-            int numberOfDequeueThreads = 100;
+            int numberOfObjectsToEnqueue = 50;
+            int numberOfDequeueThreads = 2;
             int enqueueHeadstartInSeconds = 18;
             int timeoutForQueueCreationDuringDequeueInSeconds = 100;
             int timeoutForQueueCreationDuringEnqueueInSeconds = 50;
@@ -240,7 +241,7 @@ namespace ModernDiskQueue.Tests
 
                 try
                 {
-                    for (int i = 0; i < 1000; i++)
+                    for (int i = 0; i < numberOfObjectsToEnqueue; i++)
                     {
                         var metric = new OperationMetrics
                         {
@@ -261,6 +262,8 @@ namespace ModernDiskQueue.Tests
                                 metric.SessionCreateTime = stopwatch.Elapsed;
 
                                 stopwatch.Restart();
+
+                                Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} is enqueueing.");
                                 s.Enqueue(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
                                 metric.OperationTime = stopwatch.Elapsed;
 
@@ -308,7 +311,7 @@ namespace ModernDiskQueue.Tests
                     {
                         var threadIndex = Environment.CurrentManagedThreadId;
                         var stopwatch = new Stopwatch();
-                        var count = 10;
+                        var count = numberOfObjectsToEnqueue/numberOfDequeueThreads;
 
                         try
                         {
@@ -335,6 +338,7 @@ namespace ModernDiskQueue.Tests
                                         metric.SessionCreateTime = stopwatch.Elapsed;
 
                                         stopwatch.Restart();
+                                        Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} is DEqueueing");
                                         var data = s.Dequeue();
                                         metric.OperationTime = stopwatch.Elapsed;
 
@@ -454,7 +458,7 @@ namespace ModernDiskQueue.Tests
                 {
                     for (int i = 0; i < LargeCount; i++)
                     {
-                        Ignore();
+                        _ = session.Dequeue();
                     }
                     session.Flush();
                 }

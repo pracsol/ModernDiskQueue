@@ -293,7 +293,7 @@
         {
             if (_holdsLock.Value)
             {
-                return CreateNoShareFile_UnderLock(path);
+                return await CreateNoShareFile_UnderLock(path, cancellationToken);
             }
             else
             {
@@ -302,7 +302,7 @@
                     using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                     {
                         _holdsLock.Value = true;
-                        return CreateNoShareFile_UnderLock(path);
+                        return await CreateNoShareFile_UnderLock(path, cancellationToken);
                     }
                 }
                 finally
@@ -316,7 +316,7 @@
         /// Create and open a new file with no sharing between processes.
         /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
         /// </summary>
-        private ILockFile CreateNoShareFile_UnderLock(string path)
+        private async Task<ILockFile> CreateNoShareFile_UnderLock(string path, CancellationToken cancellationToken = default)
         {
             _logger.LogTrace("Thread {ThreadID} attempting to create lock file.", Environment.CurrentManagedThreadId);
             try
@@ -330,12 +330,12 @@
                 };
                 var keyBytes = MarshallHelper.Serialize(currentLockData);
 
-                if (!File.Exists(path))
+                if (!(await Task.Run(() => File.Exists(path), cancellationToken)))
                 {
-                    File.WriteAllBytes(path, keyBytes);
+                    await File.WriteAllBytesAsync(path, keyBytes, cancellationToken);
                 }
 
-                var lockBytes = File.ReadAllBytes(path); // will throw if OS considers the file locked
+                var lockBytes = await File.ReadAllBytesAsync(path, cancellationToken); // will throw if OS considers the file locked
                 var fileLockData = MarshallHelper.Deserialize<LockFileData>(lockBytes);
 
                 if (fileLockData.ThreadId != currentLockData.ThreadId || fileLockData.ProcessId != currentLockData.ProcessId)
@@ -355,8 +355,8 @@
 
                     // We have a lock from a dead process. Kill it.
                     _logger.LogTrace("Overwriting the existing (but abandoned) lock file.");
-                    File.Delete(path);
-                    File.WriteAllBytes(path, keyBytes);
+                    await Task.Run(() => File.Delete(path), cancellationToken);
+                    await File.WriteAllBytesAsync(path, keyBytes, cancellationToken);
                 }
 
                 var lockStream = new FileStream(path,
@@ -364,7 +364,8 @@
                         FileAccess.ReadWrite,
                         FileShare.None);
 
-                lockStream.Write(keyBytes, 0, keyBytes.Length);
+                await lockStream.WriteAsync(keyBytes, cancellationToken);
+                await lockStream.FlushAsync(cancellationToken);
                 lockStream.Flush(true);
                 _logger.LogTrace("Thread {ThreadID} created lock file at {path}", Environment.CurrentManagedThreadId, path);
                 return new LockFile(lockStream, path);

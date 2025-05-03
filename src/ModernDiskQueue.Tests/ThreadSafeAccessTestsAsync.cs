@@ -248,6 +248,7 @@
         {
             var factory = _factory;// new PersistentQueueFactory();
             const int objectCount = 100;
+            var random = new Random();
             int enqueueCount = 0, dequeueCount = 0;
             Exception? producerException = null, consumerException = null;
 
@@ -273,7 +274,10 @@
                                 Console.Write(")");
                             }
                         }
-                        await Task.Delay(5);
+                        // Add jittery delay for each iteration
+                        //int jitteryDelay = random.Next(5, 26);
+                        //await Task.Delay(jitteryDelay);
+                        await Task.Delay(2);
                     }
                     producerTcs.SetResult(true);
                 }
@@ -302,6 +306,8 @@
                                 Console.Write(">");
                             }
                         }
+                        // Add jittery delay for each iteration
+                        //int jitteryDelay = random.Next(5, 26);
                         await Task.Delay(5);
                     }
                     consumerTcs.SetResult(true);

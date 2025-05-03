@@ -1880,8 +1880,11 @@ namespace ModernDiskQueue.Implementation
             {
                 try
                 {
-                    CurrentFileNumber = reader.ReadInt32();
-                    CurrentFilePosition = reader.ReadInt64();
+                    if (reader.GetLength() != 0)
+                    {
+                        CurrentFileNumber = reader.ReadInt32();
+                        CurrentFilePosition = reader.ReadInt64();
+                    }
                     await Task.CompletedTask.ConfigureAwait(false);
                 }
                 catch (EndOfStreamException ex)

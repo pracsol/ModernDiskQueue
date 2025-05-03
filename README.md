@@ -245,6 +245,12 @@ This approach works relatively well, but can show its limits when extreme conten
 
 If you need the transaction semantics of sessions across multiple processes, try a more robust solution like https://github.com/i-e-b/SevenDigital.Messaging
 
+## Some Thoughts on Async vs Sync
+The async API will not perform as well as the sync API in tight CPU-bound loops, which a lot of the tests for concurrency in this solution run. The async API is tolerant of these demands, but if your production scenario matches this - dedicated processing threads using tight loops with little else going on - you'll likely see better performance with focused, synchronous work on the queue. The queue itself is a series of FIFO transactions, so it is rather synchronous by nature. Additionally, async comes with overhead to manage context, etc.
+
+If you do use the async API in such a scenario, you may need to tune your loops to avoid "thundering herd" issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues can make concurrent threads more tolerant of lock contention. These steps can have a profound impact on performance when using the async API (like 2-3x). To some degree, you can watch this behavior by turning on trace level logging, which will identify high-level activities, such as queue creation, queue blocking, enqueue and dequeue operations, and lock file events, and their associated thread.
+
+Where does the async API shine? When you're not CPU-bound, but need to avoid thread blocking because your program is often waiting on other non-queueing tasks to complete, the async model is going to be non-blocking, and should thereby scale better. If the service you've designed is already implementing an async/await model, the async API will integrate better with your await chains, where the blocking sync API will be harder to integrate.
 
 ## More Detailed Examples
 
