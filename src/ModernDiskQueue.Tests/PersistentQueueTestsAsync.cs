@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using ModernDiskQueue.Tests.Helpers;
 
 namespace ModernDiskQueue.Tests
 {
@@ -139,7 +140,7 @@ namespace ModernDiskQueue.Tests
                 {
                     Console.WriteLine("Attempting manual cleanup:");
                     wasManuallyCleanedUp = true;
-                    await AttemptManualCleanup(QueuePath);
+                    FileTools.AttemptManualCleanup(QueuePath);
                 }
 
                 // Add retry logic with diagnostics
@@ -164,7 +165,7 @@ namespace ModernDiskQueue.Tests
                         LogDirectoryContents(QueuePath);
 
                         // Every third attempt, try manual cleanup again
-                        await AttemptManualCleanup(QueuePath);
+                        FileTools.AttemptManualCleanup(QueuePath);
                     }
 
                     await Task.Delay(retryDelayMs);
@@ -215,63 +216,6 @@ namespace ModernDiskQueue.Tests
             catch (Exception ex)
             {
                 Console.WriteLine($"Error listing directory: {ex.Message}");
-            }
-        }
-
-        private async Task AttemptManualCleanup(string path)
-        {
-            try
-            {
-                if (!Directory.Exists(path)) return;
-
-                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
-                Console.WriteLine($"Attempting to delete {files.Length} files manually");
-
-                foreach (var file in files)
-                {
-                    try
-                    {
-                        File.Delete(file);
-                        Console.WriteLine($"Successfully deleted {file}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to delete {file}: {ex.Message}");
-                    }
-                }
-
-                // Try to delete any subdirectories
-                var dirs = Directory.GetDirectories(path);
-                foreach (var dir in dirs)
-                {
-                    try
-                    {
-                        Directory.Delete(dir, true);
-                        Console.WriteLine($"Successfully deleted directory {dir}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to delete directory {dir}: {ex.Message}");
-                    }
-                }
-
-                // Finally try to delete the main directory
-                try
-                {
-                    Directory.Delete(path);
-                    Console.WriteLine($"Successfully deleted main directory {path}");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to delete main directory: {ex.Message}");
-                }
-
-                // Allow time for file system to process deletions
-                await Task.Delay(500);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in manual cleanup: {ex.Message}");
             }
         }
 
