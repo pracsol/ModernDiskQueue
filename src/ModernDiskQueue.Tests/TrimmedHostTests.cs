@@ -57,11 +57,18 @@ namespace ModernDiskQueue.Tests
                         Assert.Fail("Executable did not complete within specified timeout.");
                     }
 
-                    if (!string.IsNullOrEmpty(stdErr))
+                    if (stdErr.Contains("InvalidDataContractException") &&
+                            stdErr.Contains("No set method for property 'OffsetMinutes' in type 'System.Runtime.Serialization.DateTimeOffsetAdapter'. The class cannot be deserialized."))
                     {
-                        Assert.Pass($"Executable returned an error: {stdErr}");
+                        Assert.Pass("Test passed. Executable returned expected error about failing deserialization using default serialization strategy.");
+                    }
+                    else if (!string.IsNullOrEmpty(stdErr))
+                    {
+                        Console.WriteLine($"StdErr: {stdErr}");
+                        Assert.Fail($"Executable returned an error, but not the expected error: {stdErr}");
                     }
 
+                    Console.WriteLine($"Output was: {stdOut}");
                     Assert.That(stdOut, Is.Not.Empty, "Executable did not return any data.");
                     Assert.That(DateTimeOffset.TryParse(stdOut, out DateTimeOffset returnedValue), Is.True, "Could not parse returned value.");
                     Assert.That(inputDate, Is.EqualTo(returnedValue), "Returned value did not match input.");
@@ -71,7 +78,10 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("InvalidOperationException trying to run test.");
             }
-            catch (AssertionException) { }
+            catch (AssertionException) 
+            {
+                Console.WriteLine("Failed.");
+            }
             catch (SuccessException) { }
             catch (Exception ex)
             {
