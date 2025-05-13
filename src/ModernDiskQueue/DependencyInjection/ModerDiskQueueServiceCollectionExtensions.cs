@@ -1,7 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using ModernDiskQueue.Implementation;
 using ModernDiskQueue.PublicInterfaces;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Linq;
 
 namespace ModernDiskQueue.DependencyInjection
 {
@@ -16,6 +21,17 @@ namespace ModernDiskQueue.DependencyInjection
         /// <param name="services">Implementation of <see cref="IServiceCollection"/></param>
         /// <param name="configure">Default options.</param>
         /// <returns></returns>
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ILogger<>))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ILoggerFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ModernDiskQueueOptions))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(StandardFileDriver))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IPersistentQueueFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IFileDriver))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IServiceCollection))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Microsoft.Extensions.Logging.Abstractions.NullLogger<>))]
+
         public static IServiceCollection AddModernDiskQueue(
             this IServiceCollection services,
             Action<ModernDiskQueueOptions>? configure = null)
@@ -27,6 +43,12 @@ namespace ModernDiskQueue.DependencyInjection
             else
             {
                 services.Configure<ModernDiskQueueOptions>(_ => { });
+            }
+
+            // Add NullLoggerFactory if ILoggerFactory isn't already registered
+            if (!services.Any(sd => sd.ServiceType == typeof(ILoggerFactory)))
+            {
+                services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             }
 
             // Register services

@@ -47,4 +47,12 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="ILLink.Descriptor.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+  </ItemGroup>
 </Project>

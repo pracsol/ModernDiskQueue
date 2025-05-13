@@ -6,7 +6,7 @@ namespace ModernDiskQueue
     using System.Threading.Tasks;
 
     /// <summary>
-    /// Factory interface for creating <see cref="PersistentQueue{T}"/> instances.
+    /// Factory interface for creating <see cref="IPersistentQueueFactory"/> instances.
     /// </summary>
     public interface IPersistentQueueFactory
     {

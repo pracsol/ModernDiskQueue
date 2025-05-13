@@ -1,17 +1,19 @@
 ﻿
 namespace ModernDiskQueue
 {
+    using System.Diagnostics.CodeAnalysis;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
     using Microsoft.Extensions.Options;
     using ModernDiskQueue.Implementation;
-    using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Diagnostics;
-    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.DependencyInjection;
+    using ModernDiskQueue.PublicInterfaces;
+
     /// <summary>
     /// Factory for creating <see cref="PersistentQueue{T}"/> instances.
     /// </summary>
@@ -26,6 +28,17 @@ namespace ModernDiskQueue
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Logger<>))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(LoggerFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ILoggerFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ILogger<>))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, "Microsoft.Extensions.Logging.ILogger`1", "Microsoft.Extensions.Logging.Abstractions")]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ModernDiskQueueOptions))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(StandardFileDriver))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IPersistentQueueFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IFileDriver))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IServiceCollection))]
         public PersistentQueueFactory()
             : this(NullLoggerFactory.Instance, new ModernDiskQueueOptions()) { }
 
@@ -33,6 +46,7 @@ namespace ModernDiskQueue
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
+        [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(Logger<>))]
         public PersistentQueueFactory(ILoggerFactory loggerFactory)
             : this(loggerFactory, Options.Create(new ModernDiskQueueOptions())) { }
 
@@ -40,6 +54,7 @@ namespace ModernDiskQueue
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="options">Default options.</param>
+        [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(Logger<>))]
         public PersistentQueueFactory(ModernDiskQueueOptions options)
             : this(NullLoggerFactory.Instance, Options.Create(options)) { }
 
@@ -48,6 +63,7 @@ namespace ModernDiskQueue
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         /// <param name="options">Default options.</param>
+        [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(Logger<>))]
         public PersistentQueueFactory(ILoggerFactory loggerFactory, ModernDiskQueueOptions options)
             : this(loggerFactory, Options.Create(options)) { }
 
@@ -74,14 +90,14 @@ namespace ModernDiskQueue
         private StandardFileDriver FileDriver => _lazyFileDriver.Value;
 
         /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public async Task<PersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default)
         {
             return await CreateAsync(storagePath, Constants._32Megabytes, true, cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public async Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString());
@@ -92,19 +108,19 @@ namespace ModernDiskQueue
         }
 
         /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, CancellationToken cancellationToken = default)
         {
             return await CreateAsync<T>(storagePath, Constants._32Megabytes, true, cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString());
             SetGlobalDefaultsFromFactoryOptions(_options);
-            var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, Constants._32Megabytes, true, true, _options, FileDriver);
+            var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, FileDriver);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
             return new PersistentQueue<T>(_loggerFactory, queue);
         }

@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<linker>
+  <assembly fullname="Microsoft.Extensions.Logging.Abstractions">
+    <type fullname="Microsoft.Extensions.Logging.ILogger`1" preserve="all"/>
+    <type fullname="Microsoft.Extensions.Logging.ILoggerFactory" preserve="all"/>
+    <type fullname="Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory" preserve="all"/>
+    <type fullname="Microsoft.Extensions.Logging.Abstractions.NullLogger`1" preserve="all"/>
+  </assembly>
+</linker>
