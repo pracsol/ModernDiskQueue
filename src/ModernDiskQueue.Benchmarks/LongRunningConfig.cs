@@ -16,8 +16,8 @@
         public LongRunningConfig()
         {
             AddJob(Job.Default
-                .WithWarmupCount(2)
-                .WithIterationCount(3)
+                .WithWarmupCount(1)
+                .WithIterationCount(1)
                 .WithLaunchCount(1)
                 .WithId("LongRunningConfig"));
 

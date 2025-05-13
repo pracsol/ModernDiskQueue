@@ -14,7 +14,7 @@
         public event Action<int>? ProgressUpdated;
         private static int _progressCounter = 0;
 
-        [Params(100, 1000, 1000000)] // Will run benchmarks with 10, 100, and 1000
+        [Params(100, 1000, 1000000)] // Will run benchmarks with 10, 1000, and 1000000
         public int ItemCount;
 
         [GlobalSetup]
@@ -72,6 +72,126 @@
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                     }
                     session.Flush();
+                }
+            }
+        }
+
+        [Benchmark]
+        public async Task AsyncEnqueueAndDequeueItemsWithBigFlush()
+        {
+            int countOfItemsToEnqueue = ItemCount;
+            await using (var queue = await _factory.CreateAsync(QueuePath))
+            {
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
+                    {
+                        await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
+                    }
+                    await session.FlushAsync();
+                }
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
+                    {
+                        var data = await session.DequeueAsync();
+                        if (data == null)
+                        {
+                            throw new Exception("Dequeue failed");
+                        }
+                    }
+                    await session.FlushAsync();
+                }
+            }
+        }
+
+        [Benchmark]
+        public async Task AsyncEnqueueAndDequeueItemsWithCourtesyFlush()
+        {
+            int countOfItemsToEnqueue = ItemCount;
+            await using (var queue = await _factory.CreateAsync(QueuePath))
+            {
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
+                    {
+                        await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
+                        await session.FlushAsync();
+                    }
+                }
+                await using (var session = await queue.OpenSessionAsync())
+                {
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
+                    {
+                        var data = await session.DequeueAsync();
+                        if (data == null)
+                        {
+                            throw new Exception("Dequeue failed");
+                        }
+                        await session.FlushAsync();
+                    }
+                }
+            }
+        }
+
+        [Benchmark]
+        public void SyncEnqueueAndDequeueItemsWithBigFlush()
+        {
+            using (var queue = new PersistentQueue(QueuePath))
+            {
+                using (var session = queue.OpenSession())
+                {
+                    for (int i = 0; i < ItemCount; i++)
+                    {
+                        session.Enqueue(Guid.NewGuid().ToByteArray());
+                    }
+                    session.Flush();
+                }
+            }
+            using (var queue = new PersistentQueue(QueuePath))
+            {
+                using (var session = queue.OpenSession())
+                {
+                    for (int i = 0; i < ItemCount; i++)
+                    {
+                        var data = session.Dequeue();
+                        if (data == null)
+                        {
+                            throw new Exception("Dequeue failed");
+                        }
+                    }
+                    session.Flush();
+                }
+            }
+        }
+
+        [Benchmark]
+        public void SyncEnqueueAndDequeueItemsWithCourtesyFlush()
+        {
+            using (var queue = new PersistentQueue(QueuePath))
+            {
+                using (var session = queue.OpenSession())
+                {
+                    for (int i = 0; i < ItemCount; i++)
+                    {
+                        session.Enqueue(Guid.NewGuid().ToByteArray());
+                        session.Flush();
+                    }
+                }
+            }
+            using (var queue = new PersistentQueue(QueuePath))
+            {
+                using (var session = queue.OpenSession())
+                {
+                    for (int i = 0; i < ItemCount; i++)
+                    {
+                        var data = session.Dequeue();
+                        if (data == null)
+                        {
+                            throw new Exception("Dequeue failed");
+                        }
+                        session.Flush();
+                    }
                 }
             }
         }

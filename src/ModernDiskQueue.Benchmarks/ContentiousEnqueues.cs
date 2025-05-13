@@ -59,7 +59,6 @@
             int timeoutForQueueCreationDuringEnqueueInSeconds = 160;
             int timeoutForDequeueThreadsInMinutes = 5;
             int timeoutForEnqueueThreadInMinutes = 5;
-            var totalDequeues = 0;
             var successfulThreads = 0;
             var failedThreads = new ConcurrentBag<(int threadId, string reason)>();
 
@@ -76,7 +75,7 @@
             {
                 try
                 {
-                    Task.Run(async () =>
+                    RunAsyncInThread(async () =>
                     {
                         var threadId = Environment.CurrentManagedThreadId;
 
@@ -107,7 +106,7 @@
                             //await Task.Delay(5);
                         }
                         Console.WriteLine($"Enqueue thread finished");
-                    }).Wait();
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -136,7 +135,7 @@
             try
             {
                 // dequeue threads
-                for (int i = 0; i < threads.Length; i++)
+                for (int i = 0; i < numberOfDequeueThreads; i++)
                 {
                     int threadIndex = i;
                     var completionEvent = dequeueCompletedEvents[threadIndex];
@@ -146,7 +145,7 @@
                         var count = numberOfObjectsToEnqueue/numberOfDequeueThreads;
                         try
                         {
-                            Task.Run(async () =>
+                            RunAsyncInThread(async () =>
                             {
                                 var threadId = Environment.CurrentManagedThreadId;
 
@@ -170,6 +169,7 @@
                                             await using var s = await q.OpenSessionAsync();
                                             {
                                                 var data = await s.DequeueAsync();
+                                                Console.WriteLine($"Thread {threadId} dequeued data item {(numberOfObjectsToEnqueue / numberOfDequeueThreads) - count + 1}");
 
                                                 if (data != null && data.Length > 0)
                                                 {
@@ -194,7 +194,7 @@
                                     }
                                 }
                                 _ = Interlocked.Increment(ref successfulThreads);
-                            }).Wait();
+                            });
                         }
                         catch (TimeoutException ex)
                         {
@@ -215,7 +215,7 @@
                     threads[i].Start();
                 }
 
-                for (int i = 0; i < threads.Length; i++)
+                for (int i = 0; i < numberOfDequeueThreads; i++)
                 {
                     if (!dequeueCompletedEvents[i].WaitOne(TimeSpan.FromMinutes(timeoutForDequeueThreadsInMinutes)))
                     {
@@ -237,6 +237,12 @@
                 }
                 enqueueCompleted.Dispose();
             }
+        }
+
+        public void RunAsyncInThread(Func<Task> asyncFunc)
+        {
+            var t = asyncFunc();
+            t.GetAwaiter().GetResult();
         }
 
         [Benchmark]
