@@ -2,9 +2,11 @@
 {
     using Microsoft.Extensions.DependencyInjection;
     using ModernDiskQueue;
+    using ModernDiskQueue.Benchmarks;
     using ModernDiskQueue.DependencyInjection;
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
+    using System.Runtime.CompilerServices;
     using System.Runtime.Serialization;
     using System.Threading.Tasks;
 
@@ -12,7 +14,7 @@
     {
         private const string folderNameSimpleQueue = "simpleQueue";
         private const string folderNameComplexQueue = "complexQueue";
-        private static bool isConsoleLoggingEnabled = false; // note this will pollute output for testing.
+        private static bool isConsoleLoggingEnabled = false; // note this will pollute output for testing, so only enable if you're running this project directly for debug purposes.
 
         public static async Task Main(string[] args)
         {
@@ -27,7 +29,7 @@
                 var arguments = new Dictionary<string, string>();
                 if (args.Length < 2)
                 {
-                    throw new ArgumentException("Expecting two arguments in the form of test={1 | 2} value={[int] | [DateTimeOffset string]");
+                    throw new ArgumentException("Expecting two arguments in the form of test={1 | 2 | 3 | 4} value={[int] | [DateTimeOffset string]");
                 }
                 foreach (string argument in args)
                 {
@@ -52,11 +54,12 @@
                         {
                             int inputInt = 0;
                             DateTimeOffset inputDate;
-                            var factory = serviceProvider.GetRequiredService<PersistentQueueFactory>();
+                            var factory = serviceProvider.GetRequiredService<IPersistentQueueFactory>();
 
                             switch (arguments["test"])
                             {
                                 case "1":
+                                    // Case 1 tests the (de)serialization of a simple object (int) using the default serializer with the sync API.
                                     if (int.TryParse(inputArgument, out inputInt))
                                     {
                                         Console.WriteLine(TestSimpleObjectQueueing(inputInt));
@@ -67,6 +70,7 @@
                                     }
                                     break;
                                 case "2":
+                                    // Case 2 tests the (de)serialization of a complex object (DateTimeOffset) using the default serializer with the sync API.
                                     if (DateTimeOffset.TryParse(inputArgument, out inputDate))
                                     {
                                         Console.WriteLine(TestComplexObjectQueueing(inputDate));
@@ -77,6 +81,7 @@
                                     }
                                     break;
                                 case "3":
+                                    // Case 3 tests the (de)serialization of a simple object (int) using the default serializer with the async API.
                                     if (int.TryParse(inputArgument, out inputInt))
                                     {
                                         var result = await TestSimpleObjectQueueingAsync(inputInt, factory).ConfigureAwait(false);
@@ -88,6 +93,7 @@
                                     }
                                     break;
                                 case "4":
+                                    // Case 4 tests the (de)serialization of a complex object (DateTimeOffset) using the default serializer with the async API.
                                     if (DateTimeOffset.TryParse(inputArgument, out inputDate))
                                     {
                                         var result = await TestComplexObjectQueueingAsync(inputDate, factory).ConfigureAwait(false);
@@ -129,9 +135,12 @@
         }
 
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IPersistentQueueFactory))]
         private static void ConfigureServices(IServiceCollection services)
         {
+            //services.AddLogging();
             // Register PersistentQueueFactory as a singleton
+            ModernDiskQueueTrimHelper.EnsureTypesArePreserved();
             services.AddModernDiskQueue();
         }
 
@@ -156,6 +165,11 @@
                     session.Flush();
                 }
             }
+            catch (Exception ex)
+            {
+                if (isConsoleLoggingEnabled) Console.Error.WriteLine($"{ex.Message}");
+                throw;
+            }
             finally
             {
                 if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up");
@@ -166,7 +180,7 @@
             return outputInt;
         }
 
-        public static async Task<int> TestSimpleObjectQueueingAsync(int inputInt, PersistentQueueFactory factory)
+        public static async Task<int> TestSimpleObjectQueueingAsync(int inputInt, IPersistentQueueFactory factory)
         {
             int outputInt;
             if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for simple object");
@@ -192,7 +206,7 @@
                 }
                 catch (Exception ex)
                 {
-                    if (isConsoleLoggingEnabled) Console.WriteLine($"Error occurred during queueing or dequeueing operation. {ex.Message}");
+                    if (isConsoleLoggingEnabled) Console.Error.WriteLine($"{ex.Message}");
                     throw;
                 }
                 finally
@@ -236,6 +250,11 @@
                     retrievedTime = (data != null) ? data.LocalTime : DateTimeOffset.Now;
                 }
             }
+            catch (Exception ex)
+            {
+                if (isConsoleLoggingEnabled) Console.Error.WriteLine($"{ex.Message}");
+                throw;
+            }
             finally
             {
                 if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up...");
@@ -247,7 +266,7 @@
 
         }
 
-        public static async Task<DateTimeOffset> TestComplexObjectQueueingAsync(DateTimeOffset submittedTime, PersistentQueueFactory factory)
+        public static async Task<DateTimeOffset> TestComplexObjectQueueingAsync(DateTimeOffset submittedTime, IPersistentQueueFactory factory)
         {
             DateTimeOffset retrievedTime;
             if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue");
@@ -263,24 +282,29 @@
                 };
                 if (isConsoleLoggingEnabled) Console.WriteLine($"Existing items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
                 if (isConsoleLoggingEnabled) Console.WriteLine("Enqueueing object");
-                using (var session = await queue.OpenSessionAsync())
+                await using (var session = await queue.OpenSessionAsync())
                 {
                     // This will serialize our test object.
                     await session.EnqueueAsync(myTestReport);
                     await session.FlushAsync();
                 }
                 if (isConsoleLoggingEnabled) Console.WriteLine("Dequeueing object");
-                using (var session = await queue.OpenSessionAsync())
+                await using (var session = await queue.OpenSessionAsync())
                 {
                     Report? data = await session.DequeueAsync();
                     await session.FlushAsync();
                     retrievedTime = (data != null) ? data.LocalTime : DateTimeOffset.Now;
                 }
             }
+            catch (Exception ex)
+            {
+                if (isConsoleLoggingEnabled) Console.Error.WriteLine($"{ex.Message}");
+                throw;
+            }
             finally
             {
                 if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up...");
-                if (isConsoleLoggingEnabled) Console.WriteLine($"Residual items: {queue.EstimatedCountOfItemsInQueue}");
+                if (isConsoleLoggingEnabled) Console.WriteLine($"Residual items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
                 await queue.HardDeleteAsync(false);
                 DeleteFolderAndFiles(folderNameComplexQueue);
             }
