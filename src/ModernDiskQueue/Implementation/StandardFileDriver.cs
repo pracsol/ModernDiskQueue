@@ -131,6 +131,7 @@
         {
             if (_holdsLock.Value)
             {
+                //Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} already had SFD lock.");
                 await PrepareDeleteAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
                 return;
             }
@@ -1209,32 +1210,6 @@
         /// Asynchronously delete a file with retries
         /// </summary>
         private async Task WaitDeleteInternalAsync(string path, CancellationToken cancellationToken)
-        {
-            if (_holdsLock.Value)
-            {
-                await WaitDeleteInternalAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                try
-                {
-                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
-                    {
-                        _holdsLock.Value = true;
-                        await WaitDeleteInternalAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-                finally
-                {
-                    _holdsLock.Value = false;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Asynchronously delete a file with retries
-        /// </summary>
-        private async Task WaitDeleteInternalAsync_UnderLock(string path, CancellationToken cancellationToken)
         {
             await PrepareDeleteAsync(path, cancellationToken).ConfigureAwait(false);
             await FinaliseAsync(cancellationToken).ConfigureAwait(false);
