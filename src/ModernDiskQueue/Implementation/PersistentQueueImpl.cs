@@ -806,7 +806,6 @@ namespace ModernDiskQueue.Implementation
                     // transaction log being recreated.
                     bool archivedTransactionLogConfiguration = TrimTransactionLogOnDispose;
                     TrimTransactionLogOnDispose = false;
-                    await DisposeAsync().ConfigureAwait(false);
                     TrimTransactionLogOnDispose = archivedTransactionLogConfiguration;
                 }
             }
