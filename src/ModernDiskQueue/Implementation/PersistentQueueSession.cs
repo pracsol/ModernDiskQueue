@@ -6,6 +6,7 @@ namespace ModernDiskQueue.Implementation
     using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Buffers;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading;
@@ -22,8 +23,9 @@ namespace ModernDiskQueue.Implementation
         private readonly ILogger<IPersistentQueueSession> _logger;
         private readonly List<Operation> _operations = [];
         private readonly List<Exception> _pendingWritesFailures = [];
+        private readonly ConcurrentBag<Exception> _pendingWritesFailuresAsync = new();
         private readonly List<WaitHandle> _pendingWritesHandles = [];
-        private readonly AsyncLock _pendingWritesFailuresLockAsync = new();
+        private readonly ConcurrentBag<WaitHandle> _pendingWritesHandlesAsync = new();
         private IFileStream _currentStream;
         private readonly int _writeBufferSize;
         private readonly int _timeoutLimitMilliseconds;
@@ -369,83 +371,71 @@ namespace ModernDiskQueue.Implementation
         // Helper method for async waiting
         private async Task WaitForPendingWritesAsync(List<Exception> exceptions, CancellationToken cancellationToken)
         {
-            // Create an AsyncLock instance for the waiting operation.
-            AsyncLock waitLock = new();
-            var timeoutCount = 0;
-            var total = _pendingWritesHandles.Count;
+            const int BatchSize = 32;  // Maximum number of handles to wait on at once, smaller may be better but shouldn't exceed 32.
+            int timeoutCount = 0;
+            int total = _pendingWritesHandlesAsync.Count;
 
-            while (_pendingWritesHandles.Count != 0)
+            while (!_pendingWritesHandlesAsync.IsEmpty)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var handles = _pendingWritesHandles.Take(32).ToArray();
-                foreach (var handle in handles)
+                List<WaitHandle> handles = [];
+                List<Task> waitTasks = [];
+
+                // Take up to 32 handles from the bag - this is kind of a weird limitation of .net's behavior on different OS's but the LCD is 32.
+                for (int i = 0; i < BatchSize && !_pendingWritesHandlesAsync.IsEmpty; i++)
                 {
-                    _pendingWritesHandles.Remove(handle);
+                    if (_pendingWritesHandlesAsync.TryTake(out var handle))
+                    {
+                        handles.Add(handle);
+                        waitTasks.Add(WaitOneAsync(handle, cancellationToken));
+                    }
                 }
 
-                using (await waitLock.LockAsync("waitlock", cancellationToken).ConfigureAwait(false))
+                if (handles.Count == 0)
                 {
-                    bool waitResult = false;
+                    break;
+                }
 
-                    var timeoutTask = Task.Delay(_timeoutLimitMilliseconds, cancellationToken);
+                // Use a shorter timeout for more responsiveness
+                var actualTimeout = Math.Min(_timeoutLimitMilliseconds, 250);
+                var timeoutTask = Task.Delay(actualTimeout, cancellationToken);
+                if (await Task.WhenAny(Task.WhenAll(waitTasks), timeoutTask).ConfigureAwait(false) == timeoutTask)
+                {
+                    timeoutCount++;
+                }
 
-                    var handleTasks = handles.Select(h => WaitOneAsync(h, cancellationToken)).ToArray();
-
-                    if (await Task.WhenAny(Task.WhenAll(handleTasks), timeoutTask).ConfigureAwait(false) == timeoutTask)
+                // Clean up handles
+                foreach (var handle in handles)
+                {
+                    try
                     {
-                        // timeout occurred.
-                        timeoutCount++;
+                        handle.Close();
+                        handle.Dispose();
                     }
-                    else
+                    catch
                     {
-                        // All handles completed successfully
-                        waitResult = true;
-                    }
-
-                    // Clean up handles
-                    foreach (var handle in handles)
-                    {
-                        try
-                        {
-                            handle.Close();
-                            handle.Dispose();
-                        }
-                        catch
-                        {
-                            // swallow exception.
-                        }
-                    }
-
-                    if (!waitResult)
-                    {
-                        timeoutCount++;
+                        // meh.
                     }
                 }
             }
 
-            await AssertNoPendingWritesFailuresAsync(exceptions, cancellationToken).ConfigureAwait(false);
+            if (!_pendingWritesFailuresAsync.IsEmpty)
+            {
+                var array = _pendingWritesFailuresAsync.ToArray();
+                _pendingWritesFailuresAsync.Clear();
+                exceptions.Add(new PendingWriteException(array));
+            }
 
             if (timeoutCount > 0)
+            {
                 exceptions.Add(new Exception($"File system async operations are timing out: {timeoutCount} of {total}"));
+            }
         }
 
         private void AssertNoPendingWritesFailures(List<Exception> exceptions)
         {
             lock (_pendingWritesFailures)
-            {
-                if (_pendingWritesFailures.Count == 0)
-                    return;
-
-                var array = _pendingWritesFailures.ToArray();
-                _pendingWritesFailures.Clear();
-                exceptions.Add(new PendingWriteException(array));
-            }
-        }
-
-        private async Task AssertNoPendingWritesFailuresAsync(List<Exception> exceptions, CancellationToken cancellationToken)
-        {
-            using (await _pendingWritesFailuresLockAsync.LockAsync("waitlock", cancellationToken).ConfigureAwait(false))
             {
                 if (_pendingWritesFailures.Count == 0)
                     return;

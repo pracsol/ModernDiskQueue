@@ -30,6 +30,9 @@ namespace ModernDiskQueue.Implementation
 
         /// <summary> 32MiB in bytes </summary>
         public const int _32Megabytes = 32*1024*1024;
+
+        /// <summary> 64MiB in bytes </summary>
+        public const int _64Megabytes = 64*1024*1024;
     }
 
     /// <summary>
