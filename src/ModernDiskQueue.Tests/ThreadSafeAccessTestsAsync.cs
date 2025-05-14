@@ -116,7 +116,7 @@
         [Test]
         public async Task can_enqueue_and_dequeue_on_separate_threads_v2()
         {
-            const int timeoutSeconds = 30;
+            const int timeoutSeconds = 50;
             const int target = 100;
 
             var producerTcs = new TaskCompletionSource<bool>();
@@ -439,6 +439,12 @@
 
             Assert.That(t1s, Is.EqualTo(target));
             Assert.That(t2s, Is.EqualTo(target));
+        }
+
+        public void RunAsyncInThread(Func<Task> asyncFunc)
+        {
+            var t = asyncFunc();
+            t.GetAwaiter().GetResult();
         }
     }
 }

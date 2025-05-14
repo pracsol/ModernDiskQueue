@@ -5,6 +5,7 @@ namespace ModernDiskQueue.Implementation
     using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Buffers;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
@@ -23,8 +24,10 @@ namespace ModernDiskQueue.Implementation
         protected readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<IPersistentQueueImpl> _logger;
         private readonly HashSet<Entry> _checkedOutEntries = [];
+        private readonly ConcurrentDictionary<long, Entry> _checkedOutEntriesAsync = new();
 
         private readonly Dictionary<int, int> _countOfItemsPerFile = [];
+        private readonly ConcurrentDictionary<int, int> _countOfItemsPerFileAsync = new();
 
         private readonly LinkedList<Entry> _entries = new();
 
@@ -35,12 +38,6 @@ namespace ModernDiskQueue.Implementation
         private readonly AsyncLock _transactionLogLockAsync;
         private readonly AsyncLock _writerLockAsync;
         private readonly AsyncLock _entriesLockAsync;
-        private readonly AsyncLock _checkedOutEntriesLockAsync;
-        /// <summary>
-        /// This is only used during async initialization and disposal.
-        /// </summary>
-        protected readonly AsyncLock _configLockAsync;
-
         // To avoid deadlocks we should use a consistent lock ordering priority
         // when nesting locks or doing sequential operations:
         // 1. _configLockAsync
@@ -62,6 +59,9 @@ namespace ModernDiskQueue.Implementation
         private readonly bool _throwOnConflict;
         private static readonly object _configLock = new();
         private volatile bool _disposed;
+        // used for async api
+        private int _disposedState = 0; // 0 = not disposed, 1 = disposing, 2 = disposed
+        private readonly SemaphoreSlim _disposalSemaphore = new(1, 1);
         private ILockFile? _fileLock;
         private IFileDriver _file;
 
@@ -83,8 +83,6 @@ namespace ModernDiskQueue.Implementation
             _transactionLogLockAsync = new AsyncLock(_loggerFactory);
             _writerLockAsync = new AsyncLock(_loggerFactory);
             _entriesLockAsync = new AsyncLock(_loggerFactory);
-            _checkedOutEntriesLockAsync = new AsyncLock(_loggerFactory);
-            _configLockAsync = new AsyncLock(_loggerFactory);
 
             _isAsyncMode = isAsyncMode;
             _file = fileDriver;
@@ -119,8 +117,6 @@ namespace ModernDiskQueue.Implementation
                 _transactionLogLockAsync = new();
                 _writerLockAsync = new();
                 _entriesLockAsync = new();
-                _checkedOutEntriesLockAsync = new();
-                _configLockAsync = new();
 
                 _disposed = true;
                 _file = new StandardFileDriver();
@@ -151,13 +147,30 @@ namespace ModernDiskQueue.Implementation
 
         internal async Task InitializeAsync(CancellationToken cancellationToken)
         {
-            using (await _configLockAsync.LockAsync("configlock", cancellationToken).ConfigureAwait(false))
+            if (!TryBeginDispose())
             {
-                _disposed = true;
+                throw new InvalidOperationException("Queue already initialized or is being initialized.");
+            }
+
+            await _disposalSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
                 await LockAndReadQueueAsync(cancellationToken).ConfigureAwait(false);
 
-                _disposed = false;
+                // mark as not disposed.
+                Interlocked.Exchange(ref _disposedState, 0);
             }
+            catch
+            {
+                CompleteDispose();
+                throw;
+            }
+            finally
+            {
+                _disposalSemaphore.Release();
+            }
+
         }
 #if DEBUG
         ~PersistentQueueImpl()
@@ -230,12 +243,7 @@ namespace ModernDiskQueue.Implementation
                 entriesCount = _entries.Count;
             }
 
-            // Lock _checkedOutEntries and get its count
-            using (await _checkedOutEntriesLockAsync.LockAsync("checkedoutentrieslock", cancellationToken).ConfigureAwait(false))
-            {
-                _holdsCheckedOutEntriesLock.Value = true;
-                checkedOutEntriesCount = _checkedOutEntries.Count;
-            }
+            checkedOutEntriesCount = _checkedOutEntriesAsync.Count;
 
             // Return the total count
             return entriesCount + checkedOutEntriesCount;
@@ -268,24 +276,33 @@ namespace ModernDiskQueue.Implementation
 
         /// <summary>
         /// Asynchronously disposes the queue implementation, ensuring proper cleanup of resources.
-        /// <para>Locks <see cref="_transactionLogLockAsync"/> and <see cref="_configLockAsync"/>.</para>
+        /// <para>Locks <see cref="_transactionLogLockAsync"/>.</para>
         /// </summary>
         public async ValueTask DisposeAsync()
         {
             var stopwatch = Stopwatch.StartNew();
             // First check if already disposed to avoid unnecessary work
-            if (!_disposed)
+            if (IsFullyDisposed) return;
+
+            if (!TryBeginDispose())
             {
-                using (await _configLockAsync.LockAsync("configlock").ConfigureAwait(false))
+                await _disposalSemaphore.WaitAsync().ConfigureAwait(false);
+                _disposalSemaphore.Release();
+            }
+
+            try
+            {
+                await _disposalSemaphore.WaitAsync().ConfigureAwait(false);
+
+                try
                 {
-                    try
+                    if (TrimTransactionLogOnDispose)
                     {
-                        _disposed = true;
-                        if (_holdsTransactionLogLock.Value && TrimTransactionLogOnDispose)
+                        if (_holdsTransactionLogLock.Value)
                         {
                             await FlushTrimmedTransactionLogAsync_UnderLock().ConfigureAwait(false);
                         }
-                        else if (TrimTransactionLogOnDispose)
+                        else
                         {
                             try
                             {
@@ -301,13 +318,21 @@ namespace ModernDiskQueue.Implementation
                                 _holdsTransactionLogLock.Value = false;
                             }
                         }
-                        GC.SuppressFinalize(this);
                     }
-                    finally
-                    {
-                        await UnlockQueueAsync().ConfigureAwait(false);
-                    }
+
+                    GC.SuppressFinalize(this);
                 }
+                finally
+                {
+                    await UnlockQueueAsync().ConfigureAwait(false);
+                }
+            }
+            catch
+            {
+                // Reset disposal state if an exception occurs
+                Interlocked.Exchange(ref _disposedState, 0);
+                _disposalSemaphore.Release();
+                throw;
             }
         }
 
@@ -502,7 +527,7 @@ namespace ModernDiskQueue.Implementation
                     if (entry.Data == null)
                     {
                         // Data needs loading, so load it with method that can work with existing lock.
-                        bool wasReadAheadSuccessful = await ReadAheadAsync_UnderLock(cancellationToken).ConfigureAwait(false);
+                        bool wasReadAheadSuccessful = await ReadAheadAsync(cancellationToken).ConfigureAwait(false);
                         if (!wasReadAheadSuccessful)
                         {
                             return null;
@@ -510,19 +535,9 @@ namespace ModernDiskQueue.Implementation
                     }
 
                     _entries.RemoveFirst();
-                    try
-                    {
-                        // lock the checked out entries for addition of entry.
-                        using (await _checkedOutEntriesLockAsync.LockAsync("checkedoutentrieslock", cancellationToken).ConfigureAwait(false))
-                        {
-                            _holdsCheckedOutEntriesLock.Value = true;
-                            _checkedOutEntries.Add(new Entry(entry.FileNumber, entry.Start, entry.Length));
-                        }
-                    }
-                    finally
-                    {
-                        _holdsCheckedOutEntriesLock.Value = false;
-                    }
+                    var newEntry = new Entry(entry.FileNumber, entry.Start, entry.Length);
+                    _checkedOutEntriesAsync.TryAdd(GetEntryKey(newEntry), newEntry);
+
                     return entry;
                 }
             }
@@ -674,33 +689,15 @@ namespace ModernDiskQueue.Implementation
                                 _holdsEntriesLock.Value = false;
                             }
                         }
-                        var itemCountAddition = _countOfItemsPerFile.GetValueOrDefault(entryToAdd.FileNumber);
-                        _countOfItemsPerFile[entryToAdd.FileNumber] = itemCountAddition + 1;
+                        var itemCountAddition = _countOfItemsPerFileAsync.GetValueOrDefault(entryToAdd.FileNumber);
+                        _countOfItemsPerFileAsync[entryToAdd.FileNumber] = itemCountAddition + 1;
                         break;
 
                     case OperationType.Dequeue:
                         var entryToRemove = new Entry(operation);
-                        if (_holdsCheckedOutEntriesLock.Value)
-                        {
-                            _checkedOutEntries.Remove(entryToRemove);
-                        }
-                        else
-                        {
-                            try
-                            {
-                                using (await _checkedOutEntriesLockAsync.LockAsync("checkedoutentrieslock", cancellationToken).ConfigureAwait(false))
-                                {
-                                    _holdsCheckedOutEntriesLock.Value = true;
-                                    _checkedOutEntries.Remove(entryToRemove);
-                                }
-                            }
-                            finally
-                            {
-                                _holdsCheckedOutEntriesLock.Value = false;
-                            }
-                        }
-                        var itemCountRemoval = _countOfItemsPerFile.GetValueOrDefault(entryToRemove.FileNumber);
-                        _countOfItemsPerFile[entryToRemove.FileNumber] = itemCountRemoval - 1;
+                        _checkedOutEntriesAsync.TryRemove(GetEntryKey(entryToRemove), out _);
+                        var itemCountRemoval = _countOfItemsPerFileAsync.GetValueOrDefault(entryToRemove.FileNumber);
+                        _countOfItemsPerFileAsync[entryToRemove.FileNumber] = itemCountRemoval - 1;
                         break;
                     case OperationType.Reinstate:
                         var entryToReinstate = new Entry(operation);
@@ -723,38 +720,20 @@ namespace ModernDiskQueue.Implementation
                                 _holdsEntriesLock.Value = false;
                             }
                         }
-                        if (_holdsCheckedOutEntriesLock.Value)
-                        {
-                            _checkedOutEntries.Remove(entryToReinstate);
-                        }
-                        else
-                        {
-                            try
-                            {
-                                using (await _checkedOutEntriesLockAsync.LockAsync("checkedoutentrieslock", cancellationToken).ConfigureAwait(false))
-                                {
-                                    _holdsCheckedOutEntriesLock.Value = true;
-                                    _checkedOutEntries.Remove(entryToReinstate);
-                                }
-                            }
-                            finally
-                            {
-                                _holdsCheckedOutEntriesLock.Value = false;
-                            }
-                        }
+                        _checkedOutEntriesAsync.TryRemove(GetEntryKey(entryToReinstate), out _);
                         break;
                 }
             }
 
             var filesToRemove = new HashSet<int>(
-                from pair in _countOfItemsPerFile
+                from pair in _countOfItemsPerFileAsync
                 where pair.Value < 1
                 select pair.Key
                 );
 
             foreach (var i in filesToRemove)
             {
-                _countOfItemsPerFile.Remove(i);
+                _countOfItemsPerFileAsync.TryRemove(i, out _);
             }
             return filesToRemove.ToArray();
         }
@@ -908,18 +887,7 @@ namespace ModernDiskQueue.Implementation
                 using (await _entriesLockAsync.LockAsync("entrieslock", cancellationToken).ConfigureAwait(false))
                 {
                     _holdsEntriesLock.Value = true;
-                    try
-                    {
-                        using (await _checkedOutEntriesLockAsync.LockAsync("checkedoutentrieslock", cancellationToken).ConfigureAwait(false))
-                        {
-                            _holdsCheckedOutEntriesLock.Value = true;
-                            return _entries.Count + _checkedOutEntries.Count;
-                        }
-                    }
-                    finally
-                    {
-                        _holdsCheckedOutEntriesLock.Value = false;
-                    }
+                    return _entries.Count + _checkedOutEntriesAsync.Count;
                 }
             }
             finally
@@ -1276,32 +1244,11 @@ namespace ModernDiskQueue.Implementation
         }
 
         /// <summary>
-        /// Reads ahead to get entries from disk.
-        /// </summary>
-        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
-        /// <returns>True if data read from successfully.</returns>
-        private async Task<bool> ReadAheadAsync(CancellationToken cancellationToken)
-        {
-            try
-            {
-                using (await _entriesLockAsync.LockAsync("entrieslock", cancellationToken).ConfigureAwait(false))
-                {
-                    _holdsEntriesLock.Value = true;
-                    return await ReadAheadAsync_UnderLock(cancellationToken).ConfigureAwait(false);
-                }
-            }
-            finally
-            {
-                _holdsEntriesLock.Value = false;
-            }
-        }
-
-        /// <summary>
         /// Reads ahead to get entries from disk without acquiring locks. The caller MUST hold _entriesLockAsync.
         /// </summary>
         /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
         /// <returns>True if data has been read.</returns>
-        private async Task<bool> ReadAheadAsync_UnderLock(CancellationToken cancellationToken)
+        private async Task<bool> ReadAheadAsync(CancellationToken cancellationToken)
         {
             // IMPORTANT: Caller must hold _entriesLockAsync lock!
             long currentBufferSize = 0;
@@ -1667,7 +1614,6 @@ namespace ModernDiskQueue.Implementation
         }
         /// <summary>
         /// Asynchronously flush the trimmed transaction log.
-        /// <para>Locks <see cref="_entriesLockAsync"/> and <see cref="_checkedOutEntriesLockAsync"/>.</para>
         /// </summary>
         private async Task FlushTrimmedTransactionLogAsync_UnderLock(CancellationToken cancellationToken = default)
         {
@@ -1707,32 +1653,13 @@ namespace ModernDiskQueue.Implementation
                     }
                 }
 
-                Entry[] checkedOut;
-                if (_holdsCheckedOutEntriesLock.Value)
-                {
-                    checkedOut = _checkedOutEntries.ToArray();
-                }
-                else
-                {
-                    try
-                    {
-                        using (await _checkedOutEntriesLockAsync.LockAsync("checkedoutentrieslock", cancellationToken).ConfigureAwait(false))
-                        {
-                            _holdsCheckedOutEntriesLock.Value = true;
-                            checkedOut = _checkedOutEntries.ToArray();
-                            foreach (var entry in checkedOut)
-                            {
-                                cancellationToken.ThrowIfCancellationRequested();
+                Entry[] checkedOut = _checkedOutEntriesAsync.Values.ToArray();
 
-                                // Write the entry to the transaction log
-                                WriteEntryToTransactionLog(ms, entry, OperationType.Enqueue);
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        _holdsCheckedOutEntriesLock.Value = false;
-                    }
+                foreach (var entry in checkedOut)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    // Write the entry to the transaction log
+                    WriteEntryToTransactionLog(ms, entry, OperationType.Enqueue);
                 }
 
                 ms.Write(Constants.EndTransactionSeparator, 0, Constants.EndTransactionSeparator.Length);
@@ -2044,5 +1971,24 @@ namespace ModernDiskQueue.Implementation
 
             return size;
         }
+
+        /// <summary>
+        /// Generate consistent keys for Entry objects in the dictionary.
+        /// </summary>
+        private static long GetEntryKey(Entry entry)
+        {
+            // Use FileNumber for high bits and Start for low bits
+            // This assumes Start values won't exceed 32 bits
+            return ((long)entry.FileNumber << 32) | ((long)entry.Start);
+        }
+
+        // Helper methods:
+        private bool IsDisposed => Interlocked.CompareExchange(ref _disposedState, 0, 0) > 0;
+
+        private bool IsFullyDisposed => Interlocked.CompareExchange(ref _disposedState, 0, 0) == 2;
+
+        private bool TryBeginDispose() => Interlocked.CompareExchange(ref _disposedState, 1, 0) == 0;
+
+        private void CompleteDispose() => Interlocked.Exchange(ref _disposedState, 2);
     }
 }

@@ -151,7 +151,6 @@
 
                                 while (count > 0)
                                 {
-
                                     // Smart backoff for lock acquisition
                                     var retryCount = threadRetries.AddOrUpdate(threadId, 0, (_, c) => c + 1);
                                     if (retryCount > 0)
@@ -237,12 +236,6 @@
                 }
                 enqueueCompleted.Dispose();
             }
-        }
-
-        public void RunAsyncInThread(Func<Task> asyncFunc)
-        {
-            var t = asyncFunc();
-            t.GetAwaiter().GetResult();
         }
 
         [Benchmark]
@@ -391,6 +384,12 @@
                 }
                 enqueueCompleted.Dispose();
             }
+        }
+
+        public void RunAsyncInThread(Func<Task> asyncFunc)
+        {
+            var t = asyncFunc();
+            t.GetAwaiter().GetResult();
         }
     }
 }
