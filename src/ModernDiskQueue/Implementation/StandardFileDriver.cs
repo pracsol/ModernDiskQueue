@@ -129,27 +129,32 @@
         /// </summary>
         public async Task PrepareDeleteAsync(string path, CancellationToken cancellationToken = default)
         {
-            if (_holdsLock.Value)
+
+            bool fileExists = await FileExistsAsync(path, cancellationToken).ConfigureAwait(false);
+            if (!fileExists) return;
+
+            var dir = Path.GetDirectoryName(path) ?? "";
+            var file = Path.GetFileNameWithoutExtension(path);
+            var prefix = Path.GetRandomFileName();
+            var deletePath = Path.Combine(dir, $"{file}_dc_{prefix}");
+            bool isFileMoved = false;
+
+            try
             {
-                //Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} already had SFD lock.");
-                await PrepareDeleteAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
-                return;
+                using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
+                {
+                    _holdsLock.Value = true;
+                    isFileMoved = await MoveAsync(path, deletePath, cancellationToken).ConfigureAwait(false);
+                }
             }
-            else
+            finally
             {
-                try
-                {
-                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
-                    {
-                        _holdsLock.Value = true;
-                        await PrepareDeleteAsync_UnderLock(path, cancellationToken).ConfigureAwait(false);
-                        return;
-                    }
-                }
-                finally
-                {
-                    _holdsLock.Value = false;
-                }
+                _holdsLock.Value = false;
+            }
+
+            if (isFileMoved)
+            {
+                await _waitingDeletesAsync.Writer.WriteAsync(deletePath, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -194,41 +199,27 @@
         /// </summary>
         public async Task FinaliseAsync(CancellationToken cancellationToken = default)
         {
-            if (_holdsLock.Value)
+            try
             {
-                Finalise_UnderLock(cancellationToken);
-                return;
-            }
-            else
-            {
-                try
+                using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                 {
-                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
+                    _holdsLock.Value = true;
+                    while (_waitingDeletesAsync.Reader.TryRead(out string? path))
                     {
-                        _holdsLock.Value = true;
-                        Finalise_UnderLock(cancellationToken);
-                        return;
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (path is null)
+                        {
+                            Console.WriteLine("FinaliseAsync is waiting for file. zzzz... :(");
+                            continue;
+                        }
+                        File.Delete(path);
                     }
-                }
-                finally
-                {
-                    _holdsLock.Value = false;
+                    return;
                 }
             }
-        }
-
-        /// <summary>
-        /// Asynchronously commit any pending prepared operations.
-        /// Each operation will happen in serial.
-        /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
-        /// </summary>
-        private void Finalise_UnderLock(CancellationToken cancellationToken = default)
-        {
-            while (_waitingDeletesAsync.Reader.TryRead(out string? path))
+            finally
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (path is null) continue;
-                File.Delete(path);
+                _holdsLock.Value = false;
             }
         }
 
@@ -422,6 +413,8 @@
         /// </summary>
         public async Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default)
         {
+            return await Task.Run(() => File.Exists(path), cancellationToken);
+            /* Skipping lock for checking file existence.
             if (_holdsLock.Value)
             {
                 return FileExists_UnderLock(path);
@@ -441,6 +434,7 @@
                     _holdsLock.Value = false;
                 }
             }
+            */
         }
 
         /// <summary>
@@ -748,12 +742,13 @@
         /// </summary>
         public async Task<IFileStream> OpenReadStreamAsync(string path, CancellationToken cancellationToken = default)
         {
+            FileStream stream;
             try
             {
                 using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
-                    var stream = new FileStream(
+                    stream = new FileStream(
                             path,
                             FileMode.OpenOrCreate,
                             FileAccess.Read,
@@ -761,7 +756,7 @@
                             bufferSize: 0x10000,
                             FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-                    return (IFileStream)new FileStreamWrapper(stream);
+                    return new FileStreamWrapper(stream);
                 }
             }
             finally
@@ -795,12 +790,13 @@
         /// </summary>
         public async Task<IFileStream> OpenWriteStreamAsync(string dataFilePath, CancellationToken cancellationToken = default)
         {
+            FileStream stream;
             try
             {
                 using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
-                    var stream = new FileStream(
+                    stream = new FileStream(
                             dataFilePath,
                             FileMode.OpenOrCreate,
                             FileAccess.Write,
@@ -809,7 +805,7 @@
                             FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough);
 
                     SetPermissions.TryAllowReadWriteForAll(dataFilePath, _options.SetFilePermissions);
-                    return (IFileStream)new FileStreamWrapper(stream);
+                    return new FileStreamWrapper(stream);
                 }
             }
             finally
@@ -992,6 +988,7 @@
         private async Task AtomicReadInternalAsync(string path, Func<FileStream, Task> action, CancellationToken cancellationToken)
         {
             var fileExists = await FileExistsAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
+
             if (fileExists)
             {
                 await WaitDeleteAsync(path, cancellationToken).ConfigureAwait(false);
@@ -1075,35 +1072,39 @@
         /// <param name="cancellationToken">Cancellation token</param>
         private async Task AtomicWriteInternalAsync(string path, Func<FileStream, Task> action, CancellationToken cancellationToken)
         {
-            bool needsBackup;
+            string oldCopyPath = path + ".old_copy";
+            string? dirPath = Path.GetDirectoryName(path);
+            bool needsBackup = false;
+            bool dirExists = false;
+            FileStream? stream = null;
+
+            // Check if we need to create a backup first
+            needsBackup = await FileExistsAsync(path, cancellationToken) &&
+                        !(await FileExistsAsync(oldCopyPath, cancellationToken));
+
+            if (dirPath != null)
+            {
+                dirExists = await DirectoryExistsAsync(dirPath, cancellationToken);
+            }
+
             try
             {
                 using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
                 {
                     _holdsLock.Value = true;
 
-                    // Check if we need to create a backup first
-                    needsBackup = await FileExistsAsync(path, cancellationToken) && !(await FileExistsAsync(path + ".old_copy", cancellationToken));
-
                     // Create backup if needed
                     if (needsBackup)
                     {
-                        await MoveAsync(path, path + ".old_copy", cancellationToken).ConfigureAwait(false);
+                        await MoveAsync(path, oldCopyPath, cancellationToken).ConfigureAwait(false);
                     }
 
-                    // Ensure directory exists
-                    var dir = Path.GetDirectoryName(path);
-                    if (dir is not null)
+                    if (dirPath != null && !dirExists)
                     {
-                        bool dirExists = await DirectoryExistsAsync(dir, cancellationToken).ConfigureAwait(false);
-                        if (!dirExists)
-                        {
-                            await CreateDirectoryAsync(dir, cancellationToken).ConfigureAwait(false);
-                        }
+                            await CreateDirectoryAsync(dirPath, cancellationToken).ConfigureAwait(false);
                     }
 
                     // Open stream for writing
-                    FileStream? stream = null;
                     try
                     {
                         stream = new FileStream(path,
@@ -1120,9 +1121,6 @@
 
                         // Ensure data is flushed
                         await HardFlushAsync(stream!, cancellationToken).ConfigureAwait(false);
-
-                        // Clean up old backup
-                        await WaitDeleteAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
                     }
                     finally
                     {
@@ -1137,6 +1135,10 @@
             {
                 _holdsLock.Value = false;
             }
+
+            // Clean up old backup
+            await WaitDeleteAsync(path + ".old_copy", cancellationToken).ConfigureAwait(false);
+
         }
 
         /// <summary>
@@ -1211,6 +1213,7 @@
         /// </summary>
         private async Task WaitDeleteInternalAsync(string path, CancellationToken cancellationToken)
         {
+            // lock is not held here
             await PrepareDeleteAsync(path, cancellationToken).ConfigureAwait(false);
             await FinaliseAsync(cancellationToken).ConfigureAwait(false);
         }
