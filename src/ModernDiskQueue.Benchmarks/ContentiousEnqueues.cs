@@ -157,7 +157,7 @@
                                     {
                                         // Exponential backoff with jitter
                                         var backoffTime = Math.Min(50 * Math.Pow(1.5, Math.Min(retryCount, 10)) + rnd.Next(50), 2000);
-                                        await Task.Delay((int)backoffTime);
+                                        //await Task.Delay((int)backoffTime);
                                     }
 
                                     try
@@ -183,7 +183,7 @@
                                         }
                                         // Add a small intentional pause between operations
                                         // to reduce the chance that the same thread re-acquires the lock instantly
-                                        await Task.Delay(20 + rnd.Next(30));
+                                        //await Task.Delay(20 + rnd.Next(30));
                                     }
                                     catch (TimeoutException)
                                     {

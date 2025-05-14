@@ -1252,6 +1252,7 @@ namespace ModernDiskQueue.Implementation
         {
             // IMPORTANT: Caller must hold _entriesLockAsync lock!
             long currentBufferSize = 0;
+            List<Entry> entriesToLoad = new List<Entry>();
 
             var firstEntry = _entries.First?.Value ?? throw new Exception("Invalid queue state: first entry is null");
             Entry lastEntry = firstEntry;
@@ -1270,6 +1271,8 @@ namespace ModernDiskQueue.Implementation
                 {
                     break;
                 }
+
+                entriesToLoad.Add(entry);
                 lastEntry = entry;
                 currentBufferSize += entry.Length;
             }
@@ -1286,14 +1289,16 @@ namespace ModernDiskQueue.Implementation
             }
 
             var index = 0;
-            foreach (var entry in _entries)
+            foreach (var entry in entriesToLoad)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 entry.Data = new byte[entry.Length];
                 Buffer.BlockCopy(buffer.Value!, index, entry.Data, 0, entry.Length);
                 index += entry.Length;
                 if (entry == lastEntry)
+                {
                     break;
+                }
             }
 
             return true;
