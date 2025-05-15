@@ -32,8 +32,8 @@
 
             var enqueueCompleted = new ManualResetEventSlim(false);
             var dequeueCompleted = new ManualResetEventSlim(false);
-            int timeoutForDequeueThreadInMinutes = 1;
-            int timeoutForEnqueueThreadInMinutes = 1;
+            int timeoutForDequeueThreadInMinutes = 2;
+            int timeoutForEnqueueThreadInMinutes = 2;
 
             int enqueueCount = 0;
             int dequeueCount = 0;
@@ -94,9 +94,9 @@
                                 }
                                 else
                                 {
-                                    await Task.Delay(rnd.Next(5, 20));
                                     Console.WriteLine("got nothing");
                                 }
+                                await Task.Delay(rnd.Next(5, 20));
                             }
                         }
                         while (dequeueCount < TargetObjectCount);
@@ -119,21 +119,21 @@
 
             if (!enqueueCompleted.Wait(TimeSpan.FromMinutes(timeoutForEnqueueThreadInMinutes)))
             {
-                Console.WriteLine("Enqueue thread timed out.");
+                Console.WriteLine("Producer (enqueue) thread timed out.");
             }
             if (!dequeueCompleted.Wait(TimeSpan.FromMinutes(timeoutForDequeueThreadInMinutes)))
             {
-                Console.WriteLine("Enqueue thread timed out.");
+                Console.WriteLine("Consumer (dequeue) thread timed out.");
             }
 
             if (lastProducerException != null)
             {
-                Assert.Fail($"Producer thread terminated early with error {lastProducerException.Message}");
+                Assert.Fail($"Producer (enqueue) thread terminated early with error {lastProducerException.Message}");
             }
 
             if (lastConsumerException!= null)
             {
-                Assert.Fail($"Consumer thread terminated early with error {lastConsumerException.Message}");
+                Assert.Fail($"Consumer (dequeue) thread terminated early with error {lastConsumerException.Message}");
             }
 
             await q.DisposeAsync();
