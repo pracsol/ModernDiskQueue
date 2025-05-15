@@ -9,7 +9,7 @@
     using ModernDiskQueue;
     using System.Diagnostics;
 
-    [Config(typeof(LongRunningConfig))]
+    [Config(typeof(LongRunningTestConfig))]
     public class ContentiousEnqueues
     {
         private PersistentQueueFactory  _factory;

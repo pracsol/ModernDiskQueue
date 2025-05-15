@@ -11,13 +11,13 @@
     /// <summary>
     /// This configuration is meant for long running benchmarks, basically reducing number of warmups and iterations.
     /// </summary>
-    internal class LongRunningConfig : ManualConfig
+    internal class LongRunningTestConfig : ManualConfig
     {
-        public LongRunningConfig()
+        public LongRunningTestConfig()
         {
             AddJob(Job.Default
-                .WithWarmupCount(1)
-                .WithIterationCount(1)
+                .WithWarmupCount(2)
+                .WithIterationCount(3)
                 .WithLaunchCount(1)
                 .WithId("LongRunningConfig"));
 
