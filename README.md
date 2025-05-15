@@ -6,8 +6,44 @@
 
 **Original DiskQueue project is at:** https://github.com/i-e-b/DiskQueue
 
+<!--TOC-->
+  - [Description](#description)
+  - [Requirements and Environment](#requirements-and-environment)
+  - [Thanks to](#thanks-to)
+  - [Basic Usage](#basic-usage)
+    - [Asynchronous Operation (first supported in v2)](#asynchronous-operation-first-supported-in-v2)
+    - [Dependency Injection Containers (first supported in v2)](#dependency-injection-containers-first-supported-in-v2)
+    - [Original Synchronous Operation](#original-synchronous-operation)
+  - [Basic Usage Examples](#basic-usage-examples)
+    - [Register MDQ Factory in DI Container](#register-mdq-factory-in-di-container)
+    - [Create a queue and add some data using async API and injected factory.](#create-a-queue-and-add-some-data-using-async-api-and-injected-factory.)
+    - [Create a queue and add some data with legacy synchronous API](#create-a-queue-and-add-some-data-with-legacy-synchronous-api)
+  - [Transactions](#transactions)
+  - [Data Loss and Transaction Truncation](#data-loss-and-transaction-truncation)
+  - [Global default settings](#global-default-settings)
+    - [Async API](#async-api)
+    - [Sync API](#sync-api)
+  - [Logging](#logging)
+    - [Async API](#async-api)
+    - [Sync API](#sync-api)
+  - [Removing or Resetting Queues](#removing-or-resetting-queues)
+    - [Async API](#async-api)
+    - [Sync API](#sync-api)
+  - [Inter-Thread and Cross-Process Locking](#inter-thread-and-cross-process-locking)
+  - [Performance of the Async vs Sync APIs](#performance-of-the-async-vs-sync-apis)
+  - [More Detailed Examples](#more-detailed-examples)
+    - [Dependency Injection](#dependency-injection)
+      - [Async Initialization in Hosted Startup Pattern](#async-initialization-in-hosted-startup-pattern)
+      - [Discrete Queue Creation and Disposal](#discrete-queue-creation-and-disposal)
+  - [Multi-Process and Multi-Thread Work](#multi-process-and-multi-thread-work)
+    - [Multi-Process Work](#multi-process-work)
+    - [Multi-Thread Work](#multi-thread-work)
+  - [Trim Self-Contained Deployments and Executables](#trim-self-contained-deployments-and-executables)
+    - [Dependency Errors in Trimmed Applications](#dependency-errors-in-trimmed-applications)
+    - [Serialization Issues in Trimmed Applications](#serialization-issues-in-trimmed-applications)
+<!--/TOC-->
 ## Description
-ModernDiskQueue (MDQ) is a fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue. MDQ adds first-class async support, dependency injection symmantics, and is built on the latest .NET LTS runtime.
+ModernDiskQueue (MDQ) is a fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue. MDQ adds first-class async support, dependency injection semantics, and is built on the latest .NET LTS runtime.
 
 **MDQ v2.*** - Added first-class async support and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two APIs should not be invoked interchangeably.
 
@@ -56,7 +92,7 @@ issues with DiskQueue -- although it tries to work around them.
  - Both `IPersistentQueue` and `IPersistentQueueSession` objects should be wrapped in `using()` clauses, or otherwise
    disposed of properly. Failure to do this will result in lock contention -- you will get errors that the queue
    is still in use.
- - There is also a generic-typed `PersistentQueue<T>(...);` which will handle the serialisation and deserialization of elements in the queue. Use `new PersistentQueue<T>(...)` in place of `new PersistentQueue(...)` or `PersistentQueue.WaitFor<T>(...)` in place of `PersistentQueue.WaitFor(...)` in any of the examples below.
+ - There is also a generic-typed `PersistentQueue<T>(...);` which will handle the serialization and deserialization of elements in the queue. Use `new PersistentQueue<T>(...)` in place of `new PersistentQueue(...)` or `PersistentQueue.WaitFor<T>(...)` in place of `PersistentQueue.WaitFor(...)` in any of the examples below.
  - You can also assign your own `ISerializationStrategy<T>` 
 to your `PersistentQueueSession<T>` if you wish to have more granular control over Serialization/Deserialization, or if you wish to 
 use your own serializer (e.g System.Text.Json). This is done by assigning your implementation of `ISerializationStrategy<T>` to `IPersistentQueueSession<T>.SerializationStrategy`.
@@ -110,7 +146,7 @@ public class MyClass
 		{
 			await using (var session = await queue.OpenSessionAsync())
 			{
-				var obj = await session.DequeueAsync());
+				var obj = await session.DequeueAsync();
 				// always commit the dequeue transaction with flushasync
 				await session.FlushAsync();
 			}
@@ -133,11 +169,11 @@ using (var queue = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(5)))
 
 ## Transactions
 Each session is a transaction. Any Enqueues or Dequeues will be rolled back when the session is disposed unless
-you call `session.FlushAsync()`. Data will only be visible between threads once it has been flushed.
-Each flush incurs a performance penalty. By default, each flush is persisted to disk before continuing. You 
+you call `session.FlushAsync()`. Data will only be visible between threads once it has been flushed (similar to a database commit).
+Each flush incurs a performance penalty due to disk I/O and fsync. By default, each flush is persisted to disk before continuing. You 
 can get more speed at a safety cost by setting `queue.ParanoidFlushing = false;`. Additionally, the transaction log will get cleaned up of unnecessary operations (e.g. dequeued items) each time the queue itself is disposed if `TrimTransactionLogOnDispose` is set to true. This is the default behaviour. Because the trimming of the transaction log involves disk IO, there is a performance penalty each time this operation happens.
 
-Each instance of a `PersistentQueue` has it's own settings for flush levels and corruption behaviour. You can set these individually after creating an instance.
+Each instance of a `PersistentQueue` has its own settings for flush levels and corruption behaviour. You can set these individually after creating an instance.
 
 For example, if performance is more important than crash safety:
 ```csharp
@@ -157,7 +193,7 @@ when transaction block markers are overwritten (this happens if more than one pr
 If you construct your queue with `throwOnConflict: false`, all recoverable transaction errors will be silently truncated. 
 
 ```csharp
-using (var queue = _factory.WaitForAsync(path, throwOnConflict: false)) {
+await using (var queue = await _factory.WaitForAsync(path, throwOnConflict: false)) {
     . . .
 }
 ```
@@ -169,11 +205,11 @@ By default, the queues are set up to prioritize data integrity over performance.
 ## Global default settings
 
 ### Async API
-In the async api, the global defaults are specified with the ModernDiskQueueOptions class, and provided when configuring services.
+In the async api, the global defaults are specified with the ModernDiskQueueOptions class, provided when configuring services.
 ```csharp
 // Add options configuration. These are the default
 // settings, and listed here to illustrate how
-// they can be set initially using ModernDiskQUeueOptions.
+// they can be set initially using ModernDiskQueueOptions.
 services.AddModernDiskQueue(options =>
 {
     options.ParanoidFlushing = true;
@@ -184,13 +220,13 @@ services.AddModernDiskQueue(options =>
 });
 ```
 
-Each instance of a queue created using the `IPersistentQueueFactory.CreateAsync()` or `IPersistentQueueFactory.WaitForAsync()` methods can have these values set directly, which will override the global defaults if you need to affect a specific queue's behavior at runtime. This behaves differently than the sync API, in that the async API does not envision the *global defaults* being changed at runtime. Rather, change the settings on a queue instance at runtime if needed.
+Each instance of a queue created using the `IPersistentQueueFactory.CreateAsync()` or `IPersistentQueueFactory.WaitForAsync()` methods can have these values set directly on a per-instance basis, which will override the global defaults if you need to affect a specific queue's behavior at runtime. This behaves differently than the sync API, in that the async API does not envision the *global defaults* being changed at runtime. Rather, change the settings on a queue instance at runtime if needed.
 
 ### Sync API
 
 Global default settings can be set using the `PersistentQueue.DefaultSettings' static class.
 
-Default settings are applied to all queue instances *in the same process* created *after* the setting is changed. However, SetFilePermissions will affect all queues, including existing instances, when the default is changed. 
+Default settings are applied to all queue instances *in the same process* created *after* the setting is changed. The SetFilePermissions value behaves differently in that changes *will* affect behavior for existing queue instances.
 
 This behavior has not changed from the legacy library.
 ```csharp
@@ -249,18 +285,18 @@ These implementation details are why activities performed across multiple *threa
 
 However, if it's anticipated that multiple processes will be using the same storage location, you'll want the lock file to be very short lived, and this will mean disposing of the queue itself as soon as you can.
 
-The factory method `WatiForAsync` will accomodate multi-process access by attempting to obtain a lock on the queue until the specified timeout has been reached. If each process uses the lock for a short time and waits long enough, they can share a storage location.
+The factory method `WaitForAsync` will accommodate multi-process access by attempting to obtain a lock on the queue until the specified timeout has been reached. If each process uses the lock for a short time and waits long enough, they can share a storage location.
 
-This approach works relatively well, but can show its limits when extreme contention is anticipated (many processes conducting many operations each, concurrently). The cross-platform compatibility goal of this library design precludes use of OS-specific mutexes which would likely offer more performance and reliability. That said, even with cross-process use of the queue, sub-second enqueueing and dequeueing is certainly achievable. There are performance tests in the benchmarks project that you can use to determine whether your needs can be met.
+This approach works relatively well, but can show its limits when extreme contention is anticipated (many processes conducting many operations each, concurrently). The cross-platform compatibility goal of this library design precludes use of OS-specific mutexes which would likely offer more performance and reliability. That said, even with cross-process use of the queue, sub-second enqueuing and dequeuing is certainly achievable. There are performance tests in the benchmarks project that you can use to determine whether your needs can be met.
 
 If you need the transaction semantics of sessions across multiple processes, try a more robust solution like https://github.com/i-e-b/SevenDigital.Messaging
 
-## Some Thoughts on Async vs Sync
+## Performance of the Async vs Sync APIs
 The async API does bring some extra overhead inherent to the asynchronous context switching, but for all intents and purposes the APIs are equivalent in performance. Mean task completion times between the two seem to be within the margins of error. In tight loops, the sync API seems consistently faster (often by ms), but in highly contentious scenarios the async API seems to have an edge. 
 
 Test design for the async benchmarks has been found to play an incredibly important role, with small adjustments in consumer loop design having a profound impact on performance. You may need to tune your loops to avoid "thundering herd" or starvation issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues can make concurrent threads more tolerant of lock contention.
 
-So generally speaking, the async API should perform just as well as the sync API while adding the symantics of asynchronous programming and other benefits as described earlier.
+So generally speaking, the async API should perform just as well as the sync API while adding the semantics of asynchronous programming and other benefits as described earlier.
 
 ## More Detailed Examples
 
@@ -354,9 +390,9 @@ Some of the examples in the original library showing how to create a thread to e
 This scenario is likely going to arise from two discrete applications attempting to access the same storage queue. As described above, the guidance for this scenario is to instantiate and dispose of the queue as quickly as possible so the multi-process file lock is not held for any longer than needed.
 
 ### Multi-Thread Work
-This scenario is likely to arise from a single application with multiple threads trying to access the same storage queue. The guidance for this scenario is to create a long-lived queue object and then create and dispose of sessions as needed. This will allow the threads to share the queue object and avoid contention on the file lock. 
+This scenario is likely to arise from a single application with multiple threads trying to access the same storage queue. The guidance for this scenario is to create a long-lived queue object and then create and dispose of sessions as needed. This will allow the threads to share the queue object and avoid contention and performance penalties associated with the cross-process file locking mechanism.
 
-How this is implemented can greatly affect performance, and consumers are advised to evaluate the suitability of simply using Task-based asynchronous programming patterns to achieve the same goal. If a dedicated thread is created to handle, for example, all the dequeue operations while the main call stack works on enqueueing objects, be sure to follow best practices for executing asynchronous operations inside a thread. It's easy to do this incorrectly, creating deadlocks or simply creating a thread that just throws the body of work back on the shared thread pool, with no thread affinity, which may not yield the results you're after.
+How this is implemented - your design decisions - can greatly affect performance, and consumers are advised to evaluate the suitability of simply using Task-based asynchronous programming patterns to achieve the same goal. If a dedicated thread is created to handle, for example, all the dequeue operations while the main call stack works on enqueuing objects, be sure to follow best practices for executing asynchronous operations inside a thread. It's easy to do this incorrectly, creating deadlocks, executing blocking synchronous units of work, or simply creating a thread that does nothing more than throwing the body of work back on the shared thread pool, with no thread affinity, which may not yield the results you're after.
 
 ## Trim Self-Contained Deployments and Executables
 
@@ -371,7 +407,7 @@ System.IO.FileNotFoundException: Could not load file or assembly 'Microsoft.Exte
 
 Even though the MDQ library has implemented some steps to prevent dependencies from being trimmed, such as using attributes like `DynamicDependency`, these do not propagate preservation requirements to consuming applications.
 
-Therefore, tree-shaking does require some cooperation between libraries and their consumers. Specifically, your application should include explicit references to the libraries MDQ needs needs if not already doing so for your own needs. Adding the following lines to your project file should avoid these such problems:
+Therefore, tree-shaking does require some cooperation between libraries and their consumers. Specifically, your application should include explicit references to the libraries MDQ needs if not already doing so for your own needs. Adding the following lines to your project file should avoid these such problems:
 
 ```xml
     <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
@@ -385,9 +421,9 @@ Therefore, tree-shaking does require some cooperation between libraries and thei
 In .NET 8, reflection based serialization is disabled by default when a project is
 compiled with the `<PublishTrimmed>` attribute set to `true`. 
 
-The default serialization strategy in this library, as in the legacy DiskQueue, is `System.Runtime.Serialization.DataContractSerializer`, which in .NET 8 uses type adapters that get lost in the trimming process. Getting an error like `No set method for property 'OffsetMinutes' in type 'System.Runtime.Serialization.DateTimeOffsetAdapter'`, even though there most certainly is an internal setter for this property, is a symptom of the tree-shaking.
+The default serialization strategy in this library, as in the legacy DiskQueue, is `System.Runtime.Serialization.DataContractSerializer`. .NET 8 uses type adapters that get lost in the trimming process. Getting an error like `No set method for property 'OffsetMinutes' in type 'System.Runtime.Serialization.DateTimeOffsetAdapter'`, even though there most certainly is an internal setter for this property, is a symptom of the tree-shaking.
 
-As a consequence of these challenges with serialization in .NET 8, you are probably better off using source generated serialization for JSON
+As a consequence of these challenges, you are probably better off using source generated serialization for JSON
 rather than reflection-based serialization, particularly when your consuming application is being published with trimming enabled. The good news is, it's more performant than reflection anyway!
 
 To do this, you can create and use a custom `ISerializationStrategy<T>` for your types.
@@ -397,33 +433,33 @@ you can leverage with source generation, so this serves as only a very basic con
 
 
 ```csharp
-    internal class ObjectToEnqueue
+    internal class MyCustomClass
     {
         public Guid Id { get; set; }
         public DateTimeOffset LastUpdated { get; set; }
     }
 
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata)]
-    [JsonSerializable(typeof(ObjectToEnqueue))]
+    [JsonSerializable(typeof(MyCustomClass))]
     internal partial class MyAppJsonContext : JsonSerializerContext
     {
     }
 
-    internal class JsonSerializationStrategyForQueueItem : ISerializationStrategy<ObjectToEnqueue>
+    internal class JsonSerializationStrategyForQueueItem : ISerializationStrategy<MyCustomClass>
     {
-        public byte[] Serialize(ObjectToEnqueue? data)
+        public byte[] Serialize(MyCustomClass? data)
         {
             ArgumentNullException.ThrowIfNull(data);
 
-            string json = JsonSerializer.Serialize(data, MyAppJsonContext.Default.ObjectToEnqueue);
+            string json = JsonSerializer.Serialize(data, MyAppJsonContext.Default.MyCustomClass);
             return Encoding.UTF8.GetBytes(json);
         }
 
-        public Report? Deserialize(byte[]? data)
+        public MyCustomClass? Deserialize(byte[]? data)
         {
             if (data == null || data.Length == 0) throw new ArgumentNullException(nameof(data));
             string json = Encoding.UTF8.GetString(data);
-            return JsonSerializer.Deserialize(json, MyAppJsonContext.Default.ObjectToEnqueue)
+            return JsonSerializer.Deserialize(json, MyAppJsonContext.Default.MyCustomClass)
                 ?? throw new InvalidOperationException("Deserialization returned null");
         }
     }
@@ -442,7 +478,7 @@ you can leverage with source generation, so this serves as only a very basic con
     }
 ```
 
-See
+For more info, please see
 - https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/incompatibilities#reflection-based-serializers
 - https://learn.microsoft.com/en-us/dotnet/core/compatibility/serialization/8.0/publishtrimmed
 - https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation
