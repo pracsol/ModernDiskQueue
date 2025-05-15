@@ -115,11 +115,12 @@ namespace ModernDiskQueue.Implementation
             _logger.LogTrace("Thread {ThreadID} dequeueing data.", Environment.CurrentManagedThreadId);
             try
             {
-                // Use the async dequeue method in the queue implementation if available
                 Entry? entry = await _queue.DequeueAsync(cancellationToken).ConfigureAwait(false);
 
                 if (entry == null)
+                {
                     return null;
+                }
 
                 _operations.Add(new Operation(
                     OperationType.Dequeue,
