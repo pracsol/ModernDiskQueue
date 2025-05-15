@@ -9,8 +9,9 @@ namespace ModernDiskQueue.Benchmarks
         {
             BenchmarkRunner.Run(new[]
             {
-                typeof(ContentiousEnqueues),
-                typeof(HighVolumeEnqueues),
+                //typeof(ContentiousEnqueues),
+                //typeof(HighVolumeEnqueues),
+                typeof(ThreadsAndTasks),
             });
         }
     }

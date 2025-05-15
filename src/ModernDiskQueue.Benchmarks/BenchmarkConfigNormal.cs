@@ -8,13 +8,13 @@
     using BenchmarkDotNet.Loggers;
     using BenchmarkDotNet.Columns;
 
-    internal class NormalTestConfig : ManualConfig
+    internal class BenchmarkConfigNormal : ManualConfig
     {
-        public NormalTestConfig()
+        public BenchmarkConfigNormal()
         {
             AddJob(Job.Default
-                .WithWarmupCount(2)
-                .WithIterationCount(3)
+                .WithWarmupCount(1)
+                .WithIterationCount(1)
                 .WithLaunchCount(1)
                 .WithId("Baseline"));
 

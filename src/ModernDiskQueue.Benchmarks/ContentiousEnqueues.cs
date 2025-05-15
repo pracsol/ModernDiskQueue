@@ -7,12 +7,11 @@
     using System.Text;
     using System.Threading.Tasks;
     using ModernDiskQueue;
-    using System.Diagnostics;
 
-    [Config(typeof(LongRunningTestConfig))]
+    [Config(typeof(BenchmarkConfigLongRunning))]
     public class ContentiousEnqueues
     {
-        private PersistentQueueFactory  _factory;
+        private PersistentQueueFactory _factory;
         private const string QueuePath = "AsyncEnqueue";
         public event Action<int>? ProgressUpdated;
         private static int _progressCounter = 0;
