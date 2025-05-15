@@ -23,7 +23,8 @@ SYNTAX
 DESCRIPTION
     TestTrimmedExecutable tests the behavior of the ModernDiskQueue library by 
     a commandline program published with trimming enabled. It enqueues and dequeues 
-    objects to test the behavior of serialization.
+    objects to test the behavior of serialization. The expectation is that standard
+    output will be the same as the value you provided.
 
     Options:
         --test <1|2|3|4>

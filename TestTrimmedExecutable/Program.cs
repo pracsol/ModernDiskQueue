@@ -2,11 +2,9 @@
 {
     using Microsoft.Extensions.DependencyInjection;
     using ModernDiskQueue;
-    using ModernDiskQueue.Benchmarks;
     using ModernDiskQueue.DependencyInjection;
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
-    using System.Runtime.CompilerServices;
     using System.Runtime.Serialization;
     using System.Threading.Tasks;
 
@@ -14,6 +12,8 @@
     {
         private const string folderNameSimpleQueue = "simpleQueue";
         private const string folderNameComplexQueue = "complexQueue";
+        private const string folderNameSimpleQueueAsync = "simpleQueueAsync";
+        private const string folderNameComplexQueueAsync = "complexQueueAsync";
         private static bool isConsoleLoggingEnabled = false; // note this will pollute output for testing, so only enable if you're running this project directly for debug purposes.
 
         public static async Task Main(string[] args)
@@ -66,7 +66,7 @@
                                     }
                                     else
                                     {
-                                        throw new ArgumentOutOfRangeException(nameof(args), "Input integer for simple object test could not be parsed.");
+                                        throw new ArgumentOutOfRangeException(nameof(args), "Input integer for simple object sync test could not be parsed.");
                                     }
                                     break;
                                 case "2":
@@ -77,7 +77,7 @@
                                     }
                                     else
                                     {
-                                        throw new ArgumentOutOfRangeException(nameof(args), "Input DateTimeOffset for complex object test could not be parsed.");
+                                        throw new ArgumentOutOfRangeException(nameof(args), "Input DateTimeOffset for complex object sync test could not be parsed.");
                                     }
                                     break;
                                 case "3":
@@ -147,7 +147,7 @@
         public static int TestSimpleObjectQueueing(int inputInt)
         {
             int outputInt;
-            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for simple object");
+            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for simple object queueing with sync api");
             PersistentQueue<int> queue = new(folderNameSimpleQueue);
             try
             {
@@ -184,7 +184,7 @@
         {
             int outputInt;
             if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for simple object");
-            await using (PersistentQueue<int> queue = await factory.CreateAsync<int>(folderNameSimpleQueue))
+            await using (PersistentQueue<int> queue = await factory.CreateAsync<int>(folderNameSimpleQueueAsync))
             {
                 try
                 {
@@ -223,7 +223,7 @@
         public static DateTimeOffset TestComplexObjectQueueing(DateTimeOffset submittedTime)
         {
             DateTimeOffset retrievedTime;
-            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue");
+            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for complex object queueing with sync api");
             PersistentQueue<Report> queue = new(folderNameComplexQueue);
             try
             {
@@ -270,7 +270,7 @@
         {
             DateTimeOffset retrievedTime;
             if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue");
-            PersistentQueue<Report> queue = await factory.CreateAsync<Report>(folderNameComplexQueue);
+            PersistentQueue<Report> queue = await factory.CreateAsync<Report>(folderNameComplexQueueAsync);
             try
             {
                 Report myTestReport = new()
