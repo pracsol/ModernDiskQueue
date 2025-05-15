@@ -28,17 +28,9 @@ namespace ModernDiskQueue
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Logger<>))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(LoggerFactory))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ILoggerFactory))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ILogger<>))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, "Microsoft.Extensions.Logging.ILogger`1", "Microsoft.Extensions.Logging.Abstractions")]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ModernDiskQueueOptions))]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(StandardFileDriver))]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IPersistentQueueFactory))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IFileDriver))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IServiceCollection))]
         public PersistentQueueFactory()
             : this(NullLoggerFactory.Instance, new ModernDiskQueueOptions()) { }
 
@@ -46,7 +38,6 @@ namespace ModernDiskQueue
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
-        [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(Logger<>))]
         public PersistentQueueFactory(ILoggerFactory loggerFactory)
             : this(loggerFactory, Options.Create(new ModernDiskQueueOptions())) { }
 
@@ -54,7 +45,6 @@ namespace ModernDiskQueue
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="options">Default options.</param>
-        [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(Logger<>))]
         public PersistentQueueFactory(ModernDiskQueueOptions options)
             : this(NullLoggerFactory.Instance, Options.Create(options)) { }
 
@@ -63,7 +53,6 @@ namespace ModernDiskQueue
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         /// <param name="options">Default options.</param>
-        [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(Logger<>))]
         public PersistentQueueFactory(ILoggerFactory loggerFactory, ModernDiskQueueOptions options)
             : this(loggerFactory, Options.Create(options)) { }
 
@@ -90,14 +79,12 @@ namespace ModernDiskQueue
         private StandardFileDriver FileDriver => _lazyFileDriver.Value;
 
         /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public async Task<PersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default)
         {
             return await CreateAsync(storagePath, Constants._32Megabytes, true, cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public async Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString());
@@ -108,14 +95,12 @@ namespace ModernDiskQueue
         }
 
         /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, CancellationToken cancellationToken = default)
         {
             return await CreateAsync<T>(storagePath, Constants._32Megabytes, true, cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
         public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString());
@@ -261,6 +246,9 @@ namespace ModernDiskQueue
 
         private void SetGlobalDefaultsFromFactoryOptions(ModernDiskQueueOptions options)
         {
+            // This could probably be removed in later version, as async and sync apis should not
+            // be used interchangeably, though nothing prevents exclusive use of one or the other 
+            // in different contexts or even in same process.
             if (options == null) throw new ArgumentNullException(nameof(options));
 
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = options.AllowTruncatedEntries;
