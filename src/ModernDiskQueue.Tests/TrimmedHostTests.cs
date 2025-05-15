@@ -20,7 +20,7 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public void TestTrimmedExecutable_ComplexTypeWithDefaultSerializer_CantDeserialize()
+        public void TestTrimmedExecutable_ComplexTypeWithDefaultSerializer_CannotDeserialize()
         {
             string path = "TrimmedHost/TestTrimmedExecutable.exe";
             DateTimeOffset inputDate = DateTimeOffset.Now;
