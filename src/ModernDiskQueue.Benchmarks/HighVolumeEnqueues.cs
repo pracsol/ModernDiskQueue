@@ -6,16 +6,13 @@
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue;
 
-    [Config(typeof(CustomConfig))]
+    [Config(typeof(NormalTestConfig))]
     public class HighVolumeEnqueues
     {
         private PersistentQueueFactory  _factory;
         private const string QueuePath = "AsyncEnqueue";
         public event Action<int>? ProgressUpdated;
         private static int _progressCounter = 0;
-
-        [Params(100, 1000, 1000000)] // Will run benchmarks with 10, 1000, and 1000000
-        public int ItemCount;
 
         [GlobalSetup]
         public void Setup()
@@ -44,9 +41,9 @@
         }
 
         [Benchmark]
-        public async Task AsyncEnqueueItemsWithSingleFlush()
+        public async Task AsyncEnqueueMillionItemsWithSingleFlush()
         {
-            int countOfItemsToEnqueue = ItemCount;
+            int countOfItemsToEnqueue = 1000000;
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
@@ -61,13 +58,14 @@
         }
 
         [Benchmark]
-        public void SyncEnqueueItemsWithSingleFlush()
+        public void SyncEnqueueMillionItemsWithSingleFlush()
         {
+            int countOfItemsToEnqueue = 1000000;
             using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
-                    for (int i = 0; i < ItemCount; i++)
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
                     {
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                     }
@@ -79,7 +77,7 @@
         [Benchmark]
         public async Task AsyncEnqueueAndDequeueItemsWithBigFlush()
         {
-            int countOfItemsToEnqueue = ItemCount;
+            int countOfItemsToEnqueue = 1000;
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
@@ -108,7 +106,7 @@
         [Benchmark]
         public async Task AsyncEnqueueAndDequeueItemsWithCourtesyFlush()
         {
-            int countOfItemsToEnqueue = ItemCount;
+            int countOfItemsToEnqueue = 1000;
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
@@ -137,11 +135,12 @@
         [Benchmark]
         public void SyncEnqueueAndDequeueItemsWithBigFlush()
         {
+            int countOfItemsToEnqueue = 1000;
             using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
-                    for (int i = 0; i < ItemCount; i++)
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
                     {
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                     }
@@ -152,7 +151,7 @@
             {
                 using (var session = queue.OpenSession())
                 {
-                    for (int i = 0; i < ItemCount; i++)
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
                     {
                         var data = session.Dequeue();
                         if (data == null)
@@ -168,11 +167,12 @@
         [Benchmark]
         public void SyncEnqueueAndDequeueItemsWithCourtesyFlush()
         {
+            int countOfItemsToEnqueue = 1000;
             using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
-                    for (int i = 0; i < ItemCount; i++)
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
                     {
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                         session.Flush();
@@ -183,7 +183,7 @@
             {
                 using (var session = queue.OpenSession())
                 {
-                    for (int i = 0; i < ItemCount; i++)
+                    for (int i = 0; i < countOfItemsToEnqueue; i++)
                     {
                         var data = session.Dequeue();
                         if (data == null)

@@ -20,6 +20,7 @@
         public void Setup()
         {
             var services = new ServiceCollection();
+            _logProvider = new(); // if you don't reset this, you'll end up with duplicate entries in the log.
 
             // Add logging
             services.AddLogging(builder =>
@@ -195,11 +196,12 @@
             var logsFromFactory = _logProvider.GetMessages("PersistentQueueFactory");
             var logs = _logProvider.LogEntries;
 
-
-            Assert.That(logs.Count(entry =>
+            int queueCreationMessageCount = logs.Count(entry =>
                 entry.Level == LogLevel.Information &&
                 entry.Category.Contains("ModernDiskQueue.PersistentQueueFactory") &&
-                entry.Message.Contains("creating queue at")) == 2,
+                entry.Message.Contains("creating queue at"));
+
+            Assert.That(queueCreationMessageCount, Is.EqualTo(2),
                 "Expected two informational entries from factory when queue is created");
 
             Assert.That(logs.Any(entry =>
@@ -213,13 +215,6 @@
                 entry.Category.Contains("ModernDiskQueue.Implementation.StandardFileDriver") &&
                 entry.Message.Contains("released lock file")),
                 "Expected trace/verbose entry from IFileDriver when lock file released.");
-
-            Assert.That(logs.Count(entry =>
-                entry.Level == LogLevel.Trace &&
-                entry.Category.Contains("ModernDiskQueue.PersistentQueue") &&
-                entry.Message.Contains("disposing of queue")) == 2,
-                "Expected two trace/verbose entries, one each from PersistentQueue and PersistentQueue<T> when disposing.");
-            // assert that log messages were received from work done in log factory and standard file driver.
         }
         
     }

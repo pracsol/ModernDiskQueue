@@ -757,7 +757,7 @@ namespace ModernDiskQueue.Implementation
         public async Task HardDeleteAsync(bool reset, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _logger.LogTrace("[PQI] HardDelete started on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
+            _logger.LogTrace("HardDelete started on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
             if (_holdsWriterLock.Value)
             {
                 await HardDeleteAsync_UnderLock(reset, cancellationToken).ConfigureAwait(false);
@@ -776,7 +776,7 @@ namespace ModernDiskQueue.Implementation
                 finally
                 {
                     _holdsWriterLock.Value = false;
-                    _logger.LogTrace("[PQI] HardDelete completed on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
+                    _logger.LogTrace("HardDelete completed on thread {CurrentThread}.", Environment.CurrentManagedThreadId);
                 }
             }
         }
@@ -806,7 +806,6 @@ namespace ModernDiskQueue.Implementation
                     // transaction log being recreated.
                     bool archivedTransactionLogConfiguration = TrimTransactionLogOnDispose;
                     TrimTransactionLogOnDispose = false;
-                    await DisposeAsync().ConfigureAwait(false);
                     TrimTransactionLogOnDispose = archivedTransactionLogConfiguration;
                 }
             }
@@ -857,7 +856,7 @@ namespace ModernDiskQueue.Implementation
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error wiating for transaction log. {ErrorMessage}", ex.Message);
+                    _logger.LogError(ex, "Error waiting for transaction log. {ErrorMessage}", ex.Message);
 
                     if (++retryCount >= maxRetries)
                         throw new TimeoutException("Could not acquire transaction log lock");
