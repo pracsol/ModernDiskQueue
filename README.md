@@ -347,107 +347,16 @@ public class MyService
 }
 ```
 
-### Queue on one thread, consume on another; retry some exceptions.
+## Multi-Process and Multi-Thread Work
+Some of the examples in the original library showing how to create a thread to enqueue and a thread to dequeue have been left out of this readme. The implementation of such a pattern is a bit outside the scope of this library, particularly as it concerns the async API. But some thoughts follow.
 
-**Note** this is one queue being shared between two sessions. You should not open two queue instances for one storage location at once.
+### Multi-Process Work
+This scenario is likely going to arise from two discrete applications attempting to access the same storage queue. As described above, the guidance for this scenario is to instantiate and dispose of the queue as quickly as possible so the multi-process file lock is not held for any longer than needed.
 
-```csharp
-IPersistentQueue queue = new PersistentQueue("queue_a");
-var t1 = new Thread(() =>
-{
-	while (HaveWork())
-	{
-		using (var session = queue.OpenSession())
-		{
-			session.Enqueue(NextWorkItem());
-			session.Flush();
-		}
-	}
-});
-var t2 = new Thread(()=> {
-	while (true) {
-		using (var session = queue.OpenSession()) {
-			var data = session.Dequeue();
-			if (data == null) {Thread.Sleep(100); continue;}
-			
-			try {
-				MaybeDoWork(data)
-				session.Flush();
-			} catch (RetryException) {
-				continue;
-			} catch {
-				session.Flush();
-			}
-		}
-	}
-});
+### Multi-Thread Work
+This scenario is likely to arise from a single application with multiple threads trying to access the same storage queue. The guidance for this scenario is to create a long-lived queue object and then create and dispose of sessions as needed. This will allow the threads to share the queue object and avoid contention on the file lock. 
 
-t1.Start();
-t2.Start();
-```
-
-### Batch up a load of work and have another thread work through it.
-```csharp
-IPersistentQueue queue = new PersistentQueue("batchQueue");
-var worker = new Thread(()=> {
-	using (var session = queue.OpenSession()) {
-		byte[] data;
-		while ((data = session.Dequeue()) != null) {
-			MaybeDoWork(data)
-			session.Flush();
-		}
-	}
-});
-
-using (var session = queue.OpenSession()) {
-	foreach (var item in LoadsOfStuff()) {
-		session.Enqueue(item);
-	}
-	session.Flush();
-}
-
-worker.IsBackground = true; // anything not complete when we close will be left on the queue for next time.
-worker.Start();
-```
-
-
-
-
-
-
-
-
-
-
-## Multi-Process Usage
-
-
-E.g.
-```csharp
-...
-void AddToQueue(byte[] data) {
-	Thread.Sleep(150);
-	using (var queue = PersistentQueue.WaitFor(SharedStorage, TimeSpan.FromSeconds(30)))
-	using (var session = queue.OpenSession()) {
-		session.Enqueue(data);
-		session.Flush();
-	}
-}
-
-byte[] ReadQueue() {
-	Thread.Sleep(150);
-	using (var queue = PersistentQueue.WaitFor(SharedStorage, TimeSpan.FromSeconds(30)))
-	using (var session = queue.OpenSession()) {
-		var data = session.Dequeue();
-		session.Flush();
-		return data;
-	}
-}
-...
-
-```
-
-
+How this is implemented can greatly affect performance, and consumers are advised to evaluate the suitability of simply using Task-based asynchronous programming patterns to achieve the same goal. If a dedicated thread is created to handle, for example, all the dequeue operations while the main call stack works on enqueueing objects, be sure to follow best practices for executing asynchronous operations inside a thread. It's easy to do this incorrectly, creating deadlocks or simply creating a thread that just throws the body of work back on the shared thread pool, with no thread affinity, which may not yield the results you're after.
 
 ## Trim Self-Contained Deployments and Executables
 
