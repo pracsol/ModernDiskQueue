@@ -144,6 +144,116 @@
         }
 
         [Test]
+        public async Task can_enqueue_and_dequeue_concurrently_with_tasks()
+        {
+            const int TargetObjectCount = 100;
+            Exception? producerException = null;
+            Exception? consumerException = null;
+
+            int enqueueCount = 0;
+            int dequeueCount = 0;
+            var enqueueCompletionSource = new TaskCompletionSource<bool>();
+            var dequeueCompletionSource = new TaskCompletionSource<bool>();
+
+            IPersistentQueue q = await _factory.CreateAsync("queue_task_based");
+
+            // Producer task
+            var producerTask = Task.Run(async () =>
+            {
+                try
+                {
+                    var rnd = new Random();
+                    for (int i = 0; i < TargetObjectCount; i++)
+                    {
+                        await using (var session = await q.OpenSessionAsync())
+                        {
+                            await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
+                            await session.FlushAsync();
+                            Interlocked.Increment(ref enqueueCount);
+                        }
+                        // Optional small delay to simulate processing time
+                        await Task.Delay(1);
+                    }
+                    enqueueCompletionSource.SetResult(true);
+                }
+                catch (Exception ex)
+                {
+                    producerException = ex;
+                    enqueueCompletionSource.SetException(ex);
+                }
+            });
+
+            // Consumer task
+            var consumerTask = Task.Run(async () =>
+            {
+                try
+                {
+                    var rnd = new Random();
+                    do
+                    {
+                        await using (var session = await q.OpenSessionAsync())
+                        {
+                            var obj = await session.DequeueAsync();
+                            if (obj != null)
+                            {
+                                await session.FlushAsync();
+                                Interlocked.Increment(ref dequeueCount);
+                            }
+                            else
+                            {
+                                Console.WriteLine("got nothing, I'm starved for objects so backing off..");
+                                await Task.Delay(rnd.Next(10, 20)); // Wait a bit if nothing to dequeue
+                            }
+                        }
+                    }
+                    while (dequeueCount < TargetObjectCount);
+                    dequeueCompletionSource.SetResult(true);
+                }
+                catch (Exception ex)
+                {
+                    consumerException = ex;
+                    dequeueCompletionSource.SetException(ex);
+                }
+            });
+
+            // Wait for both tasks with timeout
+            var completionTasks = new[]
+            {
+                enqueueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2)),
+                dequeueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2))
+            };
+
+            try
+            {
+                await Task.WhenAll(completionTasks);
+            }
+            catch (TimeoutException)
+            {
+                if (!enqueueCompletionSource.Task.IsCompleted)
+                    Console.WriteLine("Producer task timed out.");
+                if (!dequeueCompletionSource.Task.IsCompleted)
+                    Console.WriteLine("Consumer task timed out.");
+            }
+
+            // Check for exceptions and verify counts
+            if (producerException != null)
+            {
+                Assert.Fail($"Producer task terminated early with error {producerException.Message}");
+            }
+
+            if (consumerException != null)
+            {
+                Assert.Fail($"Consumer task terminated early with error {consumerException.Message}");
+            }
+
+            await q.DisposeAsync();
+
+            // Verify counts
+            Assert.That(enqueueCount, Is.EqualTo(TargetObjectCount), "Producer didn't enqueue the expected number of items");
+            Assert.That(dequeueCount, Is.EqualTo(TargetObjectCount), "Consumer didn't dequeue the expected number of items");
+        }
+
+        [Test]
         public async Task can_sequence_queues_on_separate_threads()
         {
             var factory = _factory;
