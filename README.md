@@ -7,9 +7,9 @@
 **Original DiskQueue project is at:** https://github.com/i-e-b/DiskQueue
 
 ## Description
-ModernDiskQueue is a fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue.
+ModernDiskQueue (MDQ) is a fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue. MDQ adds first-class async support, dependency injection symmantics, and is built on the latest .NET LTS runtime.
 
-**MDQ v2.*** - Added first-class async support and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two APIs should not be invoked interchangeably or within the same context.
+**MDQ v2.*** - Added first-class async support and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two APIs should not be invoked interchangeably.
 
 **MDQ v1.\*** - Upgraded the runtime to .NET 8, but otherwise functionally equivalent to the original DiskQueue synchronous library.
 
@@ -22,7 +22,7 @@ and based very heavily on Ayende Rahien's work documented at http://ayende.com/b
 - Requires access to filesystem storage
 - Only partial support for "Trim Self-Contained" deployments and executables (see below)
 
-The file system is used to hold locks, so any bug in your file system may cause
+The file system is used to hold cross-process locks, so any bug in your file system may cause
 issues with DiskQueue -- although it tries to work around them.
 
 ## Thanks to
@@ -37,7 +37,7 @@ issues with DiskQueue -- although it tries to work around them.
 ### Asynchronous Operation (first supported in v2)
 * `PersistentQueueFactory.WaitForAsync(..)` is the main entry point. This will attempt to gain an exclusive lock on the given storage location by calling `.CreateAsync(..)` until the specified timeout expires. `CreateAsync` gracefully fails if the queue is locked and contention is detected. On first use, a directory will be created with the required files inside of it.
 * This returned queue object can be shared amongst threads. Each thread should call `OpenSessionAsync()` to get its own session object.
-* Generally speaking, ALWAYS wrap your `IPersistentQueue` and `IPersistentQueueSession` in an `await using()` block, or otherwise call `DisposeAsync()` manually. Failure to do this will result in lock contention -- you will get errors that the queue is still in use. Be careful about using the simplified `await using` declarations introduced in C# 8.0 (no `{}`) when conducting multiple operations. Generally, you have more control over the scope of the object using the classic `await using [obj] {..}` statements.
+* Generally speaking, ALWAYS wrap your `IPersistentQueue` and `IPersistentQueueSession` in an `await using()` block, or otherwise call `DisposeAsync()` manually. Failure to do this will result in runtime errors or lock contention -- you will get errors that the queue is still in use. Be careful about using the simplified `await using` declarations introduced in C# 8.0 (no `{}`) when conducting multiple operations. Generally, you have more control over the scope of the object using the classic `await using [obj] {..}` statements.
 * DO NOT implement queues or sessions using the synchronous patterns when using the asynchronous API. The two implementations are not interchangeable and will cause deadlocks or other issues if you try to mix them. This is largely because the lock awareness mechanisms under the hood are necessarily different for the sync and async APIs. Specifically, use the `PersistentQueueFactory` and its `.CreateAsync()` or `.WaitForAsync()` methods instead of the `PersistentQueue` constructors or the `IPersistentQueue.Create()` or `.WaitFor()` static methods. Always use methods suffixed by *Async* instead of the synchronous equivalents.
 * Generic-typed queues are supported with the `.CreateAsync<T>` and `WaitForAsync<T>` methods of the `PersistentQueueFactory` class.
 
@@ -172,8 +172,8 @@ By default, the queues are set up to prioritize data integrity over performance.
 In the async api, the global defaults are specified with the ModernDiskQueueOptions class, and provided when configuring services.
 ```csharp
 // Add options configuration. These are the default
-// settings, but just listed here to illustrate how
-// they can be set initially.
+// settings, and listed here to illustrate how
+// they can be set initially using ModernDiskQUeueOptions.
 services.AddModernDiskQueue(options =>
 {
     options.ParanoidFlushing = true;
@@ -184,13 +184,15 @@ services.AddModernDiskQueue(options =>
 });
 ```
 
-Each instance of a queue created using the `IPersistentQueueFactory.CreateAsync()` or `IPersistentQueueFactory.WaitForAsync()` methods can have these values set directly, which will override the global defaults if you need to affect a specific queue's behavior at runtime. This behaves differently than the sync API, in that the async API does not envision the *global defaults* being changed at runtime.
+Each instance of a queue created using the `IPersistentQueueFactory.CreateAsync()` or `IPersistentQueueFactory.WaitForAsync()` methods can have these values set directly, which will override the global defaults if you need to affect a specific queue's behavior at runtime. This behaves differently than the sync API, in that the async API does not envision the *global defaults* being changed at runtime. Rather, change the settings on a queue instance at runtime if needed.
 
 ### Sync API
 
 Global default settings can be set using the `PersistentQueue.DefaultSettings' static class.
 
-Default settings are applied to all queue instances *in the same process* created *after* the setting is changed. However, SetFilePermissions will affect all queues, including existing instances, when the default is changed.
+Default settings are applied to all queue instances *in the same process* created *after* the setting is changed. However, SetFilePermissions will affect all queues, including existing instances, when the default is changed. 
+
+This behavior has not changed from the legacy library.
 ```csharp
 PersistentQueue.DefaultSettings.ParanoidFlushing = true;
 ```
@@ -198,17 +200,25 @@ PersistentQueue.DefaultSettings.ParanoidFlushing = true;
 ## Logging
 
 ### Async API
-All logging is performed against the logging context you configure in your DI container. Logging can be a relatively expensive operation, so at present the logging has been kept to a minimum. All points in the legacy sync API that were logged have been converted to output to the injected ILogger.
+All logging is performed against the logging context you configure in your DI container. Logging can be an expensive operation so at present the logging has been kept to a minimum. The async API does log more data than the sync API, but any points in the legacy sync API that were logged have been retained in the async API.
+
+| Log Level    | Events |
+| -------- | ------- |
+| Error | Factory queue creation errors.<br/>Queue session dequeue errors.<br/>Critical errors when locking or unlocking queue.<br/>Errors during hard delete.<br/>Path or permission errors.<br/>Errors accessing the transaction log.
+| Warning | Errors generated when accessing meta state. |
+| Information  | Queue creation.    |
+| Trace/Verbose |  Queue hard delete start and finish.<br/>Session enqueue and dequeue events.<br/>Cross-process lock file creation attempt, failure and success.<br/>Cross-process lock file release.<br/>Queue disposal.<br/>Factory queue access retries (when locked).<br/>Non-critical errors when locking or unlocking queue.|
+
 
 ### Sync API
 
 Some internal warnings and non-critical errors are logged through `PersistentQueue.Log`.
-This defaults to stdout, i.e. `System.Console.WriteLine`, but can be replace with any `Action<string>`
+This defaults to stdout, i.e. `System.Console.WriteLine`, but can be replace with any `Action<string>`. This behavior has not changed from the legacy library.
 
 ## Removing or Resetting Queues
 
 Queues create a directory and set of files for storage. You can remove all files for a queue with the `HardDeleteAsync` method.
-If you give true as the reset parameter, the directory will be written again.
+If you give `true` as the reset parameter, the directory will be written again.
 
 WARNING: This WILL delete ANY AND ALL files inside the queue directory. You should not call this method in normal use.
 If you start a queue with the same path as an existing directory, this method will delete the entire directory, not just
@@ -235,36 +245,36 @@ Internally, thread safety is accomplished with standard lock awareness patterns,
 
 To solve this, the queue uses a lock file to indicate that the queue is in use. This file is created with the name 'lock' in the queue directory. It is only written on queue creation, not during session creation. It contains the process ID, the thread ID, and a timestamp. The lock file is deleted when the queue is properly disposed.
 
-These implementation details are why activities performed across multiple threads should not be trying to recreate the queue each time they have work to do; instead they should create and dispose of sessions for a long-lived queue object created by the process. Doing otherwise will cause your threads to be using the slower locking mechanism meant for cross-process access when its not necessary.
+These implementation details are why activities performed across multiple *threads* should not be trying to recreate the queue each time they have work to do; instead they should create and dispose of sessions on a long-lived queue object created by the process. Doing otherwise will cause your threads to be using the slower locking mechanism meant for cross-process access when it is not necessary.
 
 However, if it's anticipated that multiple processes will be using the same storage location, you'll want the lock file to be very short lived, and this will mean disposing of the queue itself as soon as you can.
 
-The factory method `WatiForAsync` will accomodates multi-process access by attempting to obtain a lock on the queue until the specified timeout has been reached. If each process uses the lock for a short time and waits long enough, they can share a storage location.
+The factory method `WatiForAsync` will accomodate multi-process access by attempting to obtain a lock on the queue until the specified timeout has been reached. If each process uses the lock for a short time and waits long enough, they can share a storage location.
 
-This approach works relatively well, but can show its limits when extreme contention is anticipated (many processes conducting many operations each, concurrently). The cross-platform compaitiblity goal of this library design precludes use of OS-specific mutexes which would offer more performance and reliability for now.
+This approach works relatively well, but can show its limits when extreme contention is anticipated (many processes conducting many operations each, concurrently). The cross-platform compatibility goal of this library design precludes use of OS-specific mutexes which would likely offer more performance and reliability. That said, even with cross-process use of the queue, sub-second enqueueing and dequeueing is certainly achievable. There are performance tests in the benchmarks project that you can use to determine whether your needs can be met.
 
 If you need the transaction semantics of sessions across multiple processes, try a more robust solution like https://github.com/i-e-b/SevenDigital.Messaging
 
 ## Some Thoughts on Async vs Sync
-The async API will not perform as well as the sync API in tight CPU-bound loops, which a lot of the tests for concurrency in this solution run. The async API is tolerant of these demands, but if your production scenario matches this - dedicated processing threads using tight loops with little else going on - you'll likely see better performance with focused, synchronous work on the queue. The queue itself is a series of FIFO transactions, so it is rather synchronous by nature. Additionally, async comes with overhead to manage context, etc.
+The async API does bring some extra overhead inherent to the asynchronous context switching, but for all intents and purposes the APIs are equivalent in performance. Mean task completion times between the two seem to be within the margins of error. In tight loops, the sync API seems consistently faster (often by ms), but in highly contentious scenarios the async API seems to have an edge. 
 
-If you do use the async API in such a scenario, you may need to tune your loops to avoid "thundering herd" issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues can make concurrent threads more tolerant of lock contention. These steps can have a profound impact on performance when using the async API (like 2-3x). To some degree, you can watch this behavior by turning on trace level logging, which will identify high-level activities, such as queue creation, queue blocking, enqueue and dequeue operations, and lock file events, and their associated thread.
+Test design for the async benchmarks has been found to play an incredibly important role, with small adjustments in consumer loop design having a profound impact on performance. You may need to tune your loops to avoid "thundering herd" or starvation issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues can make concurrent threads more tolerant of lock contention.
 
-Where does the async API shine? When you're not CPU-bound, but need to avoid thread blocking because your program is often waiting on other non-queueing tasks to complete, the async model is going to be non-blocking, and should thereby scale better. If the service you've designed is already implementing an async/await model, the async API will integrate better with your await chains, where the blocking sync API will be harder to integrate.
+So generally speaking, the async API should perform just as well as the sync API while adding the symantics of asynchronous programming and other benefits as described earlier.
 
 ## More Detailed Examples
 
 ### Dependency Injection
-For the async support, a simple factory pattern was implemented as the vehicle to create queue objects. This was done to perform internal async initialization tasks which couldn't be done inside constructors, and it will facilitate additional feature development.
+For the async support, a simple factory pattern was implemented as the vehicle to create queue objects. This was done to perform internal async initialization tasks which couldn't be done inside constructors; it will also facilitate feature development down the road.
 
 A registration helper was built to allow the factory to be registered with your DI container. This is done by calling `services.AddModernDiskQueue()` in your `ConfigureServices` method. By doing this, your logging context will be used by the library.
 
 There is presently no support for registering individual queues in the DI container. Instead, it is contemplated that queues will be created via async initialization in a hosted startup pattern (like a `BackgroundService` or any `IHostedService`). Alternatively, queues may be created and disposed for discrete operations if multiprocess usage of the same storage queue is a design requirement.
 
 #### Async Initialization in Hosted Startup Pattern
-This is a conceptual example of how to use the factory in a hosted service. It assumes that the storage queue will be created on service startup and disposed when the service is shut down - that is to say, that the service will be using the queue exclusively and will not be worried about other processes needing access.
+This is a conceptual example of how to use the factory in a hosted service. It assumes that the storage queue will be created on service startup and disposed when the service is shut down - that is to say, the service will be using the queue exclusively and will not be worried about other processes needing access.
 
-This simple example performs eager initialization using a nullable field, but you can implement with a lazy task or other approaches.
+This simple example performs eager initialization in the service class using a nullable field, but you can implement with a lazy task or other approaches.
 
 Service configuration:
 ```csharp
@@ -309,7 +319,8 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 ```
 
 #### Discrete Queue Creation and Disposal
-This is an example of a service that creates and disposes of a queue for each operation. This is useful if you are using the same storage location across multiple processes, or if you want to ensure that the lock on the queue is dropped as soon as possible. It is less performant but is more friendly to cross-process access to the same storage queue.
+This is an example of a service that creates and disposes of a queue for each operation. This is useful if you are using the same storage location across multiple processes, or if you want to ensure that the lock on the queue is dropped as soon as possible. It is far less performant but is more friendly to cross-process access to the same storage queue. Note the use of `await using` blocks to ensure that the queue is disposed of properly, and as soon as we're done with it.
+
 ```csharp
 public class MyService
 {
@@ -440,17 +451,40 @@ byte[] ReadQueue() {
 
 ## Trim Self-Contained Deployments and Executables
 
+When publishing your consuming application with trimming enabled, you'll encounter two problems: (de)serialization issues and dependency errors. 
+
+### Dependency Errors in Trimmed Applications
+Expect to see errors like this when publishing with trimming enabled:
+```shell
+Unhandled exception. 
+System.IO.FileNotFoundException: Could not load file or assembly 'Microsoft.Extensions.Logging
+```
+
+Even though the MDQ library has implemented some steps to prevent dependencies from being trimmed, such as using attributes like `DynamicDependency`, these do not propagate preservation requirements to consuming applications.
+
+Therefore, tree-shaking does require some cooperation between libraries and their consumers. Specifically, your application should include explicit references to the libraries MDQ needs needs if not already doing so for your own needs. Adding the following lines to your project file should avoid these such problems:
+
+```xml
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+```
+
+### Serialization Issues in Trimmed Applications
+
 In .NET 8, reflection based serialization is disabled by default when a project is
-compiled with the `<PublishTrimmed>` attribute set to **true**. As a consequence of this and other
-changes to serialization in .NET 8, you are probably better off using source generated serialization for JSON
-rather than reflection-based serialization, particularly when publishing trimmed executables.
+compiled with the `<PublishTrimmed>` attribute set to `true`. 
 
-To do this, you can either use the raw byte-based interfaces and do your own serialisation, 
-or create and use a custom `ISerializationStrategy<T>` for your types.
+The default serialization strategy in this library, as in the legacy DiskQueue, is `System.Runtime.Serialization.DataContractSerializer`, which in .NET 8 uses type adapters that get lost in the trimming process. Getting an error like `No set method for property 'OffsetMinutes' in type 'System.Runtime.Serialization.DateTimeOffsetAdapter'`, even though there most certainly is an internal setter for this property, is a symptom of the tree-shaking.
 
-Using `ISerializationStrategy<T>`, you can forego marking your classes with the `[Serializable]` attribute
-and instead create a partial class as in the following example. There are of course many options
-you can leverage with source generation, so this serves as only a very basic conceptual idea.
+As a consequence of these challenges with serialization in .NET 8, you are probably better off using source generated serialization for JSON
+rather than reflection-based serialization, particularly when your consuming application is being published with trimming enabled. The good news is, it's more performant than reflection anyway!
+
+To do this, you can create and use a custom `ISerializationStrategy<T>` for your types.
+
+Using `ISerializationStrategy<T>`, create a partial class as in the following example. There are of course many options
+you can leverage with source generation, so this serves as only a very basic conceptual idea of class definition, source generation, and how to implement the ISerializationStrategy when performing enqueue and dequeue operations.
 
 
 ```csharp
