@@ -44,6 +44,7 @@ namespace ModernDiskQueue.Tests
             try
             {
                 // ACT
+                Console.WriteLine($"TestTrimmedExecutable Arguments: {processStartInfo.Arguments}");
                 using (var process = new Process { StartInfo = processStartInfo })
                 {
                     process.Start();
@@ -113,12 +114,15 @@ namespace ModernDiskQueue.Tests
             try
             {
                 // ACT
+                Console.WriteLine($"TestTrimmedExecutable Arguments: {processStartInfo.Arguments}");
                 using (var process = new Process { StartInfo = processStartInfo })
                 {
                     process.Start();
                     stdOut = process.StandardOutput.ReadToEnd();
                     stdErr = process.StandardError.ReadToEnd();
                     bool isProcessDone = process.WaitForExit(processTimeOut);
+                    Console.WriteLine($"TestTrimmedExecutable Standard Output: {stdOut}");
+                    Console.WriteLine($"TestTrimmedExecutable Standard Error: {stdErr}");
 
                     if (!isProcessDone)
                     {

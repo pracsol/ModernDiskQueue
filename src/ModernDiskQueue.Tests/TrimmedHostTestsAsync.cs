@@ -46,6 +46,7 @@ namespace ModernDiskQueue.Tests
             try
             {
                 // ACT
+                Console.WriteLine($"TestTrimmedExecutable Arguments: {processStartInfo.Arguments}");
                 using (var process = new Process { StartInfo = processStartInfo })
                 {
                     process.Start();
@@ -119,6 +120,7 @@ namespace ModernDiskQueue.Tests
             try
             {
                 // ACT
+                Console.WriteLine($"TestTrimmedExecutable Arguments: {processStartInfo.Arguments}");
                 using (var process = new Process { StartInfo = processStartInfo })
                 {
                     process.Start();
