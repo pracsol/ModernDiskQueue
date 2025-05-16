@@ -1,8 +1,7 @@
-﻿using ModernDiskQueue.PublicInterfaces;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
-namespace ModernDiskQueue
+namespace ModernDiskQueue.Implementation.Interfaces
 {
     /// <inheritdoc/>
     // ReSharper disable once UnusedTypeParameter

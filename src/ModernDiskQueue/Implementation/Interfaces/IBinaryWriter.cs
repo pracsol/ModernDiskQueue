@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ModernDiskQueue.PublicInterfaces
+namespace ModernDiskQueue.Implementation.Interfaces
 {
     /// <summary>
     /// Wrapper around BinaryWriter

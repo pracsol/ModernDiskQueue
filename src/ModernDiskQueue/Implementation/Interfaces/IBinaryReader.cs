@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace ModernDiskQueue.PublicInterfaces
+namespace ModernDiskQueue.Implementation.Interfaces
 {
     /// <summary>
     /// Wrapper around BinaryReader

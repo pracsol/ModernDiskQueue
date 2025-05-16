@@ -1,7 +1,7 @@
 ﻿
 namespace ModernDiskQueue.Implementation
 {
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue;
     using System.IO;
     using System.Runtime.Serialization;
     using System.Text;

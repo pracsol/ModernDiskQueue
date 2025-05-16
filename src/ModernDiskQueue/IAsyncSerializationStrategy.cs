@@ -1,4 +1,4 @@
-﻿namespace ModernDiskQueue.PublicInterfaces
+﻿namespace ModernDiskQueue
 {
     using System.Threading;
     using System.Threading.Tasks;

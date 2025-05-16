@@ -1,7 +1,8 @@
 ﻿namespace ModernDiskQueue.Implementation
 {
     using Microsoft.Extensions.Logging;
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue;
+    using ModernDiskQueue.Implementation.Interfaces;
     using System.Threading;
     using System.Threading.Tasks;
 

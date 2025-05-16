@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using ModernDiskQueue.Implementation;
-using ModernDiskQueue.PublicInterfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Linq;
+using ModernDiskQueue.Implementation.Interfaces;
 
 namespace ModernDiskQueue.DependencyInjection
 {

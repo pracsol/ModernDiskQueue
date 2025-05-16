@@ -3,7 +3,7 @@
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
     using Microsoft.Extensions.Options;
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue.Implementation.Interfaces;
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
