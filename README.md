@@ -298,7 +298,7 @@ This approach works relatively well, but can show its limits when extreme conten
 If you need the transaction semantics of sessions across multiple processes, try a more robust solution like https://github.com/i-e-b/SevenDigital.Messaging
 
 ## Performance Benchmarking of the Async vs Sync APIs
-In the benchmarks project, the `ThreadsAndTasks` class compares three different approaches to enqueueing and dequeueing 100 objects concurrently. These include the use of the sync API with dedicated threads, the use of the async API with dedicated threads, and the use of the async API with tasks. While implementation is necessarily different, the spirit of the work and how it's performed has been as closely matched as possible to preserve the integrity of the results. The results are as follows:
+In the `benchmarks` project, the `ThreadsAndTasks` class compares three different approaches to enqueueing and dequeueing 100 objects concurrently. These include the use of the sync API with dedicated threads, the use of the async API with dedicated threads, and the use of the async API with tasks. While implementation is necessarily different, the spirit of the work and how it's performed has been as closely matched as possible. The results are as follows:
 
 ### Benchmark Results
 ```Shell
@@ -312,14 +312,14 @@ LaunchCount=2  UnrollFactor=1  WarmupCount=2
 | AsyncEnqueueDequeueConcurrentlyWithTasks   | 9.350 s | 2.0702 s | 3.459 s | 7.909 s | 6000.0000 |            3563.0000 |                - | 2000.0000 |  50.23 MB |
 
 ### Interpretation
-The async API does bring some extra overhead inherent to the asynchronous context switching, most clearly evident in the memory allocation and work items, but for all intents and purposes the APIs are equivalent in performance when doing the same body of work in similar implementations. 
+The async API brings some extra overhead inherent to the asynchronous context switching, most clearly evident in the memory allocation and work items, but for all intents and purposes the APIs demonstrate equivalent throughput when doing the same body of work in similar implementations. 
 
-Mean task completion times between the two are close, the differences not being statistically significant. Async medians lower than their mean, indicating outliers are driving up the mean. The sync API has a much lower standard deviation, reflecting the control inherent in its synchronous execution. The async API, is more susceptible to "weather" in the shared thread pool. This is not unexpected, as the async/await infrastructure is designed to be more flexible and responsive to the environment in which it is running.
+Mean task completion times between the two are close, the differences not being statistically significant. Async medians are lower than their mean, indicating that outliers are driving up the mean. The sync API has a much lower standard deviation, reflecting the control inherent in its synchronous execution. The async API is more susceptible to "weather" in the shared thread pool. This is not unexpected, as the async/await infrastructure is designed to be more responsive to the environment in which it is running.
 
-Tight loops of enqueueing and dequeueing may be rare in real-world implementations, but these high stress scenarios describe performance limits for a given hardware configuration and give confidence that the async API has not sacrificed too much in terms of supported ops/sec.
+Tight loops of enqueueing and dequeueing may be rare in real-world implementations, but these high stress scenarios describe performance limits for a given hardware configuration and give confidence that the async API has not sacrificed too much in terms of supported operations per second.
 
 ### Guidance
-Work on unit tests and benchmarks consistently demonstrated that implementation patterns play an incredibly important role in async API performance, with small adjustments in consumer loop design having a profound impact - sometimes by an order of magnitude. If your tolerances are tight and demands high, you will want to carefully tune your loops to avoid "thundering herd" or starvation issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues will make concurrently running processes more tolerant of lock contention. 
+The work on unit tests and benchmarks consistently demonstrated that implementation patterns play an incredibly important role in async API performance, with small adjustments in consumer loop design having a profound impact - sometimes by an order of magnitude. If your tolerances are tight and demands high, you will want to carefully tune your loops to avoid "thundering herd" or starvation issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues will make concurrently running processes more tolerant of lock contention. 
 
 Please read the [Multi-Process and Multi-Thread Work](#multi-process-and-multi-thread-work) section for additional guidance.
 
@@ -516,7 +516,7 @@ public async Task AsyncEnqueueDequeueConcurrentlyWithTasks()
 Some of the examples in the original library showing how to create a thread to enqueue and a thread to dequeue have been left out of this readme. The implementation of such a pattern is a bit outside the scope of this library, particularly as it concerns the async API. But some thoughts follow.
 
 ### Multi-Process Work
-This scenario is likely going to arise from two discrete applications attempting to access the same storage queue. As described above, the guidance for this scenario is to instantiate and dispose of the queue as quickly as possible so the multi-process file lock is not held for any longer than needed.
+This scenario is likely to arise from two discrete applications attempting to access the same storage queue. As described above, the guidance for this scenario is to instantiate and dispose of the queue as quickly as possible so the multi-process file lock is not held for any longer than needed.
 
 ### Multi-Thread Work
 This scenario is likely to arise from a single application with multiple threads trying to access the same storage queue. This may come from tasks running on the shared thread pool (following common async patterns) or through the creation of dedicated threads to do the work (more common with the synchronous API). The guidance for this scenario is to create a long-lived queue object outside of the task or thread-based workloads, creating and disposing of sessions as needed. This will allow the threads to share the queue object and avoid contention and performance penalties associated with the cross-process file locking mechanism.
