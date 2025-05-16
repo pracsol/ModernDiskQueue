@@ -232,7 +232,7 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
-        public async Task<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken)
+        public async ValueTask<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken)
         {
             int entriesCount, checkedOutEntriesCount;
 
@@ -422,7 +422,7 @@ namespace ModernDiskQueue.Implementation
         /// <para>UNSAFE. Incorrect use will result in data loss.</para>
         /// Asynchronously commit a sequence of operations to storage
         /// </summary>
-        public async Task CommitTransactionAsync(ICollection<Operation> operations, CancellationToken cancellationToken = default)
+        public async ValueTask CommitTransactionAsync(ICollection<Operation> operations, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -503,7 +503,7 @@ namespace ModernDiskQueue.Implementation
         /// <para>UNSAFE. Incorrect use will result in data loss.</para>
         /// Asynchronously dequeue data, returning storage entry
         /// </summary>
-        public async Task<Entry?> DequeueAsync(CancellationToken cancellationToken = default)
+        public async ValueTask<Entry?> DequeueAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -557,7 +557,7 @@ namespace ModernDiskQueue.Implementation
         /// Asynchronously lock the queue for use, and give access to session methods.
         /// The session <b>MUST</b> be disposed as soon as possible.
         /// </summary>
-        public async Task<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default)
+        public async ValueTask<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -589,7 +589,7 @@ namespace ModernDiskQueue.Implementation
         /// <para>Asynchronously undo Enqueue and Dequeue operations.</para>
         /// <para>These MUST have been real operations taken.</para>
         /// </summary>
-        public async Task ReinstateAsync(IEnumerable<Operation> reinstatedOperations, CancellationToken cancellationToken = default)
+        public async ValueTask ReinstateAsync(IEnumerable<Operation> reinstatedOperations, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -837,7 +837,7 @@ namespace ModernDiskQueue.Implementation
         /// <summary>
         /// Wait for transaction log asynchronously
         /// </summary>
-        private async Task<IFileStream> WaitForTransactionLogAsync(byte[] transactionBuffer, CancellationToken cancellationToken = default)
+        private async ValueTask<IFileStream> WaitForTransactionLogAsync(byte[] transactionBuffer, CancellationToken cancellationToken = default)
         {
             const int maxRetries = 10;
             int retryCount = 0;
@@ -879,7 +879,7 @@ namespace ModernDiskQueue.Implementation
             }
         }
 
-        private async Task<int> GetCurrentCountOfItemsInQueueAsync(CancellationToken cancellationToken)
+        private async ValueTask<int> GetCurrentCountOfItemsInQueueAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -1036,7 +1036,7 @@ namespace ModernDiskQueue.Implementation
         /// Asynchronously unlock and clear the queue's lock file.
         /// <para>Locks <see cref="_writerLockAsync"/>.</para>
         /// </summary>
-        private async Task UnlockQueueAsync(CancellationToken cancellationToken = default)
+        private async ValueTask UnlockQueueAsync(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -1071,7 +1071,7 @@ namespace ModernDiskQueue.Implementation
         /// Asynchronously unlock and clear the queue's lock file.
         /// <para>WARNING: Assumes the caller has already locked <see cref="_writerLockAsync"/>.</para>
         /// </summary>
-        private async Task UnlockQueueAsync_UnderLock(CancellationToken cancellationToken = default)
+        private async ValueTask UnlockQueueAsync_UnderLock(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -1119,7 +1119,7 @@ namespace ModernDiskQueue.Implementation
         /// Try to get a lock on a file path asynchronously
         /// <para>Locks <see cref="_writerLockAsync"/>.</para>
         /// </summary>
-        private async Task<Maybe<bool>> LockQueueAsync(CancellationToken cancellationToken = default)
+        private async ValueTask<Maybe<bool>> LockQueueAsync(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -1154,7 +1154,7 @@ namespace ModernDiskQueue.Implementation
         /// Try to get a lock on a file path asynchronously
         /// <para>WARNING: Caller must have a lock on <see cref="_writerLockAsync"/>.</para>
         /// </summary>
-        private async Task<Maybe<bool>> LockQueueAsync_UnderLock(CancellationToken cancellationToken = default)
+        private async ValueTask<Maybe<bool>> LockQueueAsync_UnderLock(CancellationToken cancellationToken = default)
         {
             try
             {

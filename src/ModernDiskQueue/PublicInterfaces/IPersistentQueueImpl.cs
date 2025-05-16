@@ -48,7 +48,7 @@ namespace ModernDiskQueue.PublicInterfaces
         /// <param name="operations">Collection of operations to commit</param>
         /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
         /// <returns>A task that represents the asynchronous operation</returns>
-        Task CommitTransactionAsync(ICollection<Operation> operations, CancellationToken cancellationToken = default);
+        ValueTask CommitTransactionAsync(ICollection<Operation> operations, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// <para>UNSAFE. Incorrect use will result in data loss.</para>
@@ -62,7 +62,7 @@ namespace ModernDiskQueue.PublicInterfaces
         /// </summary>
         /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
         /// <returns>A task that represents the asynchronous operation with the dequeued entry or null</returns>
-        Task<Entry?> DequeueAsync(CancellationToken cancellationToken = default);
+        ValueTask<Entry?> DequeueAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// <para>UNSAFE. Incorrect use will result in data loss.</para>
@@ -79,7 +79,7 @@ namespace ModernDiskQueue.PublicInterfaces
         /// <param name="reinstatedOperations">Operations to reinstate</param>
         /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
         /// <returns>A task that represents the asynchronous operation</returns>
-        Task ReinstateAsync(IEnumerable<Operation> reinstatedOperations, CancellationToken cancellationToken = default);
+        ValueTask ReinstateAsync(IEnumerable<Operation> reinstatedOperations, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// <para>Safe, available for tests and performance.</para>
@@ -136,7 +136,7 @@ namespace ModernDiskQueue.PublicInterfaces
         /// <summary>
 		/// Approximate size of the queue. Used for testing
 		/// </summary>
-        Task<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken = default);
+        ValueTask<int> GetEstimatedCountOfItemsInQueueAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Configured maximum size of each queue file.
@@ -168,7 +168,7 @@ namespace ModernDiskQueue.PublicInterfaces
         /// </summary>
         /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
         /// <returns>A task that represents the asynchronous operation with a session that can be used to interact with the queue</returns>
-        Task<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default);
+        ValueTask<IPersistentQueueSession> OpenSessionAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// WARNING:

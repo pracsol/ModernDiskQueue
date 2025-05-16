@@ -23,8 +23,8 @@
 
             AddLogger(ConsoleLogger.Default);
             AddColumnProvider(DefaultColumnProviders.Instance);
-            AddDiagnoser(MemoryDiagnoser.Default);
             AddDiagnoser(ThreadingDiagnoser.Default);
+            AddDiagnoser(MemoryDiagnoser.Default);
             //AddDiagnoser(new ConcurrencyVisualizerProfiler());
             AddExporter(MarkdownExporter.Default);
             AddExporter(CsvExporter.Default);

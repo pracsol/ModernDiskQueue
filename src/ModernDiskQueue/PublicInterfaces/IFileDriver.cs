@@ -24,7 +24,7 @@
         /// <summary>
         /// Asynchronously returns true if a directory exists at the given path. False otherwise.
         /// </summary>
-        Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default);
+        ValueTask<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Proxy for Path.Combine
@@ -81,7 +81,7 @@
         /// <summary>
         /// Asynchronously creates a directory at the specified path.
         /// </summary>
-        Task CreateDirectoryAsync(string path, CancellationToken cancellationToken = default);
+        ValueTask CreateDirectoryAsync(string path, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Open a transaction log file as a stream
@@ -147,7 +147,7 @@
         /// <summary>
         /// Asynchronously returns true if a readable file exists at the given path. False otherwise.
         /// </summary>
-        Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default);
+        ValueTask<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Try to delete all files and directories in a sub-path

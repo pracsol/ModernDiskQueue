@@ -69,7 +69,7 @@
         /// <summary>
         /// Asynchronously test for the existence of a directory
         /// </summary>
-        public async Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
+        public async ValueTask<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
         {
             if (_holdsLock.Value)
             {
@@ -153,24 +153,6 @@
             }
 
             if (isFileMoved)
-            {
-                await _waitingDeletesAsync.Writer.WriteAsync(deletePath, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        /// <summary>
-        /// Asynchronously moves a file to a temporary name and adds it to an internal
-        /// delete list. Files are permanently deleted on a call to FinaliseAsync()
-        /// <para>WARNING: Call must have a lock on <see cref="_asyncLock"/></para>
-        /// </summary>
-        private async Task PrepareDeleteAsync_UnderLock(string path, CancellationToken cancellationToken = default)
-        {
-            if (!(await FileExistsAsync(path, cancellationToken).ConfigureAwait(false))) return;
-            var dir = Path.GetDirectoryName(path) ?? "";
-            var file = Path.GetFileNameWithoutExtension(path);
-            var prefix = Path.GetRandomFileName();
-            var deletePath = Path.Combine(dir, $"{file}_dc_{prefix}");
-            if (await MoveAsync(path, deletePath, cancellationToken).ConfigureAwait(false))
             {
                 await _waitingDeletesAsync.Writer.WriteAsync(deletePath, cancellationToken).ConfigureAwait(false);
             }
@@ -411,39 +393,9 @@
         /// <summary>
         /// Asynchronously test for the existence of a file
         /// </summary>
-        public async Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default)
+        public async ValueTask<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default)
         {
             return await Task.Run(() => File.Exists(path), cancellationToken);
-            /* Skipping lock for checking file existence.
-            if (_holdsLock.Value)
-            {
-                return FileExists_UnderLock(path);
-            }
-            else
-            {
-                try
-                {
-                    using (await _asyncLock.LockAsync("SFD", cancellationToken).ConfigureAwait(false))
-                    {
-                        _holdsLock.Value = true;
-                        return FileExists_UnderLock(path);
-                    }
-                }
-                finally
-                {
-                    _holdsLock.Value = false;
-                }
-            }
-            */
-        }
-
-        /// <summary>
-        /// Test for the existence of a file
-        /// <para>WARNING: Caller must have lock on <see cref="_asyncLock"/></para>
-        /// </summary>
-        private static bool FileExists_UnderLock(string path)
-        {
-            return File.Exists(path);
         }
 
         /// <summary>
@@ -575,7 +527,7 @@
         /// <summary>
         /// Asynchronously attempt to create a directory. No error if the directory already exists.
         /// </summary>
-        public async Task CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
+        public async ValueTask CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
         {
             if (_holdsLock.Value)
             {

@@ -59,7 +59,7 @@ namespace ModernDiskQueue.Tests
 
         public void CreateDirectory(string path) { }
 
-        public Task CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
+        public ValueTask CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -117,7 +117,7 @@ namespace ModernDiskQueue.Tests
             return _realDriver.FileExists(path);
         }
 
-        public Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default)
+        public ValueTask<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default)
         {
             return ((IFileDriver)_realDriver).FileExistsAsync(path, cancellationToken);
         }
@@ -128,7 +128,7 @@ namespace ModernDiskQueue.Tests
             throw new NotImplementedException();
         }
 
-        public Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
+        public ValueTask<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
         {
             return ((IFileDriver)_realDriver).DirectoryExistsAsync(path, cancellationToken);
         }

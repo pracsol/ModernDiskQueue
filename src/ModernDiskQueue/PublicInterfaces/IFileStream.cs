@@ -17,7 +17,7 @@
         /// <summary>
         /// Write all bytes to a stream, returning new position
         /// </summary>
-        Task<long> WriteAsync(byte[] bytes);
+        ValueTask<long> WriteAsync(byte[] bytes);
 
         /// <summary>
         /// Write all bytes to a stream, returning new position
@@ -70,7 +70,7 @@
         /// <summary>
         /// Asynchronously extend the underlying stream to the given length
         /// </summary>
-        Task SetLengthAsync(long length, CancellationToken cancellationToken = default);
+        ValueTask SetLengthAsync(long length, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Set the read/write position of the underlying file

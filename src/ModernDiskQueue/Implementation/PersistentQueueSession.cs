@@ -297,7 +297,7 @@ namespace ModernDiskQueue.Implementation
         /// If the session is disposed with no flush, actions are not persisted
         /// to the queue (Enqueues are not written, dequeues are left on the queue)
         /// </summary>
-        public async Task FlushAsync(CancellationToken cancellationToken = default)
+        public async ValueTask FlushAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 

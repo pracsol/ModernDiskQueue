@@ -43,7 +43,7 @@ namespace ModernDiskQueue.Implementation
         /// It's overloaded by WriteAsync accepting a cancellation token.
         /// </summary>
         [Obsolete("Use WriteAsync(byte[] bytes, CancellationToken cancellationToken) instead.")]
-        public async Task<long> WriteAsync(byte[] bytes)
+        public async ValueTask<long> WriteAsync(byte[] bytes)
         {
             if (_base is null) throw new Exception("Tried to write to a disposed FileStream");
             await _base.WriteAsync(bytes, 0, bytes.Length)!.ConfigureAwait(false);
@@ -109,10 +109,10 @@ namespace ModernDiskQueue.Implementation
 
         public void SetLength(long length) => _base?.SetLength(length);
 
-        public Task SetLengthAsync(long length, CancellationToken cancellationToken = default)
+        public ValueTask SetLengthAsync(long length, CancellationToken cancellationToken = default)
         {
             if (_base is null) throw new Exception("Tried to set length on a disposed FileStream");
-            return Task.Run(() => _base.SetLength(length), cancellationToken);
+            return new ValueTask(Task.Run(() => _base.SetLength(length), cancellationToken));
         }
 
         public void SetPosition(long position) => _base?.Seek(position, SeekOrigin.Begin);
