@@ -13,7 +13,7 @@ namespace ModernDiskQueue.Tests
     {
         protected override string QueuePath => "./WriteFailureTests";
 
-        private PersistentQueueFactory _factory;
+        private PersistentQueueFactory _factory = new ();
         [SetUp]
         public new void Setup()
         {
