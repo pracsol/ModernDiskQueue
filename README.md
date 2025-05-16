@@ -6,6 +6,7 @@
 
 **Original DiskQueue project is at:** https://github.com/i-e-b/DiskQueue
 
+## Table of Contents
 <!--TOC-->
   - [Description](#description)
   - [Requirements and Environment](#requirements-and-environment)
@@ -30,11 +31,16 @@
     - [Async API](#async-api)
     - [Sync API](#sync-api)
   - [Inter-Thread and Cross-Process Locking](#inter-thread-and-cross-process-locking)
-  - [Performance of the Async vs Sync APIs](#performance-of-the-async-vs-sync-apis)
+  - [Performance Benchmarking of the Async vs Sync APIs](#performance-benchmarking-of-the-async-vs-sync-apis)
+    - [Benchmark Results](#benchmark-results)
+    - [Interpretation](#interpretation)
+    - [Guidance](#guidance)
+    - [Conclusion](#conclusion)
   - [More Detailed Examples](#more-detailed-examples)
     - [Dependency Injection](#dependency-injection)
       - [Async Initialization in Hosted Startup Pattern](#async-initialization-in-hosted-startup-pattern)
       - [Discrete Queue Creation and Disposal](#discrete-queue-creation-and-disposal)
+    - [Task-Based Workers](#task-based-workers)
   - [Multi-Process and Multi-Thread Work](#multi-process-and-multi-thread-work)
     - [Multi-Process Work](#multi-process-work)
     - [Multi-Thread Work](#multi-thread-work)
@@ -249,7 +255,7 @@ All logging is performed against the logging context you configure in your DI co
 ### Sync API
 
 Some internal warnings and non-critical errors are logged through `PersistentQueue.Log`.
-This defaults to stdout, i.e. `System.Console.WriteLine`, but can be replace with any `Action<string>`. This behavior has not changed from the legacy library.
+This defaults to stdout, i.e. `System.Console.WriteLine`, but can be replaced with any `Action<string>`. This behavior has not changed from the legacy library.
 
 ## Removing or Resetting Queues
 
@@ -291,12 +297,36 @@ This approach works relatively well, but can show its limits when extreme conten
 
 If you need the transaction semantics of sessions across multiple processes, try a more robust solution like https://github.com/i-e-b/SevenDigital.Messaging
 
-## Performance of the Async vs Sync APIs
-The async API does bring some extra overhead inherent to the asynchronous context switching, but for all intents and purposes the APIs are equivalent in performance. Mean task completion times between the two seem to be within the margins of error. In tight loops, the sync API seems consistently faster (often by ms), but in highly contentious scenarios the async API seems to have an edge. 
+## Performance Benchmarking of the Async vs Sync APIs
+In the benchmarks project, the `ThreadsAndTasks` class compares three different approaches to enqueueing and dequeueing 100 objects concurrently. These include the use of the sync API with dedicated threads, the use of the async API with dedicated threads, and the use of the async API with tasks. While implementation is necessarily different, the spirit of the work and how it's performed has been as closely matched as possible to preserve the integrity of the results. The results are as follows:
 
-Test design for the async benchmarks has been found to play an incredibly important role, with small adjustments in consumer loop design having a profound impact on performance. You may need to tune your loops to avoid "thundering herd" or starvation issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues can make concurrent threads more tolerant of lock contention.
+### Benchmark Results
+```Shell
+Job=BenchmarkConfigThreadTaskComparison  InvocationCount=1  IterationCount=20
+LaunchCount=2  UnrollFactor=1  WarmupCount=2
+```
+| Method                                     | Mean    | Error    | StdDev  | Median  | Gen0      | Completed Work Items | Lock Contentions | Gen1      | Allocated |
+|------------------------------------------- |--------:|---------:|--------:|--------:|----------:|---------------------:|-----------------:|----------:|----------:|
+| SyncEnqueueDequeueConcurrentlyWithThreads  | 9.125 s | 0.7740 s | 1.293 s | 9.819 s | 4000.0000 |             300.0000 |         176.0000 | 1000.0000 |  34.09 MB |
+| AsyncEnqueueDequeueConcurrentlyWithThreads | 9.350 s | 2.1251 s | 3.492 s | 7.915 s | 6000.0000 |            3554.0000 |                - | 2000.0000 |  50.11 MB |
+| AsyncEnqueueDequeueConcurrentlyWithTasks   | 9.350 s | 2.0702 s | 3.459 s | 7.909 s | 6000.0000 |            3563.0000 |                - | 2000.0000 |  50.23 MB |
 
-So generally speaking, the async API should perform just as well as the sync API while adding the semantics of asynchronous programming and other benefits as described earlier.
+### Interpretation
+The async API does bring some extra overhead inherent to the asynchronous context switching, most clearly evident in the memory allocation and work items, but for all intents and purposes the APIs are equivalent in performance when doing the same body of work in similar implementations. 
+
+Mean task completion times between the two are close, the differences not being statistically significant. Async medians lower than their mean, indicating outliers are driving up the mean. The sync API has a much lower standard deviation, reflecting the control inherent in its synchronous execution. The async API, is more susceptible to "weather" in the shared thread pool. This is not unexpected, as the async/await infrastructure is designed to be more flexible and responsive to the environment in which it is running.
+
+Tight loops of enqueueing and dequeueing may be rare in real-world implementations, but these high stress scenarios describe performance limits for a given hardware configuration and give confidence that the async API has not sacrificed too much in terms of supported ops/sec.
+
+### Guidance
+Work on unit tests and benchmarks consistently demonstrated that implementation patterns play an incredibly important role in async API performance, with small adjustments in consumer loop design having a profound impact - sometimes by an order of magnitude. If your tolerances are tight and demands high, you will want to carefully tune your loops to avoid "thundering herd" or starvation issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues will make concurrently running processes more tolerant of lock contention. 
+
+Please read the [Multi-Process and Multi-Thread Work](#multi-process-and-multi-thread-work) section for additional guidance.
+
+Please see the [examples](#More-detailed-examples) section below for some ideas on implementation. The unit tests and other benchmarks may provide additional ideas.
+
+### Conclusion
+Generally speaking, the async API should perform just as well as the sync API while providing the semantics of asynchronous programming and other benefits as described earlier. As well, the async API may offer better scalability due to more efficient thread usage, though clearly memory utilization is higher. Again, actual performance will vary depending on workload and system configuration
 
 ## More Detailed Examples
 
@@ -374,14 +404,113 @@ public class MyService
 				var data = await session.DequeueAsync();
 				if (data != null)
 				{
-					await session.FlushAsync();
-					// do work with data
+                    // process data
+					await session.FlushAsync(); // "commit" the dequeue
 				}
 			}
 		}
 	}
 }
 ```
+
+### Task-Based Workers
+The `ThreadsAndTasks.AsyncEnqueueDequeueConscurrentlyWithTasks()` method in the `ModernDiskQueue.Benchmarks` project provides a decent example of how one might implement a producer/consumer pattern using the async API. This example uses a `TaskCompletionSource` to signal when the producer and consumer tasks have completed, and uses `Interlocked` to safely increment the enqueue and dequeue counts across multiple threads. The example also includes a timeout for the tasks to complete, which was useful for debugging and testing purposes.
+
+```Csharp
+public async Task AsyncEnqueueDequeueConcurrentlyWithTasks()
+{
+    const int TargetObjectCount = CountOfObjectsToEnqueue;
+    Exception? producerException = null;
+    Exception? consumerException = null;
+
+    int enqueueCount = 0;
+    int dequeueCount = 0;
+    var enqueueCompletionSource = new TaskCompletionSource<bool>();
+    var dequeueCompletionSource = new TaskCompletionSource<bool>();
+
+    IPersistentQueue q = await _factory.CreateAsync(QueuePathForAsyncTasks);
+
+    // Producer task
+    var producerTask = Task.Run(async () =>
+    {
+        try
+        {
+            var rnd = new Random();
+            for (int i = 0; i < TargetObjectCount; i++)
+            {
+                await using (var session = await q.OpenSessionAsync())
+                {
+                    await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
+                    Interlocked.Increment(ref enqueueCount);
+                    await Task.Delay(rnd.Next(0, 100));
+                    await session.FlushAsync();
+                }
+            }
+            enqueueCompletionSource.SetResult(true);
+        }
+        catch (Exception ex)
+        {
+            producerException = ex;
+            enqueueCompletionSource.SetException(ex);
+        }
+    });
+
+    // Consumer task
+    var consumerTask = Task.Run(async () =>
+    {
+        try
+        {
+            var rnd = new Random();
+            do
+            {
+                await using (var session = await q.OpenSessionAsync())
+                {
+                    var obj = await session.DequeueAsync();
+                    if (obj != null)
+                    {
+                        Interlocked.Increment(ref dequeueCount);
+                        await session.FlushAsync();
+                    }
+                    else
+                    {
+                        //Console.WriteLine("got nothing, I'm starved for objects so backing off..");
+                        await Task.Delay(rnd.Next(0, 100)); // Wait a bit if nothing to dequeue
+                    }
+                }
+            }
+            while (dequeueCount < TargetObjectCount);
+            dequeueCompletionSource.SetResult(true);
+        }
+        catch (Exception ex)
+        {
+            consumerException = ex;
+            dequeueCompletionSource.SetException(ex);
+        }
+    });
+
+    // Wait for both tasks with timeout
+    var completionTasks = new[]
+    {
+        enqueueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2)),
+        dequeueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2))
+    };
+
+    try
+    {
+        await Task.WhenAll(completionTasks);
+    }
+    catch (TimeoutException)
+    {
+        if (!enqueueCompletionSource.Task.IsCompleted)
+            Console.WriteLine("Producer task timed out.");
+        if (!dequeueCompletionSource.Task.IsCompleted)
+            Console.WriteLine("Consumer task timed out.");
+    }
+
+    await q.DisposeAsync();
+}
+```
+
 
 ## Multi-Process and Multi-Thread Work
 Some of the examples in the original library showing how to create a thread to enqueue and a thread to dequeue have been left out of this readme. The implementation of such a pattern is a bit outside the scope of this library, particularly as it concerns the async API. But some thoughts follow.
@@ -390,9 +519,9 @@ Some of the examples in the original library showing how to create a thread to e
 This scenario is likely going to arise from two discrete applications attempting to access the same storage queue. As described above, the guidance for this scenario is to instantiate and dispose of the queue as quickly as possible so the multi-process file lock is not held for any longer than needed.
 
 ### Multi-Thread Work
-This scenario is likely to arise from a single application with multiple threads trying to access the same storage queue. The guidance for this scenario is to create a long-lived queue object and then create and dispose of sessions as needed. This will allow the threads to share the queue object and avoid contention and performance penalties associated with the cross-process file locking mechanism.
+This scenario is likely to arise from a single application with multiple threads trying to access the same storage queue. This may come from tasks running on the shared thread pool (following common async patterns) or through the creation of dedicated threads to do the work (more common with the synchronous API). The guidance for this scenario is to create a long-lived queue object outside of the task or thread-based workloads, creating and disposing of sessions as needed. This will allow the threads to share the queue object and avoid contention and performance penalties associated with the cross-process file locking mechanism.
 
-How this is implemented - your design decisions - can greatly affect performance, and consumers are advised to evaluate the suitability of simply using Task-based asynchronous programming patterns to achieve the same goal. If a dedicated thread is created to handle, for example, all the dequeue operations while the main call stack works on enqueuing objects, be sure to follow best practices for executing asynchronous operations inside a thread. It's easy to do this incorrectly, creating deadlocks, executing blocking synchronous units of work, or simply creating a thread that does nothing more than throwing the body of work back on the shared thread pool, with no thread affinity, which may not yield the results you're after.
+How this is implemented - your design decisions - can greatly affect performance. **Library consumers are advised to leverage Task-based asynchronous programming patterns rather than building dedicated threads when using the async API**. If a dedicated thread is created to handle, for example, all the dequeue operations while the main call stack works on enqueuing objects, be sure to follow best practices for executing asynchronous operations inside a thread. It's **very easy** to do this incorrectly, creating deadlocks, executing blocking synchronous units of work, or creating a thread that does nothing more than throwing the body of work back on the shared thread pool, with no thread affinity, which may not yield the results you're after.
 
 ## Trim Self-Contained Deployments and Executables
 
@@ -433,49 +562,49 @@ you can leverage with source generation, so this serves as only a very basic con
 
 
 ```csharp
-    internal class MyCustomClass
+internal class MyCustomClass
+{
+    public Guid Id { get; set; }
+    public DateTimeOffset LastUpdated { get; set; }
+}
+
+[JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata)]
+[JsonSerializable(typeof(MyCustomClass))]
+internal partial class MyAppJsonContext : JsonSerializerContext
+{
+}
+
+internal class JsonSerializationStrategyForQueueItem : ISerializationStrategy<MyCustomClass>
+{
+    public byte[] Serialize(MyCustomClass? data)
     {
-        public Guid Id { get; set; }
-        public DateTimeOffset LastUpdated { get; set; }
+        ArgumentNullException.ThrowIfNull(data);
+
+        string json = JsonSerializer.Serialize(data, MyAppJsonContext.Default.MyCustomClass);
+        return Encoding.UTF8.GetBytes(json);
     }
 
-    [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata)]
-    [JsonSerializable(typeof(MyCustomClass))]
-    internal partial class MyAppJsonContext : JsonSerializerContext
+    public MyCustomClass? Deserialize(byte[]? data)
     {
+        if (data == null || data.Length == 0) throw new ArgumentNullException(nameof(data));
+        string json = Encoding.UTF8.GetString(data);
+        return JsonSerializer.Deserialize(json, MyAppJsonContext.Default.MyCustomClass)
+            ?? throw new InvalidOperationException("Deserialization returned null");
     }
+}
 
-    internal class JsonSerializationStrategyForQueueItem : ISerializationStrategy<MyCustomClass>
-    {
-        public byte[] Serialize(MyCustomClass? data)
-        {
-            ArgumentNullException.ThrowIfNull(data);
-
-            string json = JsonSerializer.Serialize(data, MyAppJsonContext.Default.MyCustomClass);
-            return Encoding.UTF8.GetBytes(json);
-        }
-
-        public MyCustomClass? Deserialize(byte[]? data)
-        {
-            if (data == null || data.Length == 0) throw new ArgumentNullException(nameof(data));
-            string json = Encoding.UTF8.GetString(data);
-            return JsonSerializer.Deserialize(json, MyAppJsonContext.Default.MyCustomClass)
-                ?? throw new InvalidOperationException("Deserialization returned null");
-        }
-    }
-
-    using (var session = _queue.OpenSession())
-    {
-        session.SerializationStrategy = new JsonSerializationStrategyForQueueItem();
-        session.Enqueue(testObject);
-        session.Flush();
-    }
-    using (var session = _queue.OpenSession())
-    {
-        session.SerializationStrategy = new JsonSerializationStrategyForQueueItem();
-        var data = session.Dequeue();
-        session.Flush();
-    }
+using (var session = _queue.OpenSession())
+{
+    session.SerializationStrategy = new JsonSerializationStrategyForQueueItem();
+    session.Enqueue(testObject);
+    session.Flush();
+}
+using (var session = _queue.OpenSession())
+{
+    session.SerializationStrategy = new JsonSerializationStrategyForQueueItem();
+    var data = session.Dequeue();
+    session.Flush();
+}
 ```
 
 For more info, please see

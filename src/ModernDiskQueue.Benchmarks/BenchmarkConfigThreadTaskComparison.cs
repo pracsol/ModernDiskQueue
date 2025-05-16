@@ -17,9 +17,9 @@
         {
             AddJob(Job.Default
                 .WithWarmupCount(2)
-                .WithIterationCount(10)
-                .WithLaunchCount(1)
-                .WithId("LongRunningConfig"));
+                .WithIterationCount(20)
+                .WithLaunchCount(2)
+                .WithId("BenchmarkConfigThreadTaskComparison"));
 
             AddLogger(ConsoleLogger.Default);
             AddColumnProvider(DefaultColumnProviders.Instance);

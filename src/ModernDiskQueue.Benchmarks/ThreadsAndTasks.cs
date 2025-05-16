@@ -7,7 +7,7 @@
     using System.Threading.Tasks;
 
     [Config(typeof(BenchmarkConfigThreadTaskComparison))]
-    public class ThreadsAndTasks
+    public partial class ThreadsAndTasks
     {
         private PersistentQueueFactory _factory;
         private const int CountOfObjectsToEnqueue = 100;
@@ -119,12 +119,15 @@
             const int TargetObjectCount = CountOfObjectsToEnqueue;
             int enqueueCount = 0, dequeueCount = 0;
             var rnd = new Random();
+            Exception? producerException = null, consumerException = null;
+            var producerCompleted = new ManualResetEventSlim(false);
+            var consumerCompleted = new ManualResetEventSlim(false);
 
             IPersistentQueue q = await _factory.CreateAsync(QueuePathForAsyncThreads);
 
             var producerThread = new Thread(() =>
             {
-                RunAsyncInThread(async () =>
+                RunAsyncInDedicatedThread(async () =>
                 {
                     try
                     {
@@ -141,7 +144,12 @@
                     }
                     catch (Exception ex)
                     {
+                        producerException = ex;
                         Console.WriteLine($"Producer thread exception: {ex.Message}");
+                    }
+                    finally
+                    {
+                        producerCompleted.Set();
                     }
                 });
             })
@@ -149,7 +157,7 @@
 
             var consumerThread = new Thread(()=>
             {
-                RunAsyncInThread(async () =>
+                RunAsyncInDedicatedThread(async () =>
                 {
                     try
                     {
@@ -173,7 +181,12 @@
                     }
                     catch (Exception ex)
                     {
+                        consumerException = ex;
                         Console.WriteLine($"Consumer thread exception: {ex.Message}");
+                    }
+                    finally
+                    {
+                        consumerCompleted.Set();
                     }
                 });
             })
@@ -182,8 +195,27 @@
             producerThread.Start();
             consumerThread.Start();
 
-            producerThread.Join();
-            consumerThread.Join();
+            // Wait for both threads to complete with timeout
+            if (!producerCompleted.Wait(TimeSpan.FromMinutes(2)))
+            {
+                Console.WriteLine("Producer thread timed out");
+            }
+
+            if (!consumerCompleted.Wait(TimeSpan.FromMinutes(2)))
+            {
+                Console.WriteLine("Consumer thread timed out");
+            }
+
+            // Check for exceptions
+            if (producerException != null)
+            {
+                Console.WriteLine($"Producer thread failed: {producerException.Message}");
+            }
+
+            if (consumerException != null)
+            {
+                Console.WriteLine($"Consumer thread failed: {consumerException.Message}");
+            }
 
             await q.DisposeAsync();
         }
@@ -282,10 +314,58 @@
             await q.DisposeAsync();
         }
 
-        private void RunAsyncInThread(Func<Task> asyncFunc)
+        /// <summary>
+        /// Run an async function in a dedicated thread with a custom SynchronizationContext.
+        /// </summary>
+        private void RunAsyncInDedicatedThread(Func<Task> asyncFunc)
         {
-            var t = asyncFunc();
-            t.GetAwaiter().GetResult();
+            Exception? capturedException = null;
+            ManualResetEventSlim completionEvent = new (false);
+
+            var thread = new Thread(() =>
+            {
+                // "Save" the existing synchronization context.
+                var oldContext = SynchronizationContext.Current;
+                try
+                {
+                    // Create a new synchronization context for the dedicated thread.
+                    var syncCtx = new SingleThreadSynchronizationContext();
+                    // Set the synchronization context to the new one.
+                    SynchronizationContext.SetSynchronizationContext(syncCtx);
+
+                    // Run the async function on the dedicated thread.
+                    asyncFunc().ContinueWith(t =>
+                    {
+                        if (t.IsFaulted && t.Exception != null)
+                        {
+                            capturedException = t.Exception.InnerException ?? t.Exception;
+                        }
+
+                        // Complete the synchronization context.
+                        syncCtx.Complete();
+                    }, TaskScheduler.Default);
+
+                    // Run the message loop on the dedicated thread.
+                    syncCtx.RunOnCurrentThread();
+                }
+                finally
+                {
+                    // Restore the original synchronization context.
+                    SynchronizationContext.SetSynchronizationContext(oldContext);
+                    completionEvent.Set();
+                }
+            })
+            {
+                IsBackground = true
+            };
+
+            thread.Start();
+            completionEvent.Wait();
+
+            if (capturedException != null)
+            {
+                throw new AggregateException("Async operation failed in dedicated thread", capturedException);
+            }
         }
     }
 }
