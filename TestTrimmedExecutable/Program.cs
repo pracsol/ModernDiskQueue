@@ -1,20 +1,26 @@
-﻿namespace TestTrimmedExecutable
+﻿// -----------------------------------------------------------------------
+// <copyright file="Program.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+// -----------------------------------------------------------------------
+
+namespace TestTrimmedExecutable
 {
-    using Microsoft.Extensions.DependencyInjection;
-    using ModernDiskQueue;
-    using ModernDiskQueue.DependencyInjection;
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Runtime.Serialization;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.DependencyInjection;
+    using ModernDiskQueue;
+    using ModernDiskQueue.DependencyInjection;
 
     public static class Program
     {
-        private const string folderNameSimpleQueue = "simpleQueue";
-        private const string folderNameComplexQueue = "complexQueue";
-        private const string folderNameSimpleQueueAsync = "simpleQueueAsync";
-        private const string folderNameComplexQueueAsync = "complexQueueAsync";
-        private static bool isConsoleLoggingEnabled = false; // note this will pollute output for testing, so only enable if you're running this project directly for debug purposes.
+        private const string FolderNameSimpleQueue = "simpleQueue";
+        private const string FolderNameComplexQueue = "complexQueue";
+        private const string FolderNameSimpleQueueAsync = "simpleQueueAsync";
+        private const string FolderNameComplexQueueAsync = "complexQueueAsync";
+        private static bool _isConsoleLoggingEnabled = false; // note this will pollute output for testing, so only enable if you're running this project directly for debug purposes.
 
         public static async Task Main(string[] args)
         {
@@ -31,6 +37,7 @@
                 {
                     throw new ArgumentException("Expecting two arguments in the form of test={1 | 2 | 3 | 4} value={[int] | [DateTimeOffset string]");
                 }
+
                 foreach (string argument in args)
                 {
                     string[] splitted = argument.Split('=');
@@ -40,10 +47,14 @@
                         arguments[splitted[0]] = splitted[1];
                     }
                 }
+
                 if (arguments.TryGetValue("writeoutput", out string? writeoutput))
                 {
-                    isConsoleLoggingEnabled = writeoutput.Equals("true", StringComparison.InvariantCultureIgnoreCase);
-                    if (isConsoleLoggingEnabled) Console.WriteLine($"Console logging enabled = {isConsoleLoggingEnabled}");
+                    _isConsoleLoggingEnabled = writeoutput.Equals("true", StringComparison.InvariantCultureIgnoreCase);
+                    if (_isConsoleLoggingEnabled)
+                    {
+                        Console.WriteLine($"Console logging enabled = {_isConsoleLoggingEnabled}");
+                    }
                 }
 
                 if (arguments.TryGetValue("test", out string? testToRun))
@@ -68,6 +79,7 @@
                                     {
                                         throw new ArgumentOutOfRangeException(nameof(args), "Input integer for simple object sync test could not be parsed.");
                                     }
+
                                     break;
                                 case "2":
                                     // Case 2 tests the (de)serialization of a complex object (DateTimeOffset) using the default serializer with the sync API.
@@ -79,6 +91,7 @@
                                     {
                                         throw new ArgumentOutOfRangeException(nameof(args), "Input DateTimeOffset for complex object sync test could not be parsed.");
                                     }
+
                                     break;
                                 case "3":
                                     // Case 3 tests the (de)serialization of a simple object (int) using the default serializer with the async API.
@@ -91,6 +104,7 @@
                                     {
                                         throw new ArgumentOutOfRangeException(nameof(args), "Input integer for simple object async test could not be parsed.");
                                     }
+
                                     break;
                                 case "4":
                                     // Case 4 tests the (de)serialization of a complex object (DateTimeOffset) using the default serializer with the async API.
@@ -103,6 +117,7 @@
                                     {
                                         throw new ArgumentOutOfRangeException(nameof(args), "Input DateTimeOffset for complex object async test could not be parsed.");
                                     }
+
                                     break;
                             }
                         }
@@ -131,33 +146,45 @@
                 Console.Error.WriteLine($"Error: {ex.GetType().Name} {ex.Message}");
                 exitCode = 1;
             }
+
             Environment.Exit(exitCode);
         }
 
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IPersistentQueueFactory))]
-        private static void ConfigureServices(IServiceCollection services)
-        {
-            //services.AddLogging();
-            // Register PersistentQueueFactory as a singleton
-            services.AddModernDiskQueue();
-        }
 
         public static int TestSimpleObjectQueueing(int inputInt)
         {
             int outputInt;
-            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for simple object queueing with sync api");
-            PersistentQueue<int> queue = new(folderNameSimpleQueue);
+            if (_isConsoleLoggingEnabled)
+            {
+                Console.WriteLine("Creating queue for simple object queueing with sync api");
+            }
+
+            PersistentQueue<int> queue = new(FolderNameSimpleQueue);
             try
             {
-                if (isConsoleLoggingEnabled) Console.WriteLine($"Existing items: {queue.EstimatedCountOfItemsInQueue}");
-                if (isConsoleLoggingEnabled) Console.WriteLine("Enqueueing object");
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine($"Existing items: {queue.EstimatedCountOfItemsInQueue}");
+                }
+
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Enqueueing object");
+                }
+
                 using (var session = queue.OpenSession())
                 {
                     session.Enqueue(inputInt);
                     session.Flush();
                 }
-                if (isConsoleLoggingEnabled) Console.WriteLine("Dequeueing object");
+
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Dequeueing object");
+                }
+
                 using (var session = queue.OpenSession())
                 {
                     outputInt = session.Dequeue();
@@ -166,37 +193,75 @@
             }
             catch (Exception ex)
             {
-                if (isConsoleLoggingEnabled) Console.Error.WriteLine($"{ex.Message}");
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.Error.WriteLine($"{ex.Message}");
+                }
+
                 throw;
             }
             finally
             {
-                if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up");
-                if (isConsoleLoggingEnabled) Console.WriteLine($"Residual items: {queue.EstimatedCountOfItemsInQueue}");
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Cleaning up");
+                }
+
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine($"Residual items: {queue.EstimatedCountOfItemsInQueue}");
+                }
+
                 queue.HardDelete(false);
-                DeleteFolderAndFiles(folderNameSimpleQueue);
+                DeleteFolderAndFiles(FolderNameSimpleQueue);
             }
+
             return outputInt;
         }
 
         public static async Task<int> TestSimpleObjectQueueingAsync(int inputInt, IPersistentQueueFactory factory)
         {
             int outputInt;
-            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for simple object");
-            await using (PersistentQueue<int> queue = await factory.CreateAsync<int>(folderNameSimpleQueueAsync))
+            if (_isConsoleLoggingEnabled)
+            {
+                Console.WriteLine("Creating queue for simple object");
+            }
+
+            await using (PersistentQueue<int> queue = await factory.CreateAsync<int>(FolderNameSimpleQueueAsync))
             {
                 try
                 {
-                    if (isConsoleLoggingEnabled) Console.WriteLine($"Existing items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
-                    if (isConsoleLoggingEnabled) Console.WriteLine("Opening Session..");
+                    if (_isConsoleLoggingEnabled)
+                    {
+                        Console.WriteLine($"Existing items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
+                    }
+
+                    if (_isConsoleLoggingEnabled)
+                    {
+                        Console.WriteLine("Opening Session..");
+                    }
+
                     await using (var session = await queue.OpenSessionAsync())
                     {
-                        if (isConsoleLoggingEnabled) Console.WriteLine("Enqueueing object..");
+                        if (_isConsoleLoggingEnabled)
+                        {
+                            Console.WriteLine("Enqueueing object..");
+                        }
+
                         await session.EnqueueAsync(inputInt);
-                        if (isConsoleLoggingEnabled) Console.WriteLine("Flushing session..");
+                        if (_isConsoleLoggingEnabled)
+                        {
+                            Console.WriteLine("Flushing session..");
+                        }
+
                         await session.FlushAsync();
                     }
-                    if (isConsoleLoggingEnabled) Console.WriteLine("Dequeueing object");
+
+                    if (_isConsoleLoggingEnabled)
+                    {
+                        Console.WriteLine("Dequeueing object");
+                    }
+
                     await using (var session = await queue.OpenSessionAsync())
                     {
                         outputInt = await session.DequeueAsync();
@@ -205,43 +270,73 @@
                 }
                 catch (Exception ex)
                 {
-                    if (isConsoleLoggingEnabled) Console.Error.WriteLine($"{ex.Message}");
+                    if (_isConsoleLoggingEnabled)
+                    {
+                        Console.Error.WriteLine($"{ex.Message}");
+                    }
+
                     throw;
                 }
                 finally
                 {
-                    if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up");
-                    if (isConsoleLoggingEnabled) Console.WriteLine($"Residual items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
+                    if (_isConsoleLoggingEnabled)
+                    {
+                        Console.WriteLine("Cleaning up");
+                    }
+
+                    if (_isConsoleLoggingEnabled)
+                    {
+                        Console.WriteLine($"Residual items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
+                    }
+
                     await queue.HardDeleteAsync(false);
-                    DeleteFolderAndFiles(folderNameSimpleQueue);
+                    DeleteFolderAndFiles(FolderNameSimpleQueue);
                 }
             }
+
             return outputInt;
         }
 
         public static DateTimeOffset TestComplexObjectQueueing(DateTimeOffset submittedTime)
         {
             DateTimeOffset retrievedTime;
-            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue for complex object queueing with sync api");
-            PersistentQueue<Report> queue = new(folderNameComplexQueue);
+            if (_isConsoleLoggingEnabled)
+            {
+                Console.WriteLine("Creating queue for complex object queueing with sync api");
+            }
+
+            PersistentQueue<Report> queue = new(FolderNameComplexQueue);
             try
             {
                 Report myTestReport = new()
                 {
-                    Id = new(),
+                    Id = Guid.Empty,
                     ReportType = 2,
                     DataField = "test",
                     LocalTime = submittedTime,
                 };
-                if (isConsoleLoggingEnabled) Console.WriteLine($"Existing items: {queue.EstimatedCountOfItemsInQueue}");
-                if (isConsoleLoggingEnabled) Console.WriteLine("Enqueueing object");
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine($"Existing items: {queue.EstimatedCountOfItemsInQueue}");
+                }
+
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Enqueueing object");
+                }
+
                 using (var session = queue.OpenSession())
                 {
                     // This will serialize our test object.
                     session.Enqueue(myTestReport);
                     session.Flush();
                 }
-                if (isConsoleLoggingEnabled) Console.WriteLine("Dequeueing object");
+
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Dequeueing object");
+                }
+
                 using (var session = queue.OpenSession())
                 {
                     Report? data = session.Dequeue();
@@ -251,43 +346,72 @@
             }
             catch (Exception ex)
             {
-                if (isConsoleLoggingEnabled) Console.Error.WriteLine($"{ex.Message}");
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.Error.WriteLine($"{ex.Message}");
+                }
+
                 throw;
             }
             finally
             {
-                if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up...");
-                if (isConsoleLoggingEnabled) Console.WriteLine($"Residual items: {queue.EstimatedCountOfItemsInQueue}");
-                queue.HardDelete(false);
-                DeleteFolderAndFiles(folderNameComplexQueue);
-            }
-            return retrievedTime;
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Cleaning up...");
+                }
 
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine($"Residual items: {queue.EstimatedCountOfItemsInQueue}");
+                }
+
+                queue.HardDelete(false);
+                DeleteFolderAndFiles(FolderNameComplexQueue);
+            }
+
+            return retrievedTime;
         }
 
         public static async Task<DateTimeOffset> TestComplexObjectQueueingAsync(DateTimeOffset submittedTime, IPersistentQueueFactory factory)
         {
             DateTimeOffset retrievedTime;
-            if (isConsoleLoggingEnabled) Console.WriteLine("Creating queue");
-            PersistentQueue<Report> queue = await factory.CreateAsync<Report>(folderNameComplexQueueAsync);
+            if (_isConsoleLoggingEnabled)
+            {
+                Console.WriteLine("Creating queue");
+            }
+
+            PersistentQueue<Report> queue = await factory.CreateAsync<Report>(FolderNameComplexQueueAsync);
             try
             {
                 Report myTestReport = new()
                 {
-                    Id = new(),
+                    Id = Guid.Empty,
                     ReportType = 2,
                     DataField = "test",
                     LocalTime = submittedTime,
                 };
-                if (isConsoleLoggingEnabled) Console.WriteLine($"Existing items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
-                if (isConsoleLoggingEnabled) Console.WriteLine("Enqueueing object");
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine($"Existing items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
+                }
+
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Enqueueing object");
+                }
+
                 await using (var session = await queue.OpenSessionAsync())
                 {
                     // This will serialize our test object.
                     await session.EnqueueAsync(myTestReport);
                     await session.FlushAsync();
                 }
-                if (isConsoleLoggingEnabled) Console.WriteLine("Dequeueing object");
+
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Dequeueing object");
+                }
+
                 await using (var session = await queue.OpenSessionAsync())
                 {
                     Report? data = await session.DequeueAsync();
@@ -297,18 +421,37 @@
             }
             catch (Exception ex)
             {
-                if (isConsoleLoggingEnabled) Console.Error.WriteLine($"{ex.Message}");
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.Error.WriteLine($"{ex.Message}");
+                }
+
                 throw;
             }
             finally
             {
-                if (isConsoleLoggingEnabled) Console.WriteLine("Cleaning up...");
-                if (isConsoleLoggingEnabled) Console.WriteLine($"Residual items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
-                await queue.HardDeleteAsync(false);
-                DeleteFolderAndFiles(folderNameComplexQueue);
-            }
-            return retrievedTime;
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine("Cleaning up...");
+                }
 
+                if (_isConsoleLoggingEnabled)
+                {
+                    Console.WriteLine($"Residual items: {await queue.GetEstimatedCountOfItemsInQueueAsync()}");
+                }
+
+                await queue.HardDeleteAsync(false);
+                DeleteFolderAndFiles(FolderNameComplexQueue);
+            }
+
+            return retrievedTime;
+        }
+
+        private static void ConfigureServices(IServiceCollection services)
+        {
+            // services.AddLogging();
+            // Register PersistentQueueFactory as a singleton
+            services.AddModernDiskQueue();
         }
 
         private static void DeleteFolderAndFiles(string folderName)
@@ -320,6 +463,7 @@
                 {
                     DeleteFolderAndFiles(dir.FullName);
                 }
+
                 dirInfo.Delete(true);
             }
         }
