@@ -1,10 +1,10 @@
 ﻿namespace ModernDiskQueue.Benchmarks
 {
-    using System;
-    using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue;
+    using System;
+    using System.Threading.Tasks;
 
     [Config(typeof(BenchmarkConfigNormal))]
     public class HighVolumeEnqueues

@@ -1,19 +1,11 @@
 namespace ModernDiskQueue.Tests
 {
-    using Microsoft.ApplicationInsights;
     using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using Microsoft.Extensions.Logging.Console;
-    using Microsoft.VisualBasic;
-    using ModernDiskQueue.Implementation;
-    using ModernDiskQueue.Tests.Models;
     using NSubstitute;
     using NUnit.Framework;
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Linq;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
@@ -91,7 +83,6 @@ namespace ModernDiskQueue.Tests
         {
             const int NumberOfObjects = 1000;
             const int NumberOfEnqueueThreads = 100;
-            const int EnqueueHeadstartInSeconds = 18;
             const int TimeoutForQueueCreationDuringEnqueueInSeconds = 100;
             const int TimeoutForQueueCreationDuringDequeueInSeconds = 50;
             const int TimeoutForDequeueThreadInMinutes = 3;
@@ -619,7 +610,6 @@ namespace ModernDiskQueue.Tests
         }
         private async Task<int> DequeueStuff(int numberOfObjectsToEnqueue, int timeoutForQueueCreation)
         {
-            int totalDequeues = 0;
             int count = numberOfObjectsToEnqueue;
 
             try

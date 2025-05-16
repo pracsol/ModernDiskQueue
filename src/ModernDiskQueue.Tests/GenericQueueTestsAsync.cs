@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
-using NUnit.Framework;
 using NSubstitute;
+using NUnit.Framework;
 using System;
 using System.Threading.Tasks;
 // ReSharper disable AssignNullToNotNullAttribute

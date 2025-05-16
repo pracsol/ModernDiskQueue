@@ -1,7 +1,6 @@
 ﻿
 namespace ModernDiskQueue.Tests
 {
-    using ModernDiskQueue.Tests.Helpers;
     using NUnit.Framework;
     using System;
     using System.Diagnostics;

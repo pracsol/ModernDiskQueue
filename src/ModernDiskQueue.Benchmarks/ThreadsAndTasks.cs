@@ -2,8 +2,8 @@
 {
     using BenchmarkDotNet.Attributes;
     using Microsoft.Extensions.Logging;
-    using System;
     using ModernDiskQueue;
+    using System;
     using System.Threading.Tasks;
 
     [Config(typeof(BenchmarkConfigThreadTaskComparison))]

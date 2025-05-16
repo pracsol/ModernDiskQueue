@@ -375,7 +375,6 @@
             int t2s;
             int t1s = t2s = 0;
             const int target = 100;
-            Exception? lastException = null;
 
             var producerThread = new Thread(() =>
             {

@@ -1,5 +1,4 @@
-﻿using Microsoft.VSDiagnostics;
-using BenchmarkDotNet.Running;
+﻿using BenchmarkDotNet.Running;
 
 namespace ModernDiskQueue.Benchmarks
 {

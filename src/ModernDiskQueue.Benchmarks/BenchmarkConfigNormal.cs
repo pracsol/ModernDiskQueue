@@ -1,12 +1,12 @@
 ﻿namespace ModernDiskQueue.Benchmarks
 {
-    using BenchmarkDotNet.Diagnosers;
-    using BenchmarkDotNet.Exporters.Csv;
-    using BenchmarkDotNet.Exporters;
-    using BenchmarkDotNet.Jobs;
-    using BenchmarkDotNet.Configs;
-    using BenchmarkDotNet.Loggers;
     using BenchmarkDotNet.Columns;
+    using BenchmarkDotNet.Configs;
+    using BenchmarkDotNet.Diagnosers;
+    using BenchmarkDotNet.Exporters;
+    using BenchmarkDotNet.Exporters.Csv;
+    using BenchmarkDotNet.Jobs;
+    using BenchmarkDotNet.Loggers;
 
     internal class BenchmarkConfigNormal : ManualConfig
     {

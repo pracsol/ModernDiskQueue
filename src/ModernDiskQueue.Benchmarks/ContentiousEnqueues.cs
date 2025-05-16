@@ -2,11 +2,11 @@
 {
     using BenchmarkDotNet.Attributes;
     using Microsoft.Extensions.Logging;
+    using ModernDiskQueue;
     using System;
     using System.Collections.Concurrent;
     using System.Text;
     using System.Threading.Tasks;
-    using ModernDiskQueue;
 
     [Config(typeof(BenchmarkConfigLongRunning))]
     public class ContentiousEnqueues
@@ -248,7 +248,6 @@
             int timeoutForQueueCreationDuringEnqueueInSeconds = 50;
             int timeoutForDequeueThreadsInMinutes = 3;
             int timeoutForEnqueueThreadInMinutes = 3;
-            var totalDequeues = 0;
             var successfulThreads = 0;
             var failedThreads = new ConcurrentBag<(int threadId, string reason)>();
 

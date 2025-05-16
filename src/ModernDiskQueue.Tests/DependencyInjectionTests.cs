@@ -6,7 +6,6 @@
     using ModernDiskQueue.Tests.Models;
     using NUnit.Framework;
     using System;
-    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
 
@@ -176,9 +175,6 @@
         [Test]
         public async Task CreateQueueFromFactory_InvokeCallToFileDriver_LoggingMessagesUseDiContainerLogger()
         {
-            // Arrange
-            int originalTimeout = 0;
-            int changedTimeout = 0;
             // Arrange
             var factory = _serviceProvider.GetRequiredService<IPersistentQueueFactory>();
 

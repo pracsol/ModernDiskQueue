@@ -1,10 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
-using ModernDiskQueue.Implementation.CrossPlatform.Unix;
+﻿using ModernDiskQueue.Implementation.CrossPlatform.Unix;
 using System;
 using System.IO;
 using System.Security.AccessControl;
 using System.Security.Principal;
-using System.Threading.Tasks;
 
 namespace ModernDiskQueue.Implementation
 {

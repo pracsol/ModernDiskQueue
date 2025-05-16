@@ -140,7 +140,6 @@
         {
             //services.AddLogging();
             // Register PersistentQueueFactory as a singleton
-            ModernDiskQueueTrimHelper.EnsureTypesArePreserved();
             services.AddModernDiskQueue();
         }
 
