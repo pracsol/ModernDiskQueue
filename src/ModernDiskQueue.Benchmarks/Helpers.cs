@@ -1,4 +1,10 @@
-﻿namespace ModernDiskQueue.Benchmarks
+﻿// -----------------------------------------------------------------------
+// <copyright file="Helpers.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+// -----------------------------------------------------------------------
+
+namespace ModernDiskQueue.Benchmarks
 {
     internal static class Helpers
     {
@@ -6,7 +12,10 @@
         {
             try
             {
-                if (!Directory.Exists(path)) return;
+                if (!Directory.Exists(path))
+                {
+                    return;
+                }
 
                 var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
                 Console.WriteLine($"Attempting to delete {files.Length} files manually");
@@ -55,6 +64,5 @@
                 Console.WriteLine($"Error in manual cleanup: {ex.Message}");
             }
         }
-
     }
 }

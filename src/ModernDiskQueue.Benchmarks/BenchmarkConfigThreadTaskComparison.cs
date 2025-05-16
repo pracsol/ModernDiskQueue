@@ -1,4 +1,10 @@
-﻿namespace ModernDiskQueue.Benchmarks
+﻿// -----------------------------------------------------------------------
+// <copyright file="BenchmarkConfigThreadTaskComparison.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+// -----------------------------------------------------------------------
+
+namespace ModernDiskQueue.Benchmarks
 {
     using BenchmarkDotNet.Columns;
     using BenchmarkDotNet.Configs;
@@ -25,7 +31,8 @@
             AddColumnProvider(DefaultColumnProviders.Instance);
             AddDiagnoser(ThreadingDiagnoser.Default);
             AddDiagnoser(MemoryDiagnoser.Default);
-            //AddDiagnoser(new ConcurrencyVisualizerProfiler());
+
+            // AddDiagnoser(new ConcurrencyVisualizerProfiler());
             AddExporter(MarkdownExporter.Default);
             AddExporter(CsvExporter.Default);
         }

@@ -1,20 +1,27 @@
-﻿namespace ModernDiskQueue.Benchmarks
+﻿// -----------------------------------------------------------------------
+// <copyright file="ContentiousEnqueues.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+// -----------------------------------------------------------------------
+
+namespace ModernDiskQueue.Benchmarks
 {
-    using BenchmarkDotNet.Attributes;
-    using Microsoft.Extensions.Logging;
-    using ModernDiskQueue;
     using System;
     using System.Collections.Concurrent;
     using System.Text;
     using System.Threading.Tasks;
+    using BenchmarkDotNet.Attributes;
+    using Microsoft.Extensions.Logging;
+    using ModernDiskQueue;
 
     [Config(typeof(BenchmarkConfigLongRunning))]
     public class ContentiousEnqueues
     {
-        private PersistentQueueFactory _factory;
         private const string QueuePath = "AsyncEnqueue";
-        public event Action<int>? ProgressUpdated;
         private static int _progressCounter = 0;
+        private PersistentQueueFactory _factory = new ();
+
+        public event Action<int>? ProgressUpdated;
 
         [GlobalSetup]
         public void Setup()
@@ -97,13 +104,15 @@
 
                                 await using (var s = await q.OpenSessionAsync())
                                 {
-                                    //Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} is enqueueing");
+                                    // Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} is enqueueing");
                                     await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
                                     await s.FlushAsync();
                                 }
                             }
-                            //await Task.Delay(5);
+
+                            // await Task.Delay(5);
                         }
+
                         Console.WriteLine($"Enqueue thread finished");
                     });
                 }
@@ -117,7 +126,7 @@
                 }
             })
             {
-                IsBackground = true
+                IsBackground = true,
             };
 
             enqueueThread.Start();
@@ -141,7 +150,7 @@
 
                     threads[i] = new Thread(() =>
                     {
-                        var count = numberOfObjectsToEnqueue/numberOfDequeueThreads;
+                        var count = numberOfObjectsToEnqueue / numberOfDequeueThreads;
                         try
                         {
                             RunAsyncInThread(async () =>
@@ -155,13 +164,13 @@
                                     if (retryCount > 0)
                                     {
                                         // Exponential backoff with jitter
-                                        var backoffTime = Math.Min(50 * Math.Pow(1.5, Math.Min(retryCount, 10)) + rnd.Next(50), 2000);
-                                        //await Task.Delay((int)backoffTime);
+                                        var backoffTime = Math.Min((50 * Math.Pow(1.5, Math.Min(retryCount, 10))) + rnd.Next(50), 2000);
+
+                                        // await Task.Delay((int)backoffTime);
                                     }
 
                                     try
                                     {
-
                                         await using var q = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(timeoutForQueueCreationDuringDequeueInSeconds));
                                         {
                                             await using var s = await q.OpenSessionAsync();
@@ -180,9 +189,10 @@
                                                 }
                                             }
                                         }
+
                                         // Add a small intentional pause between operations
                                         // to reduce the chance that the same thread re-acquires the lock instantly
-                                        //await Task.Delay(20 + rnd.Next(30));
+                                        // await Task.Delay(20 + rnd.Next(30));
                                     }
                                     catch (TimeoutException)
                                     {
@@ -191,6 +201,7 @@
                                         throw;
                                     }
                                 }
+
                                 _ = Interlocked.Increment(ref successfulThreads);
                             });
                         }
@@ -233,6 +244,7 @@
                 {
                     dequeueCompletedEvents[i].Dispose();
                 }
+
                 enqueueCompleted.Dispose();
             }
         }
@@ -283,6 +295,7 @@
                             }
                         }
                     }
+
                     Console.WriteLine($"Enqueue thread finished.");
                 }
                 catch (Exception ex)
@@ -295,7 +308,7 @@
                 }
             })
             {
-                IsBackground = true
+                IsBackground = true,
             };
 
             enqueueThread.Start();
@@ -318,7 +331,7 @@
                     threads[i] = new Thread(() =>
                     {
                         var threadIndex = Environment.CurrentManagedThreadId;
-                        var count = numberOfObjectsToEnqueue/numberOfDequeueThreads;
+                        var count = numberOfObjectsToEnqueue / numberOfDequeueThreads;
 
                         try
                         {
@@ -340,6 +353,7 @@
                                     }
                                 }
                             }
+
                             Interlocked.Increment(ref successfulThreads);
                         }
                         catch (TimeoutException ex)
@@ -380,6 +394,7 @@
                 {
                     dequeueCompletedEvents[i].Dispose();
                 }
+
                 enqueueCompleted.Dispose();
             }
         }

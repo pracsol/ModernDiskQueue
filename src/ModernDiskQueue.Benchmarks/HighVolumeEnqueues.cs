@@ -1,18 +1,22 @@
-﻿namespace ModernDiskQueue.Benchmarks
+﻿// -----------------------------------------------------------------------
+// <copyright file="HighVolumeEnqueues.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+// -----------------------------------------------------------------------
+
+namespace ModernDiskQueue.Benchmarks
 {
+    using System;
+    using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue;
-    using System;
-    using System.Threading.Tasks;
 
     [Config(typeof(BenchmarkConfigNormal))]
     public class HighVolumeEnqueues
     {
-        private PersistentQueueFactory  _factory;
         private const string QueuePath = "AsyncEnqueue";
-        public event Action<int>? ProgressUpdated;
-        private static int _progressCounter = 0;
+        private PersistentQueueFactory _factory = new PersistentQueueFactory();
 
         [GlobalSetup]
         public void Setup()
@@ -52,6 +56,7 @@
                     {
                         await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -69,6 +74,7 @@
                     {
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                     }
+
                     session.Flush();
                 }
             }
@@ -86,8 +92,10 @@
                     {
                         await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                     }
+
                     await session.FlushAsync();
                 }
+
                 await using (var session = await queue.OpenSessionAsync())
                 {
                     for (int i = 0; i < countOfItemsToEnqueue; i++)
@@ -98,6 +106,7 @@
                             throw new Exception("Dequeue failed");
                         }
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -115,9 +124,11 @@
                     {
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                     }
+
                     session.Flush();
                 }
             }
+
             using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
@@ -130,6 +141,7 @@
                             throw new Exception("Dequeue failed");
                         }
                     }
+
                     session.Flush();
                 }
             }
@@ -149,6 +161,7 @@
                         await session.FlushAsync();
                     }
                 }
+
                 await using (var session = await queue.OpenSessionAsync())
                 {
                     for (int i = 0; i < countOfItemsToEnqueue; i++)
@@ -158,6 +171,7 @@
                         {
                             throw new Exception("Dequeue failed");
                         }
+
                         await session.FlushAsync();
                     }
                 }
@@ -179,6 +193,7 @@
                     }
                 }
             }
+
             using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
@@ -190,6 +205,7 @@
                         {
                             throw new Exception("Dequeue failed");
                         }
+
                         session.Flush();
                     }
                 }

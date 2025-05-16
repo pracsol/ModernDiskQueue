@@ -1,19 +1,28 @@
-﻿namespace ModernDiskQueue.Benchmarks
+﻿// -----------------------------------------------------------------------
+// <copyright file="ThreadsAndTasks.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+// -----------------------------------------------------------------------
+
+namespace ModernDiskQueue.Benchmarks
 {
+    using System;
+    using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue;
-    using System;
-    using System.Threading.Tasks;
 
+    /// <summary>
+    /// Benchmarks the performance of enqueuing and dequeuing objects using threads and tasks.
+    /// </summary>
     [Config(typeof(BenchmarkConfigThreadTaskComparison))]
     public partial class ThreadsAndTasks
     {
-        private PersistentQueueFactory _factory;
         private const int CountOfObjectsToEnqueue = 100;
         private const string QueuePathForAsyncThreads = "AsyncThreadBased";
         private const string QueuePathForAsyncTasks = "AsyncTaskBased";
         private const string QueuePathForSyncThreads = "SyncThreadBased";
+        private PersistentQueueFactory _factory = new ();
 
         [GlobalSetup]
         public void Setup()
@@ -50,7 +59,9 @@
         {
             const int TargetObjectCount = CountOfObjectsToEnqueue;
             int enqueueCount = 0, dequeueCount = 0;
-            var rnd = new Random();
+
+            // Use a thread-local Random instance to avoid race conditions
+            ThreadLocal<Random> threadLocalRandom = new (() => new Random());
 
             IPersistentQueue q = new PersistentQueue(QueuePathForSyncThreads);
 
@@ -64,7 +75,7 @@
                         {
                             session.Enqueue(new byte[] { 1, 2, 3, 4 });
                             Interlocked.Increment(ref enqueueCount);
-                            Thread.Sleep(rnd.Next(0, 100));
+                            Thread.Sleep(millisecondsTimeout: threadLocalRandom.Value!.Next(0, 100));
                             session.Flush();
                         }
                     }
@@ -74,9 +85,9 @@
                     Console.WriteLine($"Producer thread exception: {ex.Message}");
                 }
             })
-            { IsBackground = true, Name = "Enqueueing Thread" }; ;
+            { IsBackground = true, Name = "Enqueueing Thread" };
 
-            var consumerThread = new Thread(()=>
+            var consumerThread = new Thread(() =>
             {
                 try
                 {
@@ -92,8 +103,7 @@
                             }
                             else
                             {
-                                //Console.WriteLine("got nothing, I'm starved for objects so backing off..");
-                                Thread.Sleep(rnd.Next(0, 100));
+                                Thread.Sleep(threadLocalRandom.Value!.Next(0, 100));
                             }
                         }
                     }
@@ -104,7 +114,7 @@
                     Console.WriteLine($"Consumer thread exception: {ex.Message}");
                 }
             })
-            { IsBackground = true, Name = "Dequeueing Thread" }; ;
+            { IsBackground = true, Name = "Dequeueing Thread" };
 
             producerThread.Start();
             consumerThread.Start();
@@ -155,7 +165,7 @@
             })
             { IsBackground = true, Name = "Enqueueing Thread" };
 
-            var consumerThread = new Thread(()=>
+            var consumerThread = new Thread(() =>
             {
                 RunAsyncInDedicatedThread(async () =>
                 {
@@ -250,6 +260,7 @@
                             await session.FlushAsync();
                         }
                     }
+
                     enqueueCompletionSource.SetResult(true);
                 }
                 catch (Exception ex)
@@ -277,7 +288,6 @@
                             }
                             else
                             {
-                                //Console.WriteLine("got nothing, I'm starved for objects so backing off..");
                                 await Task.Delay(rnd.Next(0, 100)); // Wait a bit if nothing to dequeue
                             }
                         }
@@ -296,7 +306,7 @@
             var completionTasks = new[]
             {
                 enqueueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2)),
-                dequeueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2))
+                dequeueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2)),
             };
 
             try
@@ -306,9 +316,14 @@
             catch (TimeoutException)
             {
                 if (!enqueueCompletionSource.Task.IsCompleted)
+                {
                     Console.WriteLine("Producer task timed out.");
+                }
+
                 if (!dequeueCompletionSource.Task.IsCompleted)
+                {
                     Console.WriteLine("Consumer task timed out.");
+                }
             }
 
             await q.DisposeAsync();
@@ -330,20 +345,22 @@
                 {
                     // Create a new synchronization context for the dedicated thread.
                     var syncCtx = new SingleThreadSynchronizationContext();
+
                     // Set the synchronization context to the new one.
                     SynchronizationContext.SetSynchronizationContext(syncCtx);
 
                     // Run the async function on the dedicated thread.
-                    asyncFunc().ContinueWith(t =>
-                    {
-                        if (t.IsFaulted && t.Exception != null)
+                    asyncFunc().ContinueWith(
+                        t =>
                         {
-                            capturedException = t.Exception.InnerException ?? t.Exception;
-                        }
+                            if (t.IsFaulted && t.Exception != null)
+                            {
+                                capturedException = t.Exception.InnerException ?? t.Exception;
+                            }
 
-                        // Complete the synchronization context.
-                        syncCtx.Complete();
-                    }, TaskScheduler.Default);
+                            // Complete the synchronization context.
+                            syncCtx.Complete();
+                        }, TaskScheduler.Default);
 
                     // Run the message loop on the dedicated thread.
                     syncCtx.RunOnCurrentThread();
@@ -356,7 +373,7 @@
                 }
             })
             {
-                IsBackground = true
+                IsBackground = true,
             };
 
             thread.Start();
