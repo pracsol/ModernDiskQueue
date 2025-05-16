@@ -1,10 +1,14 @@
-using ModernDiskQueue.Implementation;
-using NUnit.Framework;
-using System;
-using System.Linq;
+// <copyright file="PendingWriteExceptionTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
+    using System;
+    using System.Linq;
+    using ModernDiskQueue.Implementation;
+    using NUnit.Framework;
+
     [TestFixture]
     public class PendingWriteExceptionTests
     {
@@ -17,10 +21,9 @@ namespace ModernDiskQueue.Tests
             }
             catch (Exception e)
             {
-                var s = new PendingWriteException(new []{e}).ToString();
+                var s = new PendingWriteException([e]).ToString();
                 Assert.That(
-                    s.Contains(e.ToString()), Is.True
-                    );
+                    s.Contains(e.ToString()), Is.True);
             }
         }
 
@@ -33,10 +36,10 @@ namespace ModernDiskQueue.Tests
             }
             catch (Exception e)
             {
-                var s = new PendingWriteException(new [] { e });
+                var s = new PendingWriteException([e]);
                 Assert.That(
-                    s.PendingWritesExceptions.Contains(e), Is.True
-                    );
+                    s.PendingWritesExceptions.Contains(e),
+                    Is.True);
             }
         }
     }

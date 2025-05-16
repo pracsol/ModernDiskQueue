@@ -16,7 +16,22 @@ namespace ModernDiskQueue.Implementation
         /// </summary>
         public static void TryAllowReadWriteForAll(string path)
         {
-            if (!PersistentQueue.DefaultSettings.SetFilePermissions) return;
+            TryAllowReadWriteForAll(path, PersistentQueue.DefaultSettings.SetFilePermissions);
+        }
+
+        /// <summary>
+        /// Set read-write access for all users, or ignore if not possible
+        /// </summary>
+        /// <remarks>
+        /// This overload was created to support the retrieval of the SetFilePermissions from the ModernDiskQueueOptions class
+        /// injected into StandardFileDriver and PersistentQueueImpl, instead of the PersistentQueue.DefaultSettings static class.
+        /// As such, it should only be used by the async methods in those classes.
+        /// </remarks>
+        /// <param name="path">path of object on which to set permissions.</param>
+        /// <param name="setFilePermissions"><see cref="ModernDiskQueueOptions.SetFilePermissions"/></param>
+        public static void TryAllowReadWriteForAll(string path, bool setFilePermissions)
+        {
+            if (!setFilePermissions) return;
             try
             {
                 if (Directory.Exists(path)) Directory_RWX_all(path);

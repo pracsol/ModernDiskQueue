@@ -1,12 +1,17 @@
-﻿using NUnit.Framework;
-using System;
-using System.Threading;
+﻿// <copyright file="ThreadSafeAccessTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 // ReSharper disable PossibleNullReferenceException
 // ReSharper disable InconsistentNaming
-
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using System;
+    using System.Threading;
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class ThreadSafeAccessTests
     {
         [Test]
@@ -14,11 +19,11 @@ namespace ModernDiskQueue.Tests
         {
             // ReSharper disable InconsistentNaming
             int t1s, t2s;
+
             // ReSharper restore InconsistentNaming
             t1s = t2s = 0;
             const int target = 100;
             var rnd = new Random();
-
 
             IPersistentQueue subject = new PersistentQueue("queue_ta");
             var t1 = new Thread(() =>
@@ -36,7 +41,7 @@ namespace ModernDiskQueue.Tests
                     }
                 }
             });
-            var t2 = new Thread(()=>
+            var t2 = new Thread(() =>
             {
                 for (int i = 0; i < target; i++)
                 {
@@ -66,6 +71,7 @@ namespace ModernDiskQueue.Tests
         {
             // ReSharper disable InconsistentNaming
             int t1s, t2s;
+
             // ReSharper restore InconsistentNaming
             t1s = t2s = 0;
             const int target = 100;
@@ -84,11 +90,12 @@ namespace ModernDiskQueue.Tests
                             session.Flush();
                             Console.Write(")");
                         }
+
                         Thread.Sleep(0);
                     }
                 }
             });
-            var t2 = new Thread(()=>
+            var t2 = new Thread(() =>
             {
                 for (int i = 0; i < target; i++)
                 {
@@ -102,6 +109,7 @@ namespace ModernDiskQueue.Tests
                             session.Flush();
                             Console.Write(">");
                         }
+
                         Thread.Sleep(0);
                     }
                 }
@@ -121,6 +129,7 @@ namespace ModernDiskQueue.Tests
         {
             // ReSharper disable InconsistentNaming
             int t2s;
+
             // ReSharper restore InconsistentNaming
             var t1s = t2s = 0;
             const int target = 100;
@@ -139,11 +148,12 @@ namespace ModernDiskQueue.Tests
                             session.Flush();
                             Console.Write(")");
                         }
+
                         Thread.Sleep(0);
                     }
                 }
             });
-            var t2 = new Thread(()=>
+            var t2 = new Thread(() =>
             {
                 for (int i = 0; i < target; i++)
                 {
@@ -157,6 +167,7 @@ namespace ModernDiskQueue.Tests
                             session.Flush();
                             Console.Write(">");
                         }
+
                         Thread.Sleep(0);
                     }
                 }

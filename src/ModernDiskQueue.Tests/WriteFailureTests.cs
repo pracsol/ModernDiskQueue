@@ -1,19 +1,22 @@
-﻿using ModernDiskQueue.Implementation;
-using NUnit.Framework;
-using System;
-using System.IO;
+﻿// <copyright file="WriteFailureTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
+    using System.IO;
+    using ModernDiskQueue.Implementation;
+    using NUnit.Framework;
+
     [TestFixture]
     public class WriteFailureTests : PersistentQueueTestsBase
     {
-        protected override string Path => "./WriteFailureTests";
+        protected override string QueuePath => "./WriteFailureTests";
 
         [Test]
         public void EnqueueFailsIfDiskIsFullButDequeueStillWorks()
         {
-            using var subject = new PersistentQueue(Path);
+            using var subject = new PersistentQueue(QueuePath);
             subject.HardDelete(true);
 
             using (var session = subject.OpenSession())
@@ -43,70 +46,5 @@ namespace ModernDiskQueue.Tests
             // Restore driver so we can dispose correctly.
             subject.Internals.SetFileDriver(new StandardFileDriver());
         }
-    }
-
-    public class WriteFailureDriver : IFileDriver
-    {
-        private readonly StandardFileDriver _realDriver;
-
-        public WriteFailureDriver()
-        {
-            _realDriver = new StandardFileDriver();
-        }
-
-        public string GetFullPath(string path) => Path.GetFullPath(path);
-        public bool DirectoryExists(string path) => Directory.Exists(path);
-        public string PathCombine(string a, string b) => Path.Combine(a, b);
-
-        public Maybe<ILockFile> CreateLockFile(string path)
-        {
-            throw new IOException("Sample CreateLockFile error");
-        }
-
-        public void ReleaseLock(ILockFile fileLock) { }
-
-        public void PrepareDelete(string path)
-        {
-            _realDriver.PrepareDelete(path);
-        }
-
-        public void Finalise()
-        {
-            _realDriver.Finalise();
-        }
-
-        public void CreateDirectory(string path) { }
-
-        public IFileStream OpenTransactionLog(string path, int bufferLength)
-        {
-            return _realDriver.OpenTransactionLog(path, bufferLength);
-        }
-
-        public IFileStream OpenReadStream(string path)
-        {
-            return _realDriver.OpenReadStream(path);
-        }
-
-        public IFileStream OpenWriteStream(string dataFilePath)
-        {
-            throw new IOException("Sample OpenWriteStream error");
-        }
-
-        public bool AtomicRead(string path, Action<IBinaryReader> action)
-        {
-            return _realDriver.AtomicRead(path, action);
-        }
-
-        public void AtomicWrite(string path, Action<IBinaryWriter> action)
-        {
-            throw new IOException("Sample AtomicWrite error");
-        }
-
-        public bool FileExists(string path)
-        {
-            return _realDriver.FileExists(path);
-        }
-
-        public void DeleteRecursive(string path) { }
     }
 }

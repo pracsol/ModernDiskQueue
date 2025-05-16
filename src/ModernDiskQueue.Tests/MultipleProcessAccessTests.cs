@@ -1,19 +1,22 @@
-﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Threading;
+﻿// <copyright file="MultipleProcessAccessTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 // ReSharper disable PossibleNullReferenceException
-
 namespace ModernDiskQueue.Tests
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Threading;
+    using NUnit.Framework;
+
     [TestFixture]
     public class MultipleProcessAccessTests : PersistentQueueTestsBase
     {
-        protected override string Path => "./MultipleProcessAccessTests";
+        protected override string QueuePath => "./MultipleProcessAccessTests";
 
-        [Test,
-         Description("Multiple PersistentQueue instances are " +
+        [Test]
+        [Description("Multiple PersistentQueue instances are " +
                      "pretty much the same as multiple processes to " +
                      "the DiskQueue library")]
         public void Can_access_from_multiple_queues_if_used_carefully()
@@ -33,7 +36,10 @@ namespace ModernDiskQueue.Tests
                 while (received.Count < numberOfItems)
                 {
                     var data = ReadQueue();
-                    if (data != null) received.Add(data);
+                    if (data != null)
+                    {
+                        received.Add(data);
+                    }
                 }
             });
 
@@ -70,7 +76,10 @@ namespace ModernDiskQueue.Tests
                 while (received.Count < numberOfItems)
                 {
                     var data = ReadQueueString();
-                    if (data != null) received.Add(data);
+                    if (data != null)
+                    {
+                        received.Add(data);
+                    }
                 }
             });
 
@@ -92,7 +101,7 @@ namespace ModernDiskQueue.Tests
         private void AddToQueueString(string data)
         {
             Thread.Sleep(152);
-            using var queue = PersistentQueue.WaitFor<string>(Path, TimeSpan.FromSeconds(30));
+            using var queue = PersistentQueue.WaitFor<string>(QueuePath, TimeSpan.FromSeconds(30));
             using var session = queue.OpenSession();
 
             session.Enqueue(data);
@@ -102,7 +111,7 @@ namespace ModernDiskQueue.Tests
         private string? ReadQueueString()
         {
             Thread.Sleep(121);
-            using var queue = PersistentQueue.WaitFor<string>(Path, TimeSpan.FromSeconds(30));
+            using var queue = PersistentQueue.WaitFor<string>(QueuePath, TimeSpan.FromSeconds(30));
             using var session = queue.OpenSession();
             var data = session.Dequeue();
             session.Flush();
@@ -112,7 +121,7 @@ namespace ModernDiskQueue.Tests
         private void AddToQueue(byte[] data)
         {
             Thread.Sleep(152);
-            using (var queue = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(30)))
+            using (var queue = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(30)))
             using (var session = queue.OpenSession())
             {
                 session.Enqueue(data);
@@ -123,7 +132,7 @@ namespace ModernDiskQueue.Tests
         private byte[]? ReadQueue()
         {
             Thread.Sleep(121);
-            using (var queue = PersistentQueue.WaitFor(Path, TimeSpan.FromSeconds(30)))
+            using (var queue = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(30)))
             using (var session = queue.OpenSession())
             {
                 var data = session.Dequeue();

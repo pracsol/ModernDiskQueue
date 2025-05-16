@@ -1,7 +1,8 @@
-﻿using System.IO;
-
+﻿
 namespace ModernDiskQueue.Implementation
 {
+    using System.IO;
+    using System.Threading.Tasks;
     /// <summary>
     /// An inter-process lock based on a file.
     /// This is based on holding an open file stream
@@ -33,6 +34,22 @@ namespace ModernDiskQueue.Implementation
             catch
             {
                 // ignore?
+            }
+        }
+
+        /// <summary>
+        /// Remove a filesystem based lock (releases the lock across all processes)
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            await _stream.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                File.Delete(_path);
+            }
+            catch
+            {
+                // ignore? Should log tho
             }
         }
     }

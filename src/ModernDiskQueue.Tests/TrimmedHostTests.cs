@@ -1,10 +1,13 @@
-﻿
+﻿// <copyright file="TrimmedHostTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 namespace ModernDiskQueue.Tests
 {
-    using NUnit.Framework;
     using System;
     using System.Diagnostics;
     using System.IO;
+    using NUnit.Framework;
 
     [TestFixture]
     public class TrimmedHostTests
@@ -20,7 +23,7 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public void TestTrimmedExecutable_ComplexTypeWithDefaultSerializer_CantDeserialize()
+        public void TestTrimmedExecutable_ComplexTypeWithDefaultSerializer_CannotDeserialize()
         {
             string path = "TrimmedHost/TestTrimmedExecutable.exe";
             DateTimeOffset inputDate = DateTimeOffset.Now;
@@ -28,7 +31,7 @@ namespace ModernDiskQueue.Tests
             string stdOut, stdErr = string.Empty;
             int processTimeOut = 3000;
 
-            //ARRANGE
+            // ARRANGE
             var processStartInfo = new ProcessStartInfo()
             {
                 FileName = path,
@@ -44,6 +47,7 @@ namespace ModernDiskQueue.Tests
             try
             {
                 // ACT
+                Console.WriteLine($"TestTrimmedExecutable Arguments: {processStartInfo.Arguments}");
                 using (var process = new Process { StartInfo = processStartInfo })
                 {
                     process.Start();
@@ -57,11 +61,18 @@ namespace ModernDiskQueue.Tests
                         Assert.Fail("Executable did not complete within specified timeout.");
                     }
 
-                    if (!string.IsNullOrEmpty(stdErr))
+                    if (stdErr.Contains("InvalidDataContractException") &&
+                            stdErr.Contains("No set method for property 'OffsetMinutes' in type 'System.Runtime.Serialization.DateTimeOffsetAdapter'. The class cannot be deserialized."))
                     {
-                        Assert.Pass($"Executable returned an error: {stdErr}");
+                        Assert.Pass("Test passed. Executable returned expected error about failing deserialization using default serialization strategy.");
+                    }
+                    else if (!string.IsNullOrEmpty(stdErr))
+                    {
+                        Console.WriteLine($"StdErr: {stdErr}");
+                        Assert.Fail($"Executable returned an error, but not the expected error: {stdErr}");
                     }
 
+                    Console.WriteLine($"Output was: {stdOut}");
                     Assert.That(stdOut, Is.Not.Empty, "Executable did not return any data.");
                     Assert.That(DateTimeOffset.TryParse(stdOut, out DateTimeOffset returnedValue), Is.True, "Could not parse returned value.");
                     Assert.That(inputDate, Is.EqualTo(returnedValue), "Returned value did not match input.");
@@ -71,8 +82,13 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("InvalidOperationException trying to run test.");
             }
-            catch (AssertionException) { }
-            catch (SuccessException) { }
+            catch (AssertionException)
+            {
+                Console.WriteLine("Failed.");
+            }
+            catch (SuccessException)
+            {
+            }
             catch (Exception ex)
             {
                 Assert.Fail($"Exception trying to run test. {ex.GetType().Name} {ex.Message} {ex.StackTrace} {stdErr}");
@@ -87,7 +103,7 @@ namespace ModernDiskQueue.Tests
             string stdOut, stdErr = string.Empty;
             int processTimeOut = 3000;
 
-            //ARRANGE
+            // ARRANGE
             var processStartInfo = new ProcessStartInfo()
             {
                 FileName = path,
@@ -103,12 +119,15 @@ namespace ModernDiskQueue.Tests
             try
             {
                 // ACT
+                Console.WriteLine($"TestTrimmedExecutable Arguments: {processStartInfo.Arguments}");
                 using (var process = new Process { StartInfo = processStartInfo })
                 {
                     process.Start();
                     stdOut = process.StandardOutput.ReadToEnd();
                     stdErr = process.StandardError.ReadToEnd();
                     bool isProcessDone = process.WaitForExit(processTimeOut);
+                    Console.WriteLine($"TestTrimmedExecutable Standard Output: {stdOut}");
+                    Console.WriteLine($"TestTrimmedExecutable Standard Error: {stdErr}");
 
                     if (!isProcessDone)
                     {
@@ -130,8 +149,12 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("InvalidOperationException trying to run test.");
             }
-            catch (AssertionException) { }
-            catch (SuccessException) { }
+            catch (AssertionException)
+            {
+            }
+            catch (SuccessException)
+            {
+            }
             catch (Exception ex)
             {
                 Assert.Fail($"Exception trying to run test. {ex.GetType().Name} {ex.Message} {ex.StackTrace} {stdErr}");

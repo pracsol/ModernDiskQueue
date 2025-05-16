@@ -1,9 +1,13 @@
-﻿using System.IO;
-using System.Runtime.Serialization;
-using System.Text;
-
+﻿
 namespace ModernDiskQueue.Implementation
 {
+    using ModernDiskQueue.PublicInterfaces;
+    using System.IO;
+    using System.Runtime.Serialization;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     /// <summary>
     /// This class performs basic serialization from objects of Type T to byte arrays suitable for use in DiskQueue sessions.
     /// <p></p>
@@ -44,6 +48,11 @@ namespace ModernDiskQueue.Implementation
             return (T)obj;
         }
 
+        public ValueTask<T?> DeserializeAsync(byte[]? bytes, CancellationToken cancellationToken = default)
+        {
+            return new ValueTask<T?>(Deserialize(bytes));
+        }
+
         /// <inheritdoc />
         public byte[]? Serialize(T? obj)
         {
@@ -57,6 +66,11 @@ namespace ModernDiskQueue.Implementation
             using MemoryStream ms = new();
             _serialiser.WriteObject(ms, obj);
             return ms.ToArray();
+        }
+
+        public ValueTask<byte[]?> SerializeAsync(T? obj, CancellationToken cancellationToken = default)
+        {
+            return new ValueTask<byte[]?>(Serialize(obj));
         }
     }
 }

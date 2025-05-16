@@ -1,8 +1,12 @@
-﻿using ModernDiskQueue.Implementation;
-using NUnit.Framework;
+﻿// <copyright file="LockFileDataSerializationTest.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
+    using ModernDiskQueue.Implementation;
+    using NUnit.Framework;
+
     [TestFixture]
     internal class LockFileDataSerializationTest
     {
@@ -13,14 +17,14 @@ namespace ModernDiskQueue.Tests
             {
                 8, 1, 0, 0,
                 16, 2, 0, 0,
-                32, 4, 0, 0, 0, 0, 0, 0
+                32, 4, 0, 0, 0, 0, 0, 0,
             };
 
             var data = new LockFileData
             {
-                ProcessId = 8 + 256 * 1,
-                ThreadId = 16 + 256 * 2,
-                ProcessStart = 32 + 256 * 4
+                ProcessId = 8 + (256 * 1),
+                ThreadId = 16 + (256 * 2),
+                ProcessStart = 32 + (256 * 4),
             };
 
             var actual = MarshallHelper.Serialize(data);
@@ -37,12 +41,13 @@ namespace ModernDiskQueue.Tests
             {
                 8, 1, 0, 0,
                 16, 2, 0, 0,
-                //32, 4, 0, 0, 0, 0, 0, 0 // no ProcessStart bytes
+
+                // 32, 4, 0, 0, 0, 0, 0, 0 // no ProcessStart bytes
             };
 
             var actual = MarshallHelper.Deserialize<LockFileData>(input);
-            Assert.That(8 + 256 * 1, Is.EqualTo(actual.ProcessId));
-            Assert.That(16 + 256 * 2, Is.EqualTo(actual.ThreadId));
+            Assert.That(8 + (256 * 1), Is.EqualTo(actual.ProcessId));
+            Assert.That(16 + (256 * 2), Is.EqualTo(actual.ThreadId));
             Assert.That(0, Is.EqualTo(actual.ProcessStart));
         }
 
@@ -53,13 +58,13 @@ namespace ModernDiskQueue.Tests
             {
                 8, 1, 0, 0,
                 16, 2, 0, 0,
-                32, 4, 0, 0, 0, 0, 0, 0
+                32, 4, 0, 0, 0, 0, 0, 0,
             };
 
             var actual = MarshallHelper.Deserialize<LockFileData>(input);
-            Assert.That(8 + 256 * 1, Is.EqualTo(actual.ProcessId));
-            Assert.That(16 + 256 * 2, Is.EqualTo(actual.ThreadId));
-            Assert.That(32 + 256 * 4, Is.EqualTo(actual.ProcessStart));
+            Assert.That(8 + (256 * 1), Is.EqualTo(actual.ProcessId));
+            Assert.That(16 + (256 * 2), Is.EqualTo(actual.ThreadId));
+            Assert.That(32 + (256 * 4), Is.EqualTo(actual.ProcessStart));
         }
     }
 }

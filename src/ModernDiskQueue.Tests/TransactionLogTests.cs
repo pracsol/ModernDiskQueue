@@ -1,24 +1,29 @@
-using ModernDiskQueue.Implementation;
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.IO;
+// <copyright file="TransactionLogTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 // ReSharper disable PossibleNullReferenceException
 // ReSharper disable AssignNullToNotNullAttribute
-
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using ModernDiskQueue.Implementation;
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class TransactionLogTests : PersistentQueueTestsBase
     {
-        protected override string Path => "./TransactionLogTests";
+        protected override string QueuePath => "./TransactionLogTests";
 
         [Test]
         public void Transaction_log_size_shrink_after_queue_disposed()
         {
             long txSizeWhenOpen;
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
-            using (var queue = new PersistentQueue(Path))
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 queue.Internals.ParanoidFlushing = false;
                 using (var session = queue.OpenSession())
@@ -27,6 +32,7 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                     }
+
                     session.Flush();
                 }
 
@@ -36,10 +42,13 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Dequeue();
                     }
+
                     session.Flush();
                 }
+
                 txSizeWhenOpen = txLogInfo.Length;
             }
+
             txLogInfo.Refresh();
             Assert.That(txLogInfo.Length, Is.LessThan(txSizeWhenOpen));
         }
@@ -47,7 +56,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Count_of_items_will_remain_fixed_after_dequeueing_without_flushing()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 queue.Internals.ParanoidFlushing = false;
                 using (var session = queue.OpenSession())
@@ -56,6 +65,7 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                     }
+
                     session.Flush();
                 }
 
@@ -65,12 +75,14 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Dequeue();
                     }
+
                     Assert.That(session.Dequeue(), Is.Null);
 
-                    //	session.Flush(); explicitly removed
+                    // session.Flush(); explicitly removed
                 }
             }
-            using (var queue = new PersistentQueue(Path))
+
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 Assert.That(10, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
             }
@@ -79,7 +91,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Dequeue_items_that_were_not_flushed_will_appear_after_queue_restart()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -87,6 +99,7 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Enqueue(Guid.NewGuid().ToByteArray());
                     }
+
                     session.Flush();
                 }
 
@@ -96,12 +109,14 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Dequeue();
                     }
+
                     Assert.That(session.Dequeue(), Is.Null);
 
-                    //	session.Flush(); explicitly removed
+                    // session.Flush(); explicitly removed
                 }
             }
-            using (var queue = new PersistentQueue(Path))
+
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -109,6 +124,7 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Dequeue();
                     }
+
                     Assert.That(session.Dequeue(), Is.Null);
                     session.Flush();
                 }
@@ -118,9 +134,9 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void If_tx_log_grows_too_large_it_will_be_trimmed_while_queue_is_in_operation()
         {
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            using var queue = new PersistentQueue(Path);
+            using var queue = new PersistentQueue(QueuePath);
             queue.SuggestedMaxTransactionLogSize = 32; // single entry
             queue.Internals.ParanoidFlushing = false;
 
@@ -130,8 +146,10 @@ namespace ModernDiskQueue.Tests
                 {
                     session.Enqueue(Guid.NewGuid().ToByteArray());
                 }
+
                 session.Flush();
             }
+
             // there is no way optimize here, so we should get expected size, even though it is bigger than
             // what we suggested as the max
             txLogInfo.Refresh();
@@ -143,10 +161,12 @@ namespace ModernDiskQueue.Tests
                 {
                     session.Dequeue();
                 }
+
                 Assert.That(session.Dequeue(), Is.Null);
 
                 session.Flush();
             }
+
             txLogInfo.Refresh();
             Assert.That(txLogInfo.Length, Is.LessThan(txSizeWhenOpen));
         }
@@ -154,9 +174,9 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Truncated_transaction_is_ignored_with_default_settings()
         {
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -174,11 +194,11 @@ namespace ModernDiskQueue.Tests
 
             using (var txLog = txLogInfo.Open(FileMode.Open))
             {
-                txLog.SetLength(txLog.Length - 5);// corrupt last transaction
+                txLog.SetLength(txLog.Length - 5); // corrupt last transaction
                 txLog.Flush();
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -187,7 +207,8 @@ namespace ModernDiskQueue.Tests
                         var bytes = session.Dequeue() ?? throw new Exception("read failed");
                         Assert.That(j, Is.EqualTo(BitConverter.ToInt32(bytes, 0)));
                     }
-                    Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
+
+                    Assert.That(session.Dequeue(), Is.Null); // the last transaction was corrupted
                     session.Flush();
                 }
             }
@@ -196,9 +217,9 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_handle_truncated_start_transaction_separator()
         {
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -218,11 +239,11 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
-                    Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
+                    Assert.That(session.Dequeue(), Is.Null); // the last transaction was corrupted
                     session.Flush();
                 }
             }
@@ -231,9 +252,9 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_handle_truncated_data()
         {
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -253,11 +274,11 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
-                    Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
+                    Assert.That(session.Dequeue(), Is.Null); // the last transaction was corrupted
                     session.Flush();
                 }
             }
@@ -266,9 +287,9 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_handle_truncated_end_transaction_separator()
         {
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -288,22 +309,20 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
-                    Assert.That(session.Dequeue(), Is.Null);// the last transaction was corrupted
+                    Assert.That(session.Dequeue(), Is.Null); // the last transaction was corrupted
                     session.Flush();
                 }
             }
         }
 
-
-
         [Test]
         public void Can_handle_transaction_with_only_zero_length_entries()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -317,7 +336,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -325,6 +344,7 @@ namespace ModernDiskQueue.Tests
                     {
                         Assert.That(session.Dequeue(), Is.Empty);
                     }
+
                     Assert.That(session.Dequeue(), Is.Null);
                     session.Flush();
                 }
@@ -334,7 +354,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_handle_end_separator_used_as_data()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -345,11 +365,12 @@ namespace ModernDiskQueue.Tests
                         session.Enqueue(Constants.EndTransactionSeparator); // ???
                         session.Flush();
                     }
+
                     session.Flush();
                 }
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -362,7 +383,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_handle_start_separator_used_as_data()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -373,11 +394,12 @@ namespace ModernDiskQueue.Tests
                         session.Enqueue(Constants.StartTransactionSeparator); // ???
                         session.Flush();
                     }
+
                     session.Flush();
                 }
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -390,14 +412,16 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_handle_zero_length_entries_at_start()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
                 using (var session = queue.OpenSession())
                 {
+                    Console.WriteLine("Enqueueing zero length entry.");
                     session.Enqueue([]);
                     session.Flush();
+                    Console.WriteLine("Enqueueing real data entries.");
                     for (int j = 0; j < 19; j++)
                     {
                         session.Enqueue([1]);
@@ -406,12 +430,14 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
+                    Console.WriteLine("Dequeueing entries, FIFO should hit zero length first.");
                     for (int j = 0; j < 20; j++)
                     {
+                        Console.WriteLine($"Dequeue entry {j}.");
                         Assert.That(session.Dequeue(), Is.Not.Null);
                         session.Flush();
                     }
@@ -419,11 +445,10 @@ namespace ModernDiskQueue.Tests
             }
         }
 
-
         [Test]
         public void Can_handle_zero_length_entries_at_end()
         {
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -434,12 +459,13 @@ namespace ModernDiskQueue.Tests
                         session.Enqueue([1]);
                         session.Flush();
                     }
+
                     session.Enqueue([]);
                     session.Flush();
                 }
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -456,8 +482,8 @@ namespace ModernDiskQueue.Tests
         public void Can_restore_data_when_a_transaction_set_is_partially_truncated()
         {
             PersistentQueue.DefaultSettings.AllowTruncatedEntries = false;
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
-            using (var queue = new PersistentQueue(Path))
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -467,6 +493,7 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Enqueue([(byte)(j + 1)]);
                     }
+
                     session.Flush();
                 }
             }
@@ -481,7 +508,7 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -490,6 +517,7 @@ namespace ModernDiskQueue.Tests
                         Assert.That(session.Dequeue(), Is.EquivalentTo([(byte)(j + 1)]));
                         session.Flush();
                     }
+
                     for (int j = 0; j < 5; j++)
                     {
                         Assert.That(session.Dequeue(), Is.EquivalentTo([(byte)(j + 1)]));
@@ -505,8 +533,8 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Can_restore_data_when_a_transaction_set_is_partially_overwritten_when_throwOnConflict_is_false()
         {
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
-            using (var queue = new PersistentQueue(Path))
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -516,6 +544,7 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Enqueue([]);
                     }
+
                     session.Flush();
                 }
             }
@@ -530,7 +559,7 @@ namespace ModernDiskQueue.Tests
                 txLog.Flush();
             }
 
-            using (var queue = new PersistentQueue(Path, Constants._32Megabytes, throwOnConflict: false))
+            using (var queue = new PersistentQueue(QueuePath, Constants._32Megabytes, throwOnConflict: false))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -538,6 +567,7 @@ namespace ModernDiskQueue.Tests
                     {
                         Assert.That(session.Dequeue(), Is.Not.Null);
                     }
+
                     Assert.That(session.Dequeue(), Is.Null); // duplicated 5 should be silently lost.
                     session.Flush();
                 }
@@ -547,9 +577,9 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Will_remove_truncated_transaction()
         {
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -563,23 +593,23 @@ namespace ModernDiskQueue.Tests
 
             using (var txLog = txLogInfo.Open(FileMode.Open))
             {
-                txLog.SetLength(5);// corrupt all transactions
+                txLog.SetLength(5); // corrupt all transactions
                 txLog.Flush();
             }
 
-            new PersistentQueue(Path).Dispose();
+            new PersistentQueue(QueuePath).Dispose();
 
             txLogInfo.Refresh();
 
-            Assert.That(36, Is.EqualTo(txLogInfo.Length));//empty transaction size
+            Assert.That(36, Is.EqualTo(txLogInfo.Length)); // empty transaction size
         }
 
         [Test]
         public void Truncated_transaction_is_ignored_and_can_continue_to_add_items_to_queue()
         {
-            var txLogInfo = new FileInfo(System.IO.Path.Combine(Path, "transaction.log"));
+            var txLogInfo = new FileInfo(System.IO.Path.Combine(QueuePath, "transaction.log"));
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -596,11 +626,11 @@ namespace ModernDiskQueue.Tests
 
             using (var txLog = txLogInfo.Open(FileMode.Open))
             {
-                txLog.SetLength(txLog.Length - 5);// corrupt last transaction
+                txLog.SetLength(txLog.Length - 5); // corrupt last transaction
                 txLog.Flush();
             }
 
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 // avoid auto tx log trimming
                 queue.TrimTransactionLogOnDispose = false;
@@ -610,12 +640,13 @@ namespace ModernDiskQueue.Tests
                     {
                         session.Enqueue(BitConverter.GetBytes(j));
                     }
+
                     session.Flush();
                 }
             }
 
             var data = new List<int>();
-            using (var queue = new PersistentQueue(Path))
+            using (var queue = new PersistentQueue(QueuePath))
             {
                 using (var session = queue.OpenSession())
                 {
@@ -625,14 +656,19 @@ namespace ModernDiskQueue.Tests
                         data.Add(BitConverter.ToInt32(dequeue, 0));
                         dequeue = session.Dequeue();
                     }
+
                     session.Flush();
                 }
             }
+
             var expected = 0;
             foreach (var i in data)
             {
                 if (expected == 19)
+                {
                     continue;
+                }
+
                 Assert.That(expected, Is.EqualTo(data[i]));
                 expected++;
             }

@@ -2,17 +2,17 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PackageId>ModernDiskQueue</PackageId>
-    <Description>A fork of DiskQueue, updated for the current LTS .net runtime</Description>
+    <Description>A fork of DiskQueue, implementing first-class async support on the current LTS .NET runtime</Description>
     <PackageIcon>MDQLogo-small.png</PackageIcon>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>net8</PackageTags>
     <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
     <PackageProjectUrl>https://github.com/pracsol/ModernDiskQueue</PackageProjectUrl>
-    <Version>1.0.2</Version>
-    <AssemblyVersion>1.0.2.0</AssemblyVersion>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
     <AssemblyName>ModernDiskQueue</AssemblyName>
-    <FileVersion>1.0.2.0</FileVersion>
+    <FileVersion>2.0.0.0</FileVersion>
     <LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -41,9 +41,19 @@
     <None Include="..\..\README.md" Pack="True" PackagePath="" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.13.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="ILLink.Descriptor.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Options" Version="8.0.2"/>
   </ItemGroup>
 </Project>

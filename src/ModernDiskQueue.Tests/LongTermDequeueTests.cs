@@ -1,9 +1,13 @@
-﻿using NUnit.Framework;
-using System;
-using System.Linq;
+﻿// <copyright file="LongTermDequeueTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
+    using System;
+    using System.Linq;
+    using NUnit.Framework;
+
     [TestFixture]
     public class LongTermDequeueTests
     {
@@ -38,6 +42,5 @@ namespace ModernDiskQueue.Tests
 
             Assert.That(x!.SequenceEqual(new byte[] { 1, 2, 3, 4 }));
         }
-
     }
 }

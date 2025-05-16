@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35919.96 d17.13
+VisualStudioVersion = 17.13.35919.96
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModernDiskQueue", "src\ModernDiskQueue\ModernDiskQueue.csproj", "{6E192B0C-4BDB-4AAD-9D0D-C2800645AF70}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModernDiskQueue", "src\ModernDiskQueue\ModernDiskQueue.csproj", "{6E192B0C-4BDB-4AAD-9D0D-C2800645AF70}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModernDiskQueue.Tests", "src\ModernDiskQueue.Tests\ModernDiskQueue.Tests.csproj", "{9AFF54EA-63E4-43B0-BF19-D81DB5FA66A5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModernDiskQueue.Tests", "src\ModernDiskQueue.Tests\ModernDiskQueue.Tests.csproj", "{9AFF54EA-63E4-43B0-BF19-D81DB5FA66A5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_Info", "_Info", "{49D15F07-5262-4665-8DF1-357E26EB7997}"
 	ProjectSection(SolutionItems) = preProject
@@ -14,9 +14,16 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_Info", "_Info", "{49D15F07
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestDummyProcess", "TestDummyProcess\TestDummyProcess.csproj", "{0A4E9B2E-1B2F-4008-A3EB-7983DD9EDF20}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestDummyProcess", "TestDummyProcess\TestDummyProcess.csproj", "{0A4E9B2E-1B2F-4008-A3EB-7983DD9EDF20}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestTrimmedExecutable", "TestTrimmedExecutable\TestTrimmedExecutable.csproj", "{5406376E-F571-44BE-82DA-F8064CCEDF7E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestTrimmedExecutable", "TestTrimmedExecutable\TestTrimmedExecutable.csproj", "{5406376E-F571-44BE-82DA-F8064CCEDF7E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModernDiskQueue.Benchmarks", "src\ModernDiskQueue.Benchmarks\ModernDiskQueue.Benchmarks.csproj", "{D528A4A2-481C-4514-8FE3-D25320F01314}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -40,6 +47,10 @@ Global
 		{5406376E-F571-44BE-82DA-F8064CCEDF7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5406376E-F571-44BE-82DA-F8064CCEDF7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5406376E-F571-44BE-82DA-F8064CCEDF7E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D528A4A2-481C-4514-8FE3-D25320F01314}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D528A4A2-481C-4514-8FE3-D25320F01314}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D528A4A2-481C-4514-8FE3-D25320F01314}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D528A4A2-481C-4514-8FE3-D25320F01314}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
