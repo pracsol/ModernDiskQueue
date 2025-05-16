@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>exe</OutputType>
+    <Description>Helper for testing trimmed consumers of the ModernDiskQueue library.</Description>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -9,6 +10,8 @@
     <SelfContained>true</SelfContained>
     <TrimMode>full</TrimMode>
     <Version>1.2.0</Version>
+    <Authors>Stephen Shephard</Authors>
+    <Copyright>2025 Stephen Shephard</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <AdditionalFiles Include="stylecop.json" />
