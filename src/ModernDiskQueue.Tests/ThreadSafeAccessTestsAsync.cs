@@ -1,13 +1,18 @@
-﻿namespace ModernDiskQueue.Tests
+﻿// <copyright file="ThreadSafeAccessTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
+namespace ModernDiskQueue.Tests
 {
-    using Microsoft.Extensions.Logging;
-    using NSubstitute;
-    using NUnit.Framework;
     using System;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using NSubstitute;
+    using NUnit.Framework;
 
-    [TestFixture, SingleThreaded]
+    [TestFixture]
+    [SingleThreaded]
     public class ThreadSafeAccessTestsAsync
     {
         private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
@@ -51,14 +56,17 @@
                         {
                             await using (var session = await q.OpenSessionAsync())
                             {
-                                //Console.Write("(");
+                                // Console.Write("(");
                                 await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
-                                //await Task.Delay(rnd.Next(0, 50));
+
+                                // await Task.Delay(rnd.Next(0, 50));
                                 await session.FlushAsync();
                                 Interlocked.Increment(ref enqueueCount);
-                                //Console.Write(")");
+
+                                // Console.Write(")");
                             }
-                            //await Task.Delay(rnd.Next(0, 10));
+
+                            // await Task.Delay(rnd.Next(0, 10));
                         }
                     }
                     catch (Exception ex)
@@ -73,7 +81,7 @@
             })
             { IsBackground = true, Name = "Enqueueing Thread" };
 
-            var consumerThread = new Thread(()=>
+            var consumerThread = new Thread(() =>
             {
                 RunAsyncInThread(async () =>
                 {
@@ -84,18 +92,20 @@
                         {
                             await using (var session = await q.OpenSessionAsync())
                             {
-                                //Console.Write("<");
+                                // Console.Write("<");
                                 var obj = await session.DequeueAsync();
                                 if (obj != null)
                                 {
                                     await session.FlushAsync();
                                     Interlocked.Increment(ref dequeueCount);
-                                    //Console.Write(">");
+
+                                    // Console.Write(">");
                                 }
                                 else
                                 {
                                     Console.WriteLine("got nothing");
                                 }
+
                                 await Task.Delay(rnd.Next(5, 20));
                             }
                         }
@@ -116,11 +126,11 @@
             producerThread.Start();
             consumerThread.Start();
 
-
             if (!enqueueCompleted.Wait(TimeSpan.FromMinutes(timeoutForEnqueueThreadInMinutes)))
             {
                 Console.WriteLine("Producer (enqueue) thread timed out.");
             }
+
             if (!dequeueCompleted.Wait(TimeSpan.FromMinutes(timeoutForDequeueThreadInMinutes)))
             {
                 Console.WriteLine("Consumer (dequeue) thread timed out.");
@@ -131,7 +141,7 @@
                 Assert.Fail($"Producer (enqueue) thread terminated early with error {lastProducerException.Message}");
             }
 
-            if (lastConsumerException!= null)
+            if (lastConsumerException != null)
             {
                 Assert.Fail($"Consumer (dequeue) thread terminated early with error {lastConsumerException.Message}");
             }
@@ -171,9 +181,11 @@
                             await session.FlushAsync();
                             Interlocked.Increment(ref enqueueCount);
                         }
+
                         // Optional small delay to simulate processing time
                         await Task.Delay(1);
                     }
+
                     enqueueCompletionSource.SetResult(true);
                 }
                 catch (Exception ex)
@@ -220,7 +232,7 @@
             var completionTasks = new[]
             {
                 enqueueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2)),
-                dequeueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2))
+                dequeueCompletionSource.Task.WaitAsync(TimeSpan.FromMinutes(2)),
             };
 
             try
@@ -230,9 +242,14 @@
             catch (TimeoutException)
             {
                 if (!enqueueCompletionSource.Task.IsCompleted)
+                {
                     Console.WriteLine("Producer task timed out.");
+                }
+
                 if (!dequeueCompletionSource.Task.IsCompleted)
+                {
                     Console.WriteLine("Consumer task timed out.");
+                }
             }
 
             // Check for exceptions and verify counts
@@ -301,7 +318,7 @@
             })
             { IsBackground = true, Name = "Producer Thread" };
 
-            var consumerThread = new Thread(()=>
+            var consumerThread = new Thread(() =>
             {
                 RunAsyncInThread(async () =>
                 {
@@ -320,9 +337,10 @@
                                     Console.Write(">");
                                 }
                             }
+
                             // Add jittery delay for each iteration
-                            //int jitteryDelay = random.Next(5, 26);
-                            //await Task.Delay(5);
+                            // int jitteryDelay = random.Next(5, 26);
+                            // await Task.Delay(5);
                         }
                     }
                     catch (Exception ex)
@@ -345,6 +363,7 @@
             {
                 Console.WriteLine("Enqueue thread timed out.");
             }
+
             if (!dequeueCompleted.Wait(TimeSpan.FromMinutes(timeoutForDequeueThreadInMinutes)))
             {
                 Console.WriteLine("Enqueue thread timed out.");
@@ -394,7 +413,8 @@
                                     await session.FlushAsync();
                                     Console.Write(")");
                                 }
-                                //await Task.Delay(0);
+
+                                // await Task.Delay(0);
                             }
                         }
                     }
@@ -411,14 +431,12 @@
             })
             { IsBackground = true, Name = "Producer Thread" };
 
-
-            var consumerThread = new Thread(()=>
+            var consumerThread = new Thread(() =>
             {
                 RunAsyncInThread(async () =>
                 {
                     try
                     {
-
                         for (int i = 0; i < target; i++)
                         {
                             await using (var q = await _factory.WaitForAsync("queue_tb", TimeSpan.FromSeconds(10)))
@@ -431,7 +449,8 @@
                                     await session.FlushAsync();
                                     Console.Write(">");
                                 }
-                                //await Task.Delay(0);
+
+                                // await Task.Delay(0);
                             }
                         }
                     }
@@ -455,6 +474,7 @@
             {
                 Console.WriteLine("Enqueue thread timed out.");
             }
+
             if (!dequeueCompleted.Wait(TimeSpan.FromMinutes(timeoutForDequeueThreadInMinutes)))
             {
                 Console.WriteLine("Enqueue thread timed out.");

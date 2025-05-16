@@ -1,23 +1,29 @@
+// <copyright file="PersistentQueueSessionTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 namespace ModernDiskQueue.Tests
 {
+    using System;
+    using System.IO;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Implementation;
     using ModernDiskQueue.PublicInterfaces;
     using ModernDiskQueue.Tests.Helpers;
     using NSubstitute;
     using NUnit.Framework;
-    using System;
-    using System.IO;
-    using System.Linq;
-    using System.Threading;
-    using System.Threading.Tasks;
 
-    [TestFixture, SingleThreaded]
+    [TestFixture]
+    [SingleThreaded]
     public class PersistentQueueSessionTestsAsync : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./PersistentQueueSessionTest";
 
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
+        private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
+
         [SetUp]
         public new void Setup()
         {
@@ -34,6 +40,7 @@ namespace ModernDiskQueue.Tests
         public async Task Errors_raised_during_pending_write_will_be_thrown_on_flush()
         {
             var loggerFactory = Substitute.For<ILoggerFactory>();
+
             // Create a super small memory stream.
             var limitedSizeStream = new MemoryStream(new byte[4]);
             var fileStream = new FileStreamWrapper(limitedSizeStream);
@@ -47,14 +54,15 @@ namespace ModernDiskQueue.Tests
                     // Send in an excessively large amount of data to write, 67,000,000+.
                     // This will exceed the write buffer and the size of the stream.
                     // An exception will be thrown during the enqueue operation because
-                    // the data exceeds the write buffer size. However, the exception will 
+                    // the data exceeds the write buffer size. However, the exception will
                     // be stored in a collection of pending write failures, and returned as
                     // an aggregate exception during the Flush operation.
-                    await session.EnqueueAsync(new byte[64 * 1024 * 1024 + 1]);
+                    await session.EnqueueAsync(new byte[(64 * 1024 * 1024) + 1]);
                     await session.FlushAsync();
                 }
             });
-            // I've change the behavior of this test compared to the sync version. 
+
+            // I've change the behavior of this test compared to the sync version.
             // In this case the exception is thrown during the enqueue operation, not during the flush.
             Assert.That(notSupportedException.Message, Is.EqualTo(@"Memory stream is not expandable."));
         }
@@ -63,6 +71,7 @@ namespace ModernDiskQueue.Tests
         public async Task Errors_raised_during_flush_write_will_be_thrown_as_is()
         {
             var loggerFactory = Substitute.For<ILoggerFactory>();
+
             // Create a super small memory stream.
             var limitedSizeStream = new MemoryStream(new byte[4]);
             var fileStream = new FileStreamWrapper(limitedSizeStream);
@@ -103,7 +112,7 @@ namespace ModernDiskQueue.Tests
                 fs.SetLength(2);
             }
 
-            //var invalidOperationException = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            // var invalidOperationException = Assert.ThrowsAsync<InvalidOperationException>(async () =>
             try
             {
                 await using (var queue = await _factory.CreateAsync(QueuePath))
@@ -119,8 +128,9 @@ namespace ModernDiskQueue.Tests
                 Console.WriteLine(ex.Message, ex.StackTrace);
                 Assert.That(ex, Is.TypeOf<InvalidOperationException>());
             }
-            //});
-            //Console.WriteLine(invalidOperationException.Message);
+
+            // });
+            // Console.WriteLine(invalidOperationException.Message);
         }
 
         [Test]
@@ -129,7 +139,6 @@ namespace ModernDiskQueue.Tests
             // Using static default settings should be avoided in asyc operations in favor of setting options.
             // PersistentQueue.DefaultSettings.AllowTruncatedEntries = true;
             // PersistentQueue.DefaultSettings.ParanoidFlushing = true;
-
             ModernDiskQueueOptions options = new()
             {
                 AllowTruncatedEntries = true,
@@ -146,9 +155,10 @@ namespace ModernDiskQueue.Tests
                     await session.FlushAsync();
                 }
             }
+
             using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
             {
-                fs.SetLength(2);//corrupt the file
+                fs.SetLength(2); // corrupt the file
             }
 
             byte[]? bytes;
@@ -177,9 +187,10 @@ namespace ModernDiskQueue.Tests
                     await session.FlushAsync();
                 }
             }
+
             using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
             {
-                fs.SetLength(2);//corrupt the file
+                fs.SetLength(2); // corrupt the file
             }
 
             await using (var queue = await _factory.CreateAsync(QueuePath))
@@ -210,15 +221,17 @@ namespace ModernDiskQueue.Tests
         {
             var queueStub = Substitute.For<IPersistentQueueImpl>();
 
-            queueStub.AcquireWriterAsync(Arg.Any<IFileStream>(),
+            _ = queueStub.AcquireWriterAsync(
+                                        Arg.Any<IFileStream>(),
                                         Arg.Any<Func<IFileStream, CancellationToken, Task<long>>>(),
                                         Arg.Any<Action<IFileStream>>(),
                                         Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     var actionFunc = callInfo.ArgAt<Func<IFileStream, CancellationToken, Task<long>>>(1);
+
                     // This returns the Task directly, letting the exception propagate naturally
-                    return actionFunc(limitedSizeStream, new CancellationToken());
+                    return actionFunc(limitedSizeStream, CancellationToken.None);
                 });
 
             return queueStub!;

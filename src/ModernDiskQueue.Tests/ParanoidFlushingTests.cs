@@ -1,15 +1,19 @@
-﻿using NUnit.Framework;
-// ReSharper disable PossibleNullReferenceException
+﻿// <copyright file="ParanoidFlushingTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
+// ReSharper disable PossibleNullReferenceException
 namespace ModernDiskQueue.Tests
 {
+    using NUnit.Framework;
+
     [TestFixture]
     public class ParanoidFlushingTests : PersistentQueueTestsBase
     {
-        protected override string QueuePath => "./ParanoidFlushingTests";
-
         private readonly byte[] _one = { 1, 2, 3, 4 };
         private readonly byte[] _two = { 5, 6, 7, 8 };
+
+        protected override string QueuePath => "./ParanoidFlushingTests";
 
         [Test]
         public void Paranoid_flushing_still_respects_session_rollback()

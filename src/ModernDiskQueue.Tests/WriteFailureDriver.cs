@@ -1,12 +1,16 @@
-﻿using ModernDiskQueue.Implementation;
-using ModernDiskQueue.PublicInterfaces;
-using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
+﻿// <copyright file="WriteFailureDriver.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
+    using System;
+    using System.IO;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.PublicInterfaces;
+
     public class WriteFailureDriver : IFileDriver
     {
         private readonly StandardFileDriver _realDriver;
@@ -17,7 +21,9 @@ namespace ModernDiskQueue.Tests
         }
 
         public string GetFullPath(string path) => Path.GetFullPath(path);
+
         public bool DirectoryExists(string path) => Directory.Exists(path);
+
         public string PathCombine(string a, string b) => Path.Combine(a, b);
 
         public Maybe<ILockFile> CreateLockFile(string path)
@@ -30,11 +36,12 @@ namespace ModernDiskQueue.Tests
             throw new IOException("Sample CreateLockFile error");
         }
 
-        public void ReleaseLock(ILockFile fileLock) { }
+        public void ReleaseLock(ILockFile fileLock)
+        {
+        }
 
         public async Task ReleaseLockAsync(ILockFile fileLock, CancellationToken cancellationToken = default)
         {
-
         }
 
         public void PrepareDelete(string path)
@@ -57,12 +64,15 @@ namespace ModernDiskQueue.Tests
             return ((IFileDriver)_realDriver).FinaliseAsync(cancellationToken);
         }
 
-        public void CreateDirectory(string path) { }
+        public void CreateDirectory(string path)
+        {
+        }
 
         public ValueTask CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
+
         public IFileStream OpenTransactionLog(string path, int bufferLength)
         {
             return _realDriver.OpenTransactionLog(path, bufferLength);
@@ -82,6 +92,7 @@ namespace ModernDiskQueue.Tests
         {
             return ((IFileDriver)_realDriver).OpenReadStreamAsync(path, cancellationToken);
         }
+
         public IFileStream OpenWriteStream(string dataFilePath)
         {
             throw new IOException("Sample OpenWriteStream error");
@@ -121,7 +132,10 @@ namespace ModernDiskQueue.Tests
         {
             return ((IFileDriver)_realDriver).FileExistsAsync(path, cancellationToken);
         }
-        public void DeleteRecursive(string path) { }
+
+        public void DeleteRecursive(string path)
+        {
+        }
 
         public Task DeleteRecursiveAsync(string path, CancellationToken cancellationToken = default)
         {

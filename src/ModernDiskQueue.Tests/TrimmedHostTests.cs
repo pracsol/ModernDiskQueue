@@ -1,10 +1,13 @@
-﻿
+﻿// <copyright file="TrimmedHostTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 namespace ModernDiskQueue.Tests
 {
-    using NUnit.Framework;
     using System;
     using System.Diagnostics;
     using System.IO;
+    using NUnit.Framework;
 
     [TestFixture]
     public class TrimmedHostTests
@@ -28,7 +31,7 @@ namespace ModernDiskQueue.Tests
             string stdOut, stdErr = string.Empty;
             int processTimeOut = 3000;
 
-            //ARRANGE
+            // ARRANGE
             var processStartInfo = new ProcessStartInfo()
             {
                 FileName = path,
@@ -79,11 +82,13 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("InvalidOperationException trying to run test.");
             }
-            catch (AssertionException) 
+            catch (AssertionException)
             {
                 Console.WriteLine("Failed.");
             }
-            catch (SuccessException) { }
+            catch (SuccessException)
+            {
+            }
             catch (Exception ex)
             {
                 Assert.Fail($"Exception trying to run test. {ex.GetType().Name} {ex.Message} {ex.StackTrace} {stdErr}");
@@ -98,7 +103,7 @@ namespace ModernDiskQueue.Tests
             string stdOut, stdErr = string.Empty;
             int processTimeOut = 3000;
 
-            //ARRANGE
+            // ARRANGE
             var processStartInfo = new ProcessStartInfo()
             {
                 FileName = path,
@@ -144,8 +149,12 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("InvalidOperationException trying to run test.");
             }
-            catch (AssertionException) { }
-            catch (SuccessException) { }
+            catch (AssertionException)
+            {
+            }
+            catch (SuccessException)
+            {
+            }
             catch (Exception ex)
             {
                 Assert.Fail($"Exception trying to run test. {ex.GetType().Name} {ex.Message} {ex.StackTrace} {stdErr}");

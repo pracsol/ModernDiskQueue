@@ -1,13 +1,18 @@
-﻿using NUnit.Framework;
-using System;
-// ReSharper disable AssignNullToNotNullAttribute
+﻿// <copyright file="GenericQueueTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
+// ReSharper disable AssignNullToNotNullAttribute
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using System;
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class GenericQueueTests
     {
-        // Note: having the queue files shared between the tests checks that we 
+        // Note: having the queue files shared between the tests checks that we
         // are correctly closing down the queue (i.e. the `Dispose()` call works)
         // If not, one of the files will fail complaining that the lock is still held.
         private const string QueueName = "./GenericQueueTest";
@@ -15,7 +20,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Round_trip_value_type()
         {
-            using var queue = new PersistentQueue<int>(QueueName+"int");
+            using var queue = new PersistentQueue<int>(QueueName + "int");
             using var session = queue.OpenSession();
 
             session.Enqueue(7);
@@ -38,7 +43,11 @@ namespace ModernDiskQueue.Tests
             using var queue = new PersistentQueue<string>($"./GenericQueueTests3{hash}");
             using var session = queue.OpenSession();
 
-            while (session.Dequeue() != null) { Console.WriteLine("Removing old data"); }
+            while (session.Dequeue() != null)
+            {
+                Console.WriteLine("Removing old data");
+            }
+
             session.Flush();
 
             session.Enqueue(valueToTest);
@@ -51,7 +60,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Round_trip_complex_type()
         {
-            using var queue = new PersistentQueue<TestClass>(QueueName+"TC");
+            using var queue = new PersistentQueue<TestClass>(QueueName + "TC");
             using var session = queue.OpenSession();
 
             var testObject = new TestClass(7, "TestString", null);
@@ -74,7 +83,7 @@ namespace ModernDiskQueue.Tests
         [Test]
         public void Round_trip_DateTimeOffset()
         {
-            using var queue   = new PersistentQueue<DateTimeOffset>(QueueName+"TC2");
+            using var queue = new PersistentQueue<DateTimeOffset>(QueueName + "TC2");
             using var session = queue.OpenSession();
 
             var testObject = DateTimeOffset.Now;

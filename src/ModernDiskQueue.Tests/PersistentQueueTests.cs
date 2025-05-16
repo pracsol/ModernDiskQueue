@@ -1,16 +1,21 @@
-using ModernDiskQueue.Implementation;
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
+// <copyright file="PersistentQueueTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 // ReSharper disable AssignNullToNotNullAttribute
 
 // ReSharper disable PossibleNullReferenceException
-
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Threading;
+    using ModernDiskQueue.Implementation;
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class PersistentQueueTests : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./PersistentQueueTests";
@@ -71,12 +76,13 @@ namespace ModernDiskQueue.Tests
         }
 
         /// <summary>
-        /// This test is not part of the original test suite, but was failing on async side so wanted to understand 
+        /// This test is not part of the original test suite, but was failing on async side so wanted to understand
         /// baseline behavior. In the sync operations, the queue folders are successfully deleted, but the dispose method being called
         /// at the end of the HardDelete method which ends up creating a new transaction.log file in the path, meaning the folder gets
         /// recreated. This can be avoided if you set the default setting of <see cref="PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose">= false.
         /// </summary>
-        [Test, Explicit]
+        [Test]
+        [Explicit]
         public void Can_hard_delete()
         {
             // ARRANGE
@@ -88,7 +94,9 @@ namespace ModernDiskQueue.Tests
 
             // create the initial queue.
             var queue = new PersistentQueue(QueuePath);
-            using (queue.OpenSession()) { }
+            using (queue.OpenSession())
+            {
+            }
 
             // Log initial directory state
             Console.WriteLine($"Initial directory state - Exists: {Directory.Exists(QueuePath)}");
@@ -107,9 +115,9 @@ namespace ModernDiskQueue.Tests
                 {
                     Assert.Pass("HardDelete cleaned up Queue folder structure.");
                 }
+
                 // Check directory state immediately after delete
                 Console.WriteLine($"After delete - Directory exists: {Directory.Exists(QueuePath)}");
-
 
                 // Here I'd normally assert that the directory is deleted, but if it's not I want to try and manually delete
                 // for diagnostic purposes. This will set the flag to true and we'll assert on that.
@@ -161,140 +169,14 @@ namespace ModernDiskQueue.Tests
                 Assert.That(isDirectoryDeleted, Is.True, "Queue directory should have been deleted from HardDelete(false) but is still there.");
                 Assert.That(wasManuallyCleanedUp, Is.False, "Queue directory was manually cleaned up, indicating a potential issue with HardDelete not getting lock on files.");
             }
-            catch (SuccessException) { }
+            catch (SuccessException)
+            {
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Exception caught: {ex.GetType().Name} - {ex.Message}");
                 Console.WriteLine(ex.StackTrace);
                 throw;
-            }
-        }
-
-        // Helper methods for diagnostics
-        private void LogDirectoryContents(string path)
-        {
-            if (!Directory.Exists(path))
-            {
-                Console.WriteLine($"Directory {path} does not exist");
-                return;
-            }
-
-            try
-            {
-                Console.WriteLine($"Contents of directory {path}:");
-                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
-                Console.WriteLine($"Found {files.Length} files:");
-
-                foreach (var file in files)
-                {
-                    var info = new FileInfo(file);
-                    Console.WriteLine($"- {file} ({info.Length} bytes, {info.LastAccessTime})");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error listing directory: {ex.Message}");
-            }
-        }
-
-        private void AttemptManualCleanup(string path)
-        {
-            try
-            {
-                if (!Directory.Exists(path)) return;
-
-                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
-                Console.WriteLine($"Attempting to delete {files.Length} files manually");
-
-                foreach (var file in files)
-                {
-                    try
-                    {
-                        File.Delete(file);
-                        Console.WriteLine($"Successfully deleted {file}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to delete {file}: {ex.Message}");
-                    }
-                }
-
-                // Try to delete any subdirectories
-                var dirs = Directory.GetDirectories(path);
-                foreach (var dir in dirs)
-                {
-                    try
-                    {
-                        Directory.Delete(dir, true);
-                        Console.WriteLine($"Successfully deleted directory {dir}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to delete directory {dir}: {ex.Message}");
-                    }
-                }
-
-                // Finally try to delete the main directory
-                try
-                {
-                    Directory.Delete(path);
-                    Console.WriteLine($"Successfully deleted main directory {path}");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to delete main directory: {ex.Message}");
-                }
-
-                // Allow time for file system to process deletions
-                Thread.Sleep(500);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in manual cleanup: {ex.Message}");
-            }
-        }
-
-        private void PerformDeepDiagnostics(string path)
-        {
-            try
-            {
-                // Check for any processes that might have locks on the directory
-                Console.WriteLine("Performing deep diagnostics...");
-
-                // Try creating a temporary file to test write access
-                var tempFilePath = Path.Combine(path, $"test_{Guid.NewGuid()}.tmp");
-                try
-                {
-                    File.WriteAllText(tempFilePath, "test");
-                    Console.WriteLine($"Successfully created test file: {tempFilePath}");
-
-                    // Try to delete the test file
-                    try
-                    {
-                        File.Delete(tempFilePath);
-                        Console.WriteLine("Successfully deleted test file");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to delete test file: {ex.Message}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to create test file: {ex.Message}");
-                }
-
-                // Check if this is platform-specific
-                Console.WriteLine($"Running on: {Environment.OSVersion}");
-
-                // Additional platform-specific diagnostics could be added here
-
-                // Allow time for any pending IO operations
-                Thread.Sleep(1000);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in deep diagnostics: {ex.Message}");
             }
         }
 
@@ -419,7 +301,8 @@ namespace ModernDiskQueue.Tests
             using (var session = queue.OpenSession())
             {
                 Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
-                //Explicitly omitted: session.Flush();
+
+                // Explicitly omitted: session.Flush();
             }
 
             using (var queue = new PersistentQueue(QueuePath))
@@ -463,8 +346,10 @@ namespace ModernDiskQueue.Tests
                 using (var session1 = queue.OpenSession())
                 {
                     Assert.That(session1.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
-                    //Explicitly omitted: session.Flush();
+
+                    // Explicitly omitted: session.Flush();
                 }
+
                 Assert.That(session2.Dequeue(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
                 session2.Flush();
             }
@@ -510,8 +395,140 @@ namespace ModernDiskQueue.Tests
                     Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 1 }), $"Incorrect order on turn {i + 1}");
                     Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 2 }), $"Incorrect order on turn {i + 1}");
                     Assert.That(session.Dequeue(), Is.EqualTo(new byte[] { 3 }), $"Incorrect order on turn {i + 1}");
+
                     // Dispose without `session.Flush();`
                 }
+            }
+        }
+
+        // Helper methods for diagnostics
+        private void LogDirectoryContents(string path)
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine($"Directory {path} does not exist");
+                return;
+            }
+
+            try
+            {
+                Console.WriteLine($"Contents of directory {path}:");
+                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+                Console.WriteLine($"Found {files.Length} files:");
+
+                foreach (var file in files)
+                {
+                    var info = new FileInfo(file);
+                    Console.WriteLine($"- {file} ({info.Length} bytes, {info.LastAccessTime})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error listing directory: {ex.Message}");
+            }
+        }
+
+        private void AttemptManualCleanup(string path)
+        {
+            try
+            {
+                if (!Directory.Exists(path))
+                {
+                    return;
+                }
+
+                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+                Console.WriteLine($"Attempting to delete {files.Length} files manually");
+
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        File.Delete(file);
+                        Console.WriteLine($"Successfully deleted {file}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to delete {file}: {ex.Message}");
+                    }
+                }
+
+                // Try to delete any subdirectories
+                var dirs = Directory.GetDirectories(path);
+                foreach (var dir in dirs)
+                {
+                    try
+                    {
+                        Directory.Delete(dir, true);
+                        Console.WriteLine($"Successfully deleted directory {dir}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to delete directory {dir}: {ex.Message}");
+                    }
+                }
+
+                // Finally try to delete the main directory
+                try
+                {
+                    Directory.Delete(path);
+                    Console.WriteLine($"Successfully deleted main directory {path}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to delete main directory: {ex.Message}");
+                }
+
+                // Allow time for file system to process deletions
+                Thread.Sleep(500);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in manual cleanup: {ex.Message}");
+            }
+        }
+
+        private void PerformDeepDiagnostics(string path)
+        {
+            try
+            {
+                // Check for any processes that might have locks on the directory
+                Console.WriteLine("Performing deep diagnostics...");
+
+                // Try creating a temporary file to test write access
+                var tempFilePath = Path.Combine(path, $"test_{Guid.NewGuid()}.tmp");
+                try
+                {
+                    File.WriteAllText(tempFilePath, "test");
+                    Console.WriteLine($"Successfully created test file: {tempFilePath}");
+
+                    // Try to delete the test file
+                    try
+                    {
+                        File.Delete(tempFilePath);
+                        Console.WriteLine("Successfully deleted test file");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to delete test file: {ex.Message}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to create test file: {ex.Message}");
+                }
+
+                // Check if this is platform-specific
+                Console.WriteLine($"Running on: {Environment.OSVersion}");
+
+                // Additional platform-specific diagnostics could be added here
+
+                // Allow time for any pending IO operations
+                Thread.Sleep(1000);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in deep diagnostics: {ex.Message}");
             }
         }
     }

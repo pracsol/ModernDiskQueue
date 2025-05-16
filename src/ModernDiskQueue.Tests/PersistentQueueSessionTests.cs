@@ -1,20 +1,24 @@
-using Microsoft.Extensions.Logging;
-using ModernDiskQueue.Implementation;
-using ModernDiskQueue.PublicInterfaces;
-using ModernDiskQueue.Tests.Helpers;
-using NSubstitute;
-using NSubstitute.Core;
-using NUnit.Framework;
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+// <copyright file="PersistentQueueSessionTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 // ReSharper disable PossibleNullReferenceException
-
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using System;
+    using System.IO;
+    using System.Linq;
+    using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue.Tests.Helpers;
+    using NSubstitute;
+    using NSubstitute.Core;
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class PersistentQueueSessionTests : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./PersistentQueueSessionTest";
@@ -35,10 +39,10 @@ namespace ModernDiskQueue.Tests
                     // Send in an excessively large amount of data to write, 67,000,000+.
                     // This will exceed the write buffer and the size of the stream.
                     // An exception will be thrown during the enqueue operation because
-                    // the data exceeds the write buffer size. However, the exception will 
+                    // the data exceeds the write buffer size. However, the exception will
                     // be stored in a collection of pending write failures, and returned as
                     // an aggregate exception during the Flush operation.
-                    session.Enqueue(new byte[64 * 1024 * 1024 + 1]);
+                    session.Enqueue(new byte[(64 * 1024 * 1024) + 1]);
                     session.Flush();
                 }
             });
@@ -80,9 +84,10 @@ namespace ModernDiskQueue.Tests
                 session.Enqueue(new byte[] { 1, 2, 3, 4 });
                 session.Flush();
             }
+
             using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
             {
-                fs.SetLength(2);//corrupt the file
+                fs.SetLength(2); // corrupt the file
             }
 
             Assert.Throws<InvalidOperationException>(() =>
@@ -111,9 +116,10 @@ namespace ModernDiskQueue.Tests
                     session.Flush();
                 }
             }
+
             using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
             {
-                fs.SetLength(2);//corrupt the file
+                fs.SetLength(2); // corrupt the file
             }
 
             byte[]? bytes;
@@ -142,9 +148,10 @@ namespace ModernDiskQueue.Tests
                     session.Flush();
                 }
             }
+
             using (var fs = new FileStream(System.IO.Path.Combine(QueuePath, "data.0"), FileMode.Open))
             {
-                fs.SetLength(2);//corrupt the file
+                fs.SetLength(2); // corrupt the file
             }
 
             using (var queue = new PersistentQueue(QueuePath))

@@ -1,4 +1,8 @@
-﻿namespace ModernDiskQueue.Tests.Models
+﻿// <copyright file="OperationMetrics.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
+namespace ModernDiskQueue.Tests.Models
 {
     using System;
 

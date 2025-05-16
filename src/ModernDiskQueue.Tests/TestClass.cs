@@ -1,10 +1,14 @@
-﻿using System;
-// ReSharper disable AssignNullToNotNullAttribute
+﻿// <copyright file="TestClass.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
+// ReSharper disable AssignNullToNotNullAttribute
 namespace ModernDiskQueue.Tests
 {
+    using System;
+
     /// <summary>
-    /// Test class for tests on <see cref="PersistentQueue{T}"/>
+    /// Test class for tests on <see cref="PersistentQueue{T}"/>.
     /// </summary>
     [Serializable]
     public class TestClass : IEquatable<TestClass>
@@ -19,35 +23,14 @@ namespace ModernDiskQueue.Tests
         }
 
         public int IntegerValue { get; }
+
         public string StringValue { get; }
+
         public int? NullableIntegerValue { get; }
+
         public DateTimeOffset TimeOffset { get; }
+
         public DateTime Time { get; set; }
-
-        public bool Equals(TestClass? other)
-        {
-            if (ReferenceEquals(null, other)) return false;
-            if (ReferenceEquals(this, other)) return true;
-
-            return IntegerValue == other.IntegerValue
-                && StringValue == other.StringValue
-                && NullableIntegerValue == other.NullableIntegerValue
-                && (TimeOffset - other.TimeOffset).Duration() < TimeSpan.FromSeconds(1)
-                && (Time - other.Time).Duration() < TimeSpan.FromSeconds(1);
-        }
-
-        public override bool Equals(object? obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((TestClass)obj);
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(IntegerValue, StringValue, NullableIntegerValue);
-        }
 
         public static bool operator ==(TestClass left, TestClass right)
         {
@@ -59,10 +42,53 @@ namespace ModernDiskQueue.Tests
             return !Equals(left, right);
         }
 
+        public bool Equals(TestClass? other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return IntegerValue == other.IntegerValue
+                && StringValue == other.StringValue
+                && NullableIntegerValue == other.NullableIntegerValue
+                && (TimeOffset - other.TimeOffset).Duration() < TimeSpan.FromSeconds(1)
+                && (Time - other.Time).Duration() < TimeSpan.FromSeconds(1);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            if (obj.GetType() != this.GetType())
+            {
+                return false;
+            }
+
+            return Equals((TestClass)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(IntegerValue, StringValue, NullableIntegerValue);
+        }
+
         /// <summary>
         /// Override ToString so that the contents can easily be inspected in the debugger.
         /// </summary>
-        /// <returns></returns>
         public override string ToString()
         {
             return $"{IntegerValue}|{StringValue}|{NullableIntegerValue}";

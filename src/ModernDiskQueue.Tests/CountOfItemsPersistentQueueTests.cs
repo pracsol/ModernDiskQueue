@@ -1,9 +1,13 @@
-using NUnit.Framework;
-// ReSharper disable PossibleNullReferenceException
+// <copyright file="CountOfItemsPersistentQueueTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class CountOfItemsPersistentQueueTests : PersistentQueueTestsBase
     {
         protected override string QueuePath => "./CountOfItemsTests";
@@ -30,6 +34,7 @@ namespace ModernDiskQueue.Tests
                         session.Flush();
                     }
                 }
+
                 Assert.That(5, Is.EqualTo(queue.EstimatedCountOfItemsInQueue));
             }
         }

@@ -1,19 +1,25 @@
-using Microsoft.Extensions.Logging;
-using NSubstitute;
-using NUnit.Framework;
-using System;
-using System.IO;
-using System.Threading.Tasks;
-// ReSharper disable AssignNullToNotNullAttribute
+// <copyright file="MultiFileQueueTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
+// ReSharper disable AssignNullToNotNullAttribute
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using System;
+    using System.IO;
+    using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using NSubstitute;
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class MultiFileQueueTestsAsync : PersistentQueueTestsBase
     {
+        private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
+
         protected override string QueuePath => "./MultiFileQueue";
 
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {
@@ -48,6 +54,7 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(11, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }
         }
@@ -65,6 +72,7 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
         }
@@ -82,8 +90,10 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
+
             await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
                 for (byte i = 0; i < 2; i++)
@@ -94,6 +104,7 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
         }
@@ -112,6 +123,7 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
                 Console.WriteLine($"File number: {queue.Internals.CurrentFileNumber}");
             }
@@ -145,6 +157,7 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
 
@@ -158,9 +171,9 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
-
 
             await using (var queue = await _factory.CreateAsync(QueuePath, 10))
             {
@@ -198,6 +211,7 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(1, Is.EqualTo(queue.Internals.CurrentFileNumber));
             }
 
@@ -215,9 +229,7 @@ namespace ModernDiskQueue.Tests
                 }
             }
 
-            Assert.That(
-                File.Exists(System.IO.Path.Combine(QueuePath, "data.0")), Is.False
-                );
+            Assert.That(File.Exists(System.IO.Path.Combine(QueuePath, "data.0")), Is.False);
         }
     }
 }

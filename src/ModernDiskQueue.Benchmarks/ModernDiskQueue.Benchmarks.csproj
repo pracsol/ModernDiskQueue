@@ -9,6 +9,7 @@
     <Version>1.0.0</Version>
     <Authors>Stephen Shephard</Authors>
     <Copyright>2025 Stephen Shephard</Copyright>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>

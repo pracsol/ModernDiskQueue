@@ -1,20 +1,26 @@
+// <copyright file="TransactionLogTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 namespace ModernDiskQueue.Tests
 {
-    using Microsoft.Extensions.Logging;
-    using ModernDiskQueue.Implementation;
-    using NSubstitute;
-    using NUnit.Framework;
     using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using ModernDiskQueue.Implementation;
+    using NSubstitute;
+    using NUnit.Framework;
 
-    [TestFixture, SingleThreaded]
+    [TestFixture]
+    [SingleThreaded]
     public class TransactionLogTestsAsync : PersistentQueueTestsBase
     {
+        private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
+
         protected override string QueuePath => "./TransactionLogTests";
 
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {
@@ -41,6 +47,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                     }
+
                     await session.FlushAsync();
                 }
 
@@ -50,10 +57,13 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.DequeueAsync();
                     }
+
                     await session.FlushAsync();
                 }
+
                 txSizeWhenOpen = txLogInfo.Length;
             }
+
             txLogInfo.Refresh();
             Assert.That(txLogInfo.Length, Is.LessThan(txSizeWhenOpen));
         }
@@ -70,6 +80,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                     }
+
                     await session.FlushAsync();
                 }
 
@@ -79,11 +90,13 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.DequeueAsync();
                     }
+
                     Assert.That(await session.DequeueAsync(), Is.Null);
 
-                    //	await session.FlushAsync(); explicitly removed so no dequeues get committed.
+                    // await session.FlushAsync(); explicitly removed so no dequeues get committed.
                 }
             }
+
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 int finalCountOfItems = await queue.GetEstimatedCountOfItemsInQueueAsync();
@@ -102,6 +115,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                     }
+
                     await session.FlushAsync();
                 }
 
@@ -111,11 +125,13 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.DequeueAsync();
                     }
+
                     Assert.That(await session.DequeueAsync(), Is.Null);
 
-                    //	await session.FlushAsync(); explicitly removed so dequeued items not removed.
+                    // await session.FlushAsync(); explicitly removed so dequeued items not removed.
                 }
             }
+
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {
                 await using (var session = await queue.OpenSessionAsync())
@@ -124,6 +140,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.DequeueAsync();
                     }
+
                     Assert.That(await session.DequeueAsync(), Is.Null);
                     await session.FlushAsync();
                 }
@@ -145,8 +162,10 @@ namespace ModernDiskQueue.Tests
                 {
                     await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                 }
+
                 await session.FlushAsync();
             }
+
             // there is no way optimize here, so we should get expected size, even though it is bigger than
             // what we suggested as the max
             txLogInfo.Refresh();
@@ -159,10 +178,12 @@ namespace ModernDiskQueue.Tests
                 {
                     await session.DequeueAsync();
                 }
+
                 Assert.That(await session.DequeueAsync(), Is.Null);
 
                 await session.FlushAsync();
             }
+
             txLogInfo.Refresh();
             Console.WriteLine($"Size of transaction.log after queue empty: {txSizeWhenOpen}");
             Assert.That(txLogInfo.Length, Is.LessThan(txSizeWhenOpen));
@@ -191,7 +212,7 @@ namespace ModernDiskQueue.Tests
 
             using (var txLog = txLogInfo.Open(FileMode.Open))
             {
-                txLog.SetLength(txLog.Length - 5);// corrupt last transaction
+                txLog.SetLength(txLog.Length - 5); // corrupt last transaction
                 txLog.Flush();
             }
 
@@ -204,7 +225,8 @@ namespace ModernDiskQueue.Tests
                         var bytes = await session.DequeueAsync() ?? throw new Exception("read failed");
                         Assert.That(j, Is.EqualTo(BitConverter.ToInt32(bytes, 0)));
                     }
-                    Assert.That(await session.DequeueAsync(), Is.Null);// the last transaction was corrupted
+
+                    Assert.That(await session.DequeueAsync(), Is.Null); // the last transaction was corrupted
                     await session.FlushAsync();
                 }
             }
@@ -239,7 +261,7 @@ namespace ModernDiskQueue.Tests
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
-                    Assert.That(await session.DequeueAsync(), Is.Null);// the last transaction was corrupted
+                    Assert.That(await session.DequeueAsync(), Is.Null); // the last transaction was corrupted
                     await session.FlushAsync();
                 }
             }
@@ -274,7 +296,7 @@ namespace ModernDiskQueue.Tests
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
-                    Assert.That(await session.DequeueAsync(), Is.Null);// the last transaction was corrupted
+                    Assert.That(await session.DequeueAsync(), Is.Null); // the last transaction was corrupted
                     await session.FlushAsync();
                 }
             }
@@ -309,13 +331,11 @@ namespace ModernDiskQueue.Tests
             {
                 await using (var session = await queue.OpenSessionAsync())
                 {
-                    Assert.That(await session.DequeueAsync(), Is.Null);// the last transaction was corrupted
+                    Assert.That(await session.DequeueAsync(), Is.Null); // the last transaction was corrupted
                     await session.FlushAsync();
                 }
             }
         }
-
-
 
         [Test]
         public async Task Can_handle_transaction_with_only_zero_length_entries()
@@ -342,6 +362,7 @@ namespace ModernDiskQueue.Tests
                     {
                         Assert.That(await session.DequeueAsync(), Is.Empty);
                     }
+
                     Assert.That(await session.DequeueAsync(), Is.Null);
                     await session.FlushAsync();
                 }
@@ -362,6 +383,7 @@ namespace ModernDiskQueue.Tests
                         await session.EnqueueAsync(Constants.EndTransactionSeparator); // ???
                         await session.FlushAsync();
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -390,6 +412,7 @@ namespace ModernDiskQueue.Tests
                         await session.EnqueueAsync(Constants.StartTransactionSeparator); // ???
                         await session.FlushAsync();
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -456,6 +479,7 @@ namespace ModernDiskQueue.Tests
                         await session.EnqueueAsync([1]);
                         await session.FlushAsync();
                     }
+
                     await session.EnqueueAsync([]);
                     await session.FlushAsync();
                 }
@@ -489,6 +513,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync([(byte)(j + 1)]);
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -512,6 +537,7 @@ namespace ModernDiskQueue.Tests
                         Assert.That(await session.DequeueAsync(), Is.EquivalentTo([(byte)(j + 1)]));
                         await session.FlushAsync();
                     }
+
                     for (int j = 0; j < 5; j++)
                     {
                         Assert.That(await session.DequeueAsync(), Is.EquivalentTo([(byte)(j + 1)]));
@@ -538,6 +564,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync([]);
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -560,6 +587,7 @@ namespace ModernDiskQueue.Tests
                     {
                         Assert.That(await session.DequeueAsync(), Is.Not.Null);
                     }
+
                     Assert.That(await session.DequeueAsync(), Is.Null); // duplicated 5 should be silently lost.
                     await session.FlushAsync();
                 }
@@ -582,12 +610,13 @@ namespace ModernDiskQueue.Tests
                     }
                 }
             }
+
             txLogInfo.Refresh();
             Console.WriteLine($"Size of full transaction.log: {txLogInfo.Length}");
 
             using (var txLog = txLogInfo.Open(FileMode.Open))
             {
-                txLog.SetLength(5);// corrupt all transactions
+                txLog.SetLength(5); // corrupt all transactions
                 txLog.Flush();
                 txLogInfo.Refresh();
                 Console.WriteLine($"Size of corrupt transaction.log: {txLogInfo.Length}");
@@ -597,7 +626,7 @@ namespace ModernDiskQueue.Tests
 
             txLogInfo.Refresh();
             Console.WriteLine($"Size of reset transaction.log: {txLogInfo.Length}");
-            Assert.That(36, Is.EqualTo(txLogInfo.Length)); //empty transaction size
+            Assert.That(36, Is.EqualTo(txLogInfo.Length)); // empty transaction size
         }
 
         [Test]
@@ -622,7 +651,7 @@ namespace ModernDiskQueue.Tests
 
             using (var txLog = txLogInfo.Open(FileMode.Open))
             {
-                txLog.SetLength(txLog.Length - 5);// corrupt last transaction
+                txLog.SetLength(txLog.Length - 5); // corrupt last transaction
                 txLog.Flush();
             }
 
@@ -636,6 +665,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync(BitConverter.GetBytes(j));
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -651,14 +681,19 @@ namespace ModernDiskQueue.Tests
                         data.Add(BitConverter.ToInt32(dequeue, 0));
                         dequeue = await session.DequeueAsync();
                     }
+
                     await session.FlushAsync();
                 }
             }
+
             var expected = 0;
             foreach (var i in data)
             {
                 if (expected == 19)
+                {
                     continue;
+                }
+
                 Assert.That(expected, Is.EqualTo(data[i]));
                 expected++;
             }

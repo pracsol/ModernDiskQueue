@@ -1,11 +1,14 @@
-﻿
+﻿// <copyright file="InMemoryLoggerProvider.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 namespace ModernDiskQueue.Tests.Models
 {
-    using Microsoft.Extensions.Logging;
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
+    using Microsoft.Extensions.Logging;
 
     public class InMemoryLoggerProvider : ILoggerProvider
     {
@@ -18,15 +21,20 @@ namespace ModernDiskQueue.Tests.Models
             return _loggers.GetOrAdd(categoryName, name => new InMemoryLogger(name, LogEntries));
         }
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
 
         public IEnumerable<string> GetMessages(string category) => LogEntries.Where(e => e.Category == category).Select(e => e.Message);
 
         public class LogEntry
         {
-            public string Category { get; set; } = "";
+            public string Category { get; set; } = string.Empty;
+
             public LogLevel Level { get; set; }
-            public string Message { get; set; } = "";
+
+            public string Message { get; set; } = string.Empty;
+
             public Exception? Exception { get; set; }
         }
 
@@ -45,20 +53,28 @@ namespace ModernDiskQueue.Tests.Models
 
             public bool IsEnabled(LogLevel logLevel) => true;
 
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
-                Exception exception, Func<TState, Exception, string> formatter)
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception exception,
+                Func<TState, Exception, string> formatter)
             {
                 _logEntries.Add(new LogEntry
                 {
                     Category = _category,
                     Level = logLevel,
                     Message = formatter(state, exception),
-                    Exception = exception
+                    Exception = exception,
                 });
             }
 
-            private class NullScope : IDisposable { public void Dispose() { } }
+            private class NullScope : IDisposable
+            {
+                public void Dispose()
+                {
+                }
+            }
         }
     }
-
 }

@@ -4,12 +4,18 @@
   </Target>
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <Description>Unit testing library for ModernDiskQueue.</Description>
     <LangVersion>12</LangVersion>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>2.2.0</Version>
+    <Authors>Iain Ballard, Stephen Shephard</Authors>
+    <Copyright>2013-2022 Iain Ballard, 2025 Stephen Shephard</Copyright>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
-
+  <ItemGroup>
+    <AdditionalFiles Include="stylecop.json" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.4" />
@@ -18,6 +24,14 @@
     <PackageReference Include="nsubstitute" Version="5.3.0" />
     <PackageReference Include="nunit" Version="4.3.2" />
     <PackageReference Include="nunit3testadapter" Version="5.0.0" />
+    <PackageReference Include="Roslynator.Analyzers" Version="4.13.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
   </ItemGroup>
 

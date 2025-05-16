@@ -1,21 +1,27 @@
-﻿using Microsoft.Extensions.Logging;
-using ModernDiskQueue.Implementation;
-using NSubstitute;
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
-using ModernDiskQueue.Tests.Helpers;
+﻿// <copyright file="PersistentQueueTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.Tests.Helpers;
+    using NSubstitute;
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class PersistentQueueTestsAsync : PersistentQueueTestsBase
     {
+        private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
+
         protected override string QueuePath => "./PersistentQueueTestsAsync";
 
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
         [SetUp]
         public new void Setup()
         {
@@ -62,6 +68,7 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.That(queue, Is.Not.Null);
             }
+
             Console.WriteLine("Completed.");
         }
 
@@ -79,14 +86,17 @@ namespace ModernDiskQueue.Tests
 
             var invalidOperationException = Assert.ThrowsAsync<UnrecoverableException>(async () =>
             {
-                await using (var q = await _factory.CreateAsync(QueuePath)) { }
+                await using (var q = await _factory.CreateAsync(QueuePath))
+                {
+                }
             });
 
             Assert.That(invalidOperationException, Is.Not.Null);
             Assert.That(invalidOperationException.Message, Is.EqualTo("Unexpected data in transaction log. Expected to get transaction separator but got unknown data. Tx #1"));
         }
 
-        [Test, Explicit]
+        [Test]
+        [Explicit]
         public async Task Can_hard_delete()
         {
             // ARRANGE
@@ -100,7 +110,9 @@ namespace ModernDiskQueue.Tests
             // Create initial queue
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {
-                await using (await queue.OpenSessionAsync()) { }
+                await using (await queue.OpenSessionAsync())
+                {
+                }
             }
 
             // Log initial directory state
@@ -119,6 +131,7 @@ namespace ModernDiskQueue.Tests
                 {
                     await queue.HardDeleteAsync(false);
                 }
+
                 if (!Directory.Exists(QueuePath))
                 {
                     Assert.Pass("HardDeleteAsync cleaned up Queue folder structure.");
@@ -181,85 +194,15 @@ namespace ModernDiskQueue.Tests
                 // ASSERT
                 Assert.That(isDirectoryDeleted, Is.True, "Queue directory should have been deleted from HardDeleteAsync(false) but is still there.");
                 Assert.That(wasManuallyCleanedUp, Is.False, "Queue directory was manually cleaned up, indicating a potential issue with HardDeleteAsync not getting lock on files.");
-
             }
-            catch (SuccessException) { }
+            catch (SuccessException)
+            {
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Exception caught: {ex.GetType().Name} - {ex.Message}");
                 Console.WriteLine(ex.StackTrace);
                 throw;
-            }
-        }
-
-        // Helper methods for diagnostics
-        private void LogDirectoryContents(string path)
-        {
-            if (!Directory.Exists(path))
-            {
-                Console.WriteLine($"Directory {path} does not exist");
-                return;
-            }
-
-            try
-            {
-                Console.WriteLine($"Contents of directory {path}:");
-                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
-                Console.WriteLine($"Found {files.Length} files:");
-
-                foreach (var file in files)
-                {
-                    var info = new FileInfo(file);
-                    Console.WriteLine($"- {file} ({info.Length} bytes, {info.LastAccessTime})");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error listing directory: {ex.Message}");
-            }
-        }
-
-        private async Task PerformDeepDiagnostics(string path)
-        {
-            try
-            {
-                // Check for any processes that might have locks on the directory
-                Console.WriteLine("Performing deep diagnostics...");
-
-                // Try creating a temporary file to test write access
-                var tempFilePath = Path.Combine(path, $"test_{Guid.NewGuid()}.tmp");
-                try
-                {
-                    File.WriteAllText(tempFilePath, "test");
-                    Console.WriteLine($"Successfully created test file: {tempFilePath}");
-
-                    // Try to delete the test file
-                    try
-                    {
-                        File.Delete(tempFilePath);
-                        Console.WriteLine("Successfully deleted test file");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to delete test file: {ex.Message}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to create test file: {ex.Message}");
-                }
-
-                // Check if this is platform-specific
-                Console.WriteLine($"Running on: {Environment.OSVersion}");
-
-                // Additional platform-specific diagnostics could be added here
-
-                // Allow time for any pending IO operations
-                await Task.Delay(1000);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in deep diagnostics: {ex.Message}");
             }
         }
 
@@ -288,6 +231,7 @@ namespace ModernDiskQueue.Tests
                     await session.FlushAsync();
                 }
             }
+
             Console.WriteLine("Completed.");
         }
 
@@ -373,6 +317,7 @@ namespace ModernDiskQueue.Tests
                     await session.FlushAsync();
                 }
             }
+
             Console.WriteLine("Completed.");
         }
 
@@ -405,6 +350,7 @@ namespace ModernDiskQueue.Tests
                     await session.FlushAsync();
                 }
             }
+
             Console.WriteLine("Completed.");
         }
 
@@ -431,6 +377,7 @@ namespace ModernDiskQueue.Tests
                     {
                         var dequeued = await session.DequeueAsync();
                         Assert.That(dequeued, Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+
                         // Explicitly omit: await session.FlushAsync();
                     }
                 }
@@ -461,6 +408,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
                     }
+
                     // Explicitly omit: await session.FlushAsync();
                 }
             }
@@ -499,8 +447,10 @@ namespace ModernDiskQueue.Tests
                     {
                         var dequeued = await session1.DequeueAsync();
                         Assert.That(dequeued, Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
-                        //Explicitly omitted: session.Flush();
+
+                        // Explicitly omitted: session.Flush();
                     }
+
                     Assert.That(await session2.DequeueAsync(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
                     await session2.FlushAsync();
                 }
@@ -556,11 +506,82 @@ namespace ModernDiskQueue.Tests
                         Assert.That(await session.DequeueAsync(), Is.EqualTo(new byte[] { 1 }), $"Incorrect order on turn {i + 1}");
                         Assert.That(await session.DequeueAsync(), Is.EqualTo(new byte[] { 2 }), $"Incorrect order on turn {i + 1}");
                         Assert.That(await session.DequeueAsync(), Is.EqualTo(new byte[] { 3 }), $"Incorrect order on turn {i + 1}");
+
                         // Dispose without `session.Flush();`
                     }
                 }
             }
         }
 
+        // Helper methods for diagnostics
+        private void LogDirectoryContents(string path)
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine($"Directory {path} does not exist");
+                return;
+            }
+
+            try
+            {
+                Console.WriteLine($"Contents of directory {path}:");
+                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+                Console.WriteLine($"Found {files.Length} files:");
+
+                foreach (var file in files)
+                {
+                    var info = new FileInfo(file);
+                    Console.WriteLine($"- {file} ({info.Length} bytes, {info.LastAccessTime})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error listing directory: {ex.Message}");
+            }
+        }
+
+        private async Task PerformDeepDiagnostics(string path)
+        {
+            try
+            {
+                // Check for any processes that might have locks on the directory
+                Console.WriteLine("Performing deep diagnostics...");
+
+                // Try creating a temporary file to test write access
+                var tempFilePath = Path.Combine(path, $"test_{Guid.NewGuid()}.tmp");
+                try
+                {
+                    File.WriteAllText(tempFilePath, "test");
+                    Console.WriteLine($"Successfully created test file: {tempFilePath}");
+
+                    // Try to delete the test file
+                    try
+                    {
+                        File.Delete(tempFilePath);
+                        Console.WriteLine("Successfully deleted test file");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to delete test file: {ex.Message}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to create test file: {ex.Message}");
+                }
+
+                // Check if this is platform-specific
+                Console.WriteLine($"Running on: {Environment.OSVersion}");
+
+                // Additional platform-specific diagnostics could be added here
+
+                // Allow time for any pending IO operations
+                await Task.Delay(1000);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in deep diagnostics: {ex.Message}");
+            }
+        }
     }
 }

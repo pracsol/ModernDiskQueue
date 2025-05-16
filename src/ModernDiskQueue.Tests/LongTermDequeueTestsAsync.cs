@@ -1,18 +1,23 @@
-﻿using Microsoft.Extensions.Logging;
-using NSubstitute;
-using NUnit.Framework;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+﻿// <copyright file="LongTermDequeueTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
+    using System;
+    using System.Linq;
+    using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using NSubstitute;
+    using NUnit.Framework;
+
     [TestFixture]
     public class LongTermDequeueTestsAsync
     {
         private IPersistentQueue? _q;
 
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
+        private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
+
         [SetUp]
         public async Task Setup()
         {
@@ -37,13 +42,20 @@ namespace ModernDiskQueue.Tests
         [Test]
         public async Task can_enqueue_during_a_long_dequeue()
         {
-            if (_q == null) throw new InvalidOperationException("Queue is null");
+            if (_q == null)
+            {
+                throw new InvalidOperationException("Queue is null");
+            }
 
             var s1 = await _q.OpenSessionAsync();
 
             await using (var s2 = await _q.OpenSessionAsync())
             {
-                if (s2 == null) throw new InvalidOperationException("Session 2 is null");
+                if (s2 == null)
+                {
+                    throw new InvalidOperationException("Session 2 is null");
+                }
+
                 await s2.EnqueueAsync(new byte[] { 1, 2, 3, 4 });
                 await s2.FlushAsync();
             }

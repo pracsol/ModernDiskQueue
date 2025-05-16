@@ -1,11 +1,14 @@
-﻿
+﻿// <copyright file="TrimmedHostTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 namespace ModernDiskQueue.Tests
 {
-    using NUnit.Framework;
     using System;
     using System.Diagnostics;
     using System.IO;
     using System.Threading.Tasks;
+    using NUnit.Framework;
 
     [TestFixture]
     public class TrimmedHostTestsAsync
@@ -29,7 +32,7 @@ namespace ModernDiskQueue.Tests
             string stdOut, stdErr = string.Empty;
             int processTimeOut = 3000;
 
-            //ARRANGE
+            // ARRANGE
             ProcessStartInfo processStartInfo = new()
             {
                 FileName = path,
@@ -83,8 +86,12 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("InvalidOperationException trying to run test.");
             }
-            catch (AssertionException) { }
-            catch (SuccessException) { }
+            catch (AssertionException)
+            {
+            }
+            catch (SuccessException)
+            {
+            }
             catch (Exception ex)
             {
                 Assert.Fail($"Exception trying to run test. {ex.GetType().Name} {ex.Message} {ex.StackTrace} {stdErr}");
@@ -102,10 +109,11 @@ namespace ModernDiskQueue.Tests
                 Console.WriteLine("WARNING: Console logging has been enabled for debugging the external process, and the test will fail.");
                 Console.WriteLine("Turn off the writeoutput argument to run test.");
             }
+
             string stdOut, stdErr = string.Empty;
             int processTimeOut = 3000;
 
-            //ARRANGE
+            // ARRANGE
             var processStartInfo = new ProcessStartInfo()
             {
                 FileName = path,
@@ -150,8 +158,12 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("InvalidOperationException trying to run test.");
             }
-            catch (AssertionException) { }
-            catch (SuccessException) { }
+            catch (AssertionException)
+            {
+            }
+            catch (SuccessException)
+            {
+            }
             catch (Exception ex)
             {
                 Assert.Fail($"Exception trying to run test. {ex.GetType().Name} {ex.Message} {ex.StackTrace} {stdErr}");

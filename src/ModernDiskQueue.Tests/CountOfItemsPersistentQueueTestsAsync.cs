@@ -1,16 +1,23 @@
-using Microsoft.Extensions.Logging;
-using NSubstitute;
-using NUnit.Framework;
-using System.Threading.Tasks;
-// ReSharper disable PossibleNullReferenceException
+// <copyright file="CountOfItemsPersistentQueueTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
+// ReSharper disable PossibleNullReferenceException
 namespace ModernDiskQueue.Tests
 {
-    [TestFixture, SingleThreaded]
+    using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using NSubstitute;
+    using NUnit.Framework;
+
+    [TestFixture]
+    [SingleThreaded]
     public class CountOfItemsPersistentQueueTestsAsync : PersistentQueueTestsBase
     {
+        private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
+
         protected override string QueuePath => "./CountOfItemsTests";
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
+
         [SetUp]
         public new void Setup()
         {
@@ -45,6 +52,7 @@ namespace ModernDiskQueue.Tests
                         await session.FlushAsync();
                     }
                 }
+
                 Assert.That(5, Is.EqualTo(await queue.GetEstimatedCountOfItemsInQueueAsync()));
             }
         }

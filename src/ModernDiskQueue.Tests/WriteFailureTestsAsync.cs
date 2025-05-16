@@ -1,19 +1,23 @@
-﻿
+﻿// <copyright file="WriteFailureTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 namespace ModernDiskQueue.Tests
 {
-    using Microsoft.Extensions.Logging;
-    using ModernDiskQueue.Implementation;
-    using NUnit.Framework;
     using System;
     using System.IO;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using ModernDiskQueue.Implementation;
+    using NUnit.Framework;
 
     [TestFixture]
     public class WriteFailureTestsAsync : PersistentQueueTestsBase
     {
+        private PersistentQueueFactory _factory = new();
+
         protected override string QueuePath => "./WriteFailureTests";
 
-        private PersistentQueueFactory _factory = new ();
         [SetUp]
         public new void Setup()
         {
@@ -76,7 +80,6 @@ namespace ModernDiskQueue.Tests
                     }
                 }
             }
-
         }
     }
 }

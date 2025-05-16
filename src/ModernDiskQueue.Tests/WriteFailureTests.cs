@@ -1,9 +1,13 @@
-﻿using ModernDiskQueue.Implementation;
-using NUnit.Framework;
-using System.IO;
+﻿// <copyright file="WriteFailureTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 namespace ModernDiskQueue.Tests
 {
+    using System.IO;
+    using ModernDiskQueue.Implementation;
+    using NUnit.Framework;
+
     [TestFixture]
     public class WriteFailureTests : PersistentQueueTestsBase
     {

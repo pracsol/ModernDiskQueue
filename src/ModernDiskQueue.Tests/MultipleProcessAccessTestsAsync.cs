@@ -1,20 +1,24 @@
-﻿using Microsoft.Extensions.Logging;
-using NUnit.Framework;
-using System;
-using System.Collections.Concurrent;
-using System.Threading;
-using System.Threading.Tasks;
+﻿// <copyright file="MultipleProcessAccessTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
 
 // ReSharper disable PossibleNullReferenceException
-
 namespace ModernDiskQueue.Tests
 {
+    using System;
+    using System.Collections.Concurrent;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using NUnit.Framework;
+
     [TestFixture]
     public class MultipleProcessAccessTestsAsync : PersistentQueueTestsBase
     {
+        private PersistentQueueFactory _factory;
+
         protected override string QueuePath => "./MultipleProcessAccessTests";
 
-        private PersistentQueueFactory _factory;
         [SetUp]
         public new void Setup()
         {
@@ -27,8 +31,8 @@ namespace ModernDiskQueue.Tests
             base.Setup();
         }
 
-        [Test,
-         Description("Multiple PersistentQueue instances are " +
+        [Test]
+        [Description("Multiple PersistentQueue instances are " +
                      "pretty much the same as multiple processes to " +
                      "the DiskQueue library")]
         public void Can_access_from_multiple_queues_if_used_carefully()
@@ -42,9 +46,10 @@ namespace ModernDiskQueue.Tests
             {
                 for (int i = 0; i < numberOfItems; i++)
                 {
-                    var task = AddToQueueAsync(new byte[] {1, 2, 3 });
+                    var task = AddToQueueAsync([1, 2, 3]);
                     task.Wait();
                 }
+
                 producerDone.Set();
             });
             var t2 = new Thread(() =>
@@ -59,6 +64,7 @@ namespace ModernDiskQueue.Tests
                         received.Add(data);
                     }
                 }
+
                 consumerDone.Set();
             });
 
@@ -75,6 +81,7 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("Producer did not finish in time");
             }
+
             if (!consumerFinished)
             {
                 Assert.Fail("Consumer did not finish in time");
@@ -103,6 +110,7 @@ namespace ModernDiskQueue.Tests
                         var task = AddToQueueStringAsync("Hello");
                         task.Wait();
                     }
+
                     producerDone.Set();
                 }
                 catch (Exception ex)
@@ -124,6 +132,7 @@ namespace ModernDiskQueue.Tests
                             received.Add(data);
                         }
                     }
+
                     consumerDone.Set();
                 }
                 catch (Exception ex)
@@ -146,10 +155,12 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail("Producer did not finish in time");
             }
+
             if (!consumerFinished)
             {
                 Assert.Fail("Consumer did not finish in time");
             }
+
             if (lastException != null)
             {
                 Assert.Fail($"Exception hit while trying to read queue: {lastException.Message}");
@@ -183,6 +194,7 @@ namespace ModernDiskQueue.Tests
             {
                 Assert.Fail($"Exception hit while trying to read queue: {ex.Message}");
             }
+
             return data;
         }
 

@@ -1,28 +1,34 @@
+// <copyright file="PerformanceTestsAsync.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
 namespace ModernDiskQueue.Tests
 {
-    using Microsoft.Extensions.Logging;
-    using NSubstitute;
-    using NUnit.Framework;
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using NSubstitute;
+    using NUnit.Framework;
 
-    [TestFixture, Explicit, SingleThreaded]
+    [TestFixture]
+    [Explicit]
+    [SingleThreaded]
     public class PerformanceTestsAsync : PersistentQueueTestsBase
     {
         private const int LargeCount = 1000000;
         private const int SmallCount = 500;
-        public event Action<int>? ProgressUpdated;
+
         private static int _progressCounter = 0;
+
+        public event Action<int>? ProgressUpdated;
 
         protected override string QueuePath => "PerformanceTests";
 
-        private int _totalDequeues;
-
-        private IPersistentQueueFactory  _factory = Substitute.For<IPersistentQueueFactory>();
+        private IPersistentQueueFactory _factory = Substitute.For<IPersistentQueueFactory>();
 
         [SetUp]
         public new void Setup()
@@ -39,7 +45,8 @@ namespace ModernDiskQueue.Tests
             base.Setup();
         }
 
-        [Test, Description(
+        [Test]
+        [Description(
             "With a mid-range SSD, this is some 20x slower " +
             "than with a single flush (depends on disk speed)")]
         public async Task Enqueue_million_items_with_100_flushes()
@@ -53,10 +60,13 @@ namespace ModernDiskQueue.Tests
                         for (int j = 0; j < 10000; j++)
                         {
                             await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
-                            //await Task.Yield();
+
+                            // await Task.Yield();
                         }
+
                         await session.FlushAsync();
                     }
+
                     await Task.Yield();
                 }
             }
@@ -73,6 +83,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -94,7 +105,7 @@ namespace ModernDiskQueue.Tests
             DateTime testStartTime = DateTime.Now;
             int successfulThreads = 0;
             int objectsLeftToDequeue = NumberOfObjects;
-            ConcurrentBag<(int threadId, string reason)> failedThreads = [];
+            ConcurrentBag<(int ThreadId, string Reason)> failedThreads = [];
 
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {
@@ -135,7 +146,7 @@ namespace ModernDiskQueue.Tests
                                 {
                                     try
                                     {
-                                        //await Task.Delay(rnd.Next(5));
+                                        // await Task.Delay(rnd.Next(5));
                                         await using (var q = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(TimeoutForQueueCreationDuringEnqueueInSeconds)))
                                         {
                                             await using (var s = await q.OpenSessionAsync())
@@ -151,6 +162,7 @@ namespace ModernDiskQueue.Tests
                                         throw;
                                     }
                                 }
+
                                 _ = Interlocked.Increment(ref successfulThreads);
                             });
                         }
@@ -213,6 +225,7 @@ namespace ModernDiskQueue.Tests
                                     }
                                 }
                             }
+
                             Console.WriteLine($"Dequeue thread finished");
                         });
                     }
@@ -226,7 +239,7 @@ namespace ModernDiskQueue.Tests
                     }
                 })
                 {
-                    IsBackground = true
+                    IsBackground = true,
                 };
 
                 dequeueThread.Start();
@@ -246,7 +259,6 @@ namespace ModernDiskQueue.Tests
                 }
 
                 Console.WriteLine($"All enqueue threads finished, took {(DateTime.Now - enqueueStartTime).TotalSeconds} seconds.");
-
             }
             finally
             {
@@ -255,6 +267,7 @@ namespace ModernDiskQueue.Tests
                 {
                     enqueueCompletedEvents[i].Dispose();
                 }
+
                 dequeueCompleted.Dispose();
                 Console.WriteLine($"Total test time took {(DateTime.Now - testStartTime).TotalSeconds} seconds.");
             }
@@ -264,13 +277,13 @@ namespace ModernDiskQueue.Tests
 
         /// <summary>
         /// This test simulates a read-heavy workload with multiple threads concurrenty dequeuing items from the queue.
-		/// Just as with the Enqueue_million_items_with_100_flushes test, this is heavily dependent on the host
-		/// system performance. To be able to complete in time, one may need to adjust the sleep duration before
-		/// the dequeue operation starts in order to give the enqueue operation more of a head start. One thread
-		/// performing 1000 write operations doesn't complete as quickly as 100 threads doing read operations.
-		/// To some extent the read_heavy and write_heavy tests can be used as performance profilers if you
-		/// know the demand that will be placed on the queue and can run the tests on a system with a similar
-		/// performance profile as your deployment target.
+        /// Just as with the Enqueue_million_items_with_100_flushes test, this is heavily dependent on the host
+        /// system performance. To be able to complete in time, one may need to adjust the sleep duration before
+        /// the dequeue operation starts in order to give the enqueue operation more of a head start. One thread
+        /// performing 1000 write operations doesn't complete as quickly as 100 threads doing read operations.
+        /// To some extent the read_heavy and write_heavy tests can be used as performance profilers if you
+        /// know the demand that will be placed on the queue and can run the tests on a system with a similar
+        /// performance profile as your deployment target.
         /// </summary>
         [Test]
         public async Task read_heavy_multi_thread_workload()
@@ -287,7 +300,7 @@ namespace ModernDiskQueue.Tests
             int timeoutForEnqueueThreadInMinutes = 3;
             DateTime testStartTime = DateTime.Now;
             int successfulThreads = 0;
-            ConcurrentBag<(int threadId, string reason)> failedThreads = [];
+            ConcurrentBag<(int ThreadId, string Reason)> failedThreads = [];
 
             await using (var queue = await _factory.CreateAsync(QueuePath))
             {
@@ -330,13 +343,15 @@ namespace ModernDiskQueue.Tests
 
                                 await using (var s = await q.OpenSessionAsync())
                                 {
-                                    //Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} is enqueueing");
+                                    // Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} is enqueueing");
                                     await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
                                     await s.FlushAsync();
                                 }
                             }
-                            //await Task.Delay(5);
+
+                            // await Task.Delay(5);
                         }
+
                         Console.WriteLine($"Enqueue thread finished");
                     });
                 }
@@ -350,16 +365,17 @@ namespace ModernDiskQueue.Tests
                 }
             })
             {
-                IsBackground = true
+                IsBackground = true,
             };
 
             enqueueThread.Start();
-            //enqueueThread.Join(); // wait for the enqueue thread to finish
-            // If we don't wait for the enqueue thread to complete, the dequeue thread will start over top of it. 
+
+            // enqueueThread.Join(); // wait for the enqueue thread to finish
+            // If we don't wait for the enqueue thread to complete, the dequeue thread will start over top of it.
             // The dequeue threads will quickly outpace the writing (enqueue) thread if enough head start isn't
             // given (thread.sleep). This also depends greatly on disk performance. Instead of doing a single flush
             // on the writes, a flush per enqueue is going to be very slow. But if this test is to simulate
-            // a very active concurrent environment with more readers than writers, this may be a good way to 
+            // a very active concurrent environment with more readers than writers, this may be a good way to
             // understand the performance limitations and characteristics.
 
             // Wait for the enqueue thread to signal completion or for 18 seconds to pass
@@ -398,8 +414,8 @@ namespace ModernDiskQueue.Tests
                                             await using var s = await q.OpenSessionAsync();
                                             {
                                                 var data = await s.DequeueAsync();
-                                                //Console.WriteLine($"Thread {threadId} dequeued data item {(NumberOfObjects / NumberOfDequeueThreads) - count + 1}");
 
+                                                // Console.WriteLine($"Thread {threadId} dequeued data item {(NumberOfObjects / NumberOfDequeueThreads) - count + 1}");
                                                 if (data != null && data.Length > 0)
                                                 {
                                                     count--;
@@ -411,15 +427,17 @@ namespace ModernDiskQueue.Tests
                                                 }
                                             }
                                         }
+
                                         // Add a small intentional pause between operations
                                         // to reduce the chance that the same thread re-acquires the lock instantly
-                                        //await Task.Delay(20 + rnd.Next(30));
+                                        // await Task.Delay(20 + rnd.Next(30));
                                     }
                                     catch (TimeoutException)
                                     {
                                         throw;
                                     }
                                 }
+
                                 _ = Interlocked.Increment(ref successfulThreads);
                             });
                         }
@@ -456,7 +474,6 @@ namespace ModernDiskQueue.Tests
                 }
 
                 Console.WriteLine($"All dequeue threads finished, took {(DateTime.Now - dequeueStartTime).TotalSeconds} seconds.");
-
             }
             finally
             {
@@ -465,10 +482,10 @@ namespace ModernDiskQueue.Tests
                 {
                     dequeueCompletedEvents[i].Dispose();
                 }
+
                 enqueueCompleted.Dispose();
                 Console.WriteLine($"Total test time took {(DateTime.Now - testStartTime).TotalSeconds} seconds.");
             }
-
         }
 
         [Test]
@@ -482,6 +499,7 @@ namespace ModernDiskQueue.Tests
                     {
                         await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                     }
+
                     await session.FlushAsync();
                 }
 
@@ -491,12 +509,11 @@ namespace ModernDiskQueue.Tests
                     {
                         Ignore();
                     }
+
                     await session.FlushAsync();
                 }
             }
         }
-
-        private static void Ignore() { }
 
         [Test]
         public async Task Enqueue_and_dequeue_million_items_restart_queue()
@@ -513,8 +530,10 @@ namespace ModernDiskQueue.Tests
                             Console.WriteLine($"Changed to enqueuing on thread {Environment.CurrentManagedThreadId}.");
                             threadId = Environment.CurrentManagedThreadId;
                         }
+
                         await session.EnqueueAsync(Guid.NewGuid().ToByteArray());
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -531,8 +550,10 @@ namespace ModernDiskQueue.Tests
                             Console.WriteLine($"Changed to DEqueuing on thread {Environment.CurrentManagedThreadId}.");
                             threadId = Environment.CurrentManagedThreadId;
                         }
+
                         _ = await session.DequeueAsync();
                     }
+
                     await session.FlushAsync();
                 }
             }
@@ -573,85 +594,11 @@ namespace ModernDiskQueue.Tests
             }
         }
 
-        private async Task<int> EnqueueStuff(int numberOfObjectsToEnqueue, int timeoutForQueueCreation)
+        private static void Ignore()
         {
-            var threadId = Environment.CurrentManagedThreadId;
-            DateTime enqueueStartTime = DateTime.Now;
-            int countOfEnqueuedItems = 0;
-            Console.WriteLine("Starting queue task...");
-            try
-            {
-
-                for (int i = 0; i < numberOfObjectsToEnqueue; i++)
-                {
-                    await using (var q = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(timeoutForQueueCreation)).ConfigureAwait(false))
-                    {
-                        await using (var s = await q.OpenSessionAsync().ConfigureAwait(false))
-                        {
-                            Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} is enqueueing");
-                            await s.EnqueueAsync(Encoding.ASCII.GetBytes($"Enqueued item {i}"));
-                            await s.FlushAsync();
-                            Interlocked.Increment(ref countOfEnqueuedItems);
-                        }
-                    }
-                    //await Task.Delay(5);
-                }
-                Console.WriteLine($"Enqueue thread finished, took {(DateTime.Now - enqueueStartTime).TotalSeconds:F2} seconds.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Enqueue thread failed: {ex.Message}");
-            }
-            finally
-            {
-                Console.WriteLine($"Enqueued {countOfEnqueuedItems} items.");
-            }
-            return countOfEnqueuedItems;
-        }
-        private async Task<int> DequeueStuff(int numberOfObjectsToEnqueue, int timeoutForQueueCreation)
-        {
-            int count = numberOfObjectsToEnqueue;
-
-            try
-            {
-                while (count > 0)
-                {
-                    await using var q = await _factory.WaitForAsync(QueuePath, TimeSpan.FromSeconds(timeoutForQueueCreation)).ConfigureAwait(false);
-                    {
-                        if (await q.GetEstimatedCountOfItemsInQueueAsync() != 0)
-                        {
-                            await using var s = await q.OpenSessionAsync().ConfigureAwait(false);
-                            {
-                                Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} is DEqueueing");
-                                var data = await s.DequeueAsync().ConfigureAwait(false);
-
-                                if (data != null)
-                                {
-                                    Interlocked.Decrement(ref count);
-                                    await s.FlushAsync().ConfigureAwait(false);
-                                }
-                            }
-                        }
-                    }
-                    await Task.Delay(5);
-                }
-            }
-            catch (TimeoutException ex)
-            {
-                Console.WriteLine($"Thread {Environment.CurrentManagedThreadId} timed out trying to create the queue: {ex}");
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-                Console.WriteLine($"Dequeued {(numberOfObjectsToEnqueue - count)} of {numberOfObjectsToEnqueue} items.");
-            }
-            return numberOfObjectsToEnqueue - count;
         }
 
-        public void RunAsyncInThread(Func<Task> asyncFunc)
+        private void RunAsyncInThread(Func<Task> asyncFunc)
         {
             var t = asyncFunc();
             t.GetAwaiter().GetResult();

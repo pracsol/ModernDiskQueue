@@ -1,19 +1,23 @@
-﻿namespace ModernDiskQueue.Tests
+﻿// <copyright file="DependencyInjectionTests.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+
+namespace ModernDiskQueue.Tests
 {
+    using System;
+    using System.Linq;
+    using System.Threading.Tasks;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.DependencyInjection;
     using ModernDiskQueue.Tests.Models;
     using NUnit.Framework;
-    using System;
-    using System.Linq;
-    using System.Threading.Tasks;
 
     internal class DependencyInjectionTests
     {
-        string QueuePath = "./DIConsumerTests";
+        private const string QueuePath = "./DIConsumerTests";
         private ServiceProvider _serviceProvider;
-        InMemoryLoggerProvider _logProvider = new();
+        private InMemoryLoggerProvider _logProvider = new();
 
         [SetUp]
         public void Setup()
@@ -95,7 +99,7 @@
         {
             // Arrange
             var factory = _serviceProvider.GetRequiredService<IPersistentQueueFactory>();
-            byte[] input = [1,2,3,4];
+            byte[] input = [1, 2, 3, 4];
             byte[]? output;
 
             // Act
@@ -164,7 +168,6 @@
                 originalTimeout = queue.Internals.FileTimeoutMilliseconds;
                 queue.Internals.FileTimeoutMilliseconds = 9999;
                 changedTimeout = queue.Internals.FileTimeoutMilliseconds;
-
             }
 
             // Assert
@@ -181,14 +184,13 @@
             // Act
             await using (var queue = await factory.CreateAsync(QueuePath))
             {
-
             }
+
             await using (var queue = await factory.CreateAsync<string>(QueuePath))
             {
-
             }
-            // Assert
 
+            // Assert
             var logsFromFactory = _logProvider.GetMessages("PersistentQueueFactory");
             var logs = _logProvider.LogEntries;
 
@@ -197,21 +199,24 @@
                 entry.Category.Contains("ModernDiskQueue.PersistentQueueFactory") &&
                 entry.Message.Contains("creating queue at"));
 
-            Assert.That(queueCreationMessageCount, Is.EqualTo(2),
+            Assert.That(
+                queueCreationMessageCount,
+                Is.EqualTo(2),
                 "Expected two informational entries from factory when queue is created");
 
-            Assert.That(logs.Any(entry =>
+            Assert.That(
+                logs.Any(entry =>
                 entry.Level == LogLevel.Trace &&
                 entry.Category.Contains("ModernDiskQueue.Implementation.StandardFileDriver") &&
                 entry.Message.Contains("created lock file")),
                 "Expected trace/verbose entry from IFileDriver when lock file created.");
 
-            Assert.That(logs.Any(entry =>
+            Assert.That(
+                logs.Any(entry =>
                 entry.Level == LogLevel.Trace &&
                 entry.Category.Contains("ModernDiskQueue.Implementation.StandardFileDriver") &&
                 entry.Message.Contains("released lock file")),
                 "Expected trace/verbose entry from IFileDriver when lock file released.");
         }
-        
     }
 }
