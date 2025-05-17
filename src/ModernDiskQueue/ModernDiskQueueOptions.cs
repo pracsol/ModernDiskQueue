@@ -1,4 +1,6 @@
-﻿namespace ModernDiskQueue
+﻿using ModernDiskQueue.Implementation;
+
+namespace ModernDiskQueue
 {
     /// <summary>
     /// Options for configuring the ModernDiskQueue.

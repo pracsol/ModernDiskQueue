@@ -17,5 +17,13 @@ namespace ModernDiskQueue
         /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
         /// <returns><see cref="IPersistentQueueSession{T}"/></returns>
         new Task<IPersistentQueueSession<T>> OpenSessionAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Open a read/write session asynchronously.
+        /// </summary>
+        /// <param name="serializationStrategy">Specify a custom serialization strategy.</param>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
+        /// <returns><see cref="IPersistentQueueSession{T}"/></returns>
+        Task<IPersistentQueueSession<T>> OpenSessionAsync(ISerializationStrategy<T> serializationStrategy, CancellationToken cancellationToken = default);
     }
 }

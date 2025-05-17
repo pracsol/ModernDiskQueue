@@ -1,4 +1,5 @@
-﻿
+﻿using System.Runtime.CompilerServices;
+[assembly: InternalsVisibleTo("ModernDiskQueue.Benchmarks")]
 namespace ModernDiskQueue.Implementation
 {
     using ModernDiskQueue;
