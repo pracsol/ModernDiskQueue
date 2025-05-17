@@ -10,12 +10,19 @@
     public class PersistentQueueSession<T> : PersistentQueueSession, IPersistentQueueSession<T>
     {
         /// <inheritdoc cref="IPersistentQueueSession{T}"/>
-        public ISerializationStrategy<T> SerializationStrategy { get; set; } = new DefaultSerializationStrategy<T>();
+        public ISerializationStrategy<T> SerializationStrategy { get; set; }
 
         /// <inheritdoc cref="IPersistentQueueSession{T}"/>
-        public PersistentQueueSession(ILoggerFactory loggerFactory, IPersistentQueueImpl queue, IFileStream currentStream, int writeBufferSize, int timeoutLimit) : base(loggerFactory, queue, currentStream,
-            writeBufferSize, timeoutLimit)
+        public PersistentQueueSession(
+            ILoggerFactory loggerFactory, 
+            IPersistentQueueImpl queue, 
+            IFileStream currentStream, 
+            int writeBufferSize, 
+            int timeoutLimit, 
+            ISerializationStrategy<T>? serializationStrategy = null)
+            : base(loggerFactory, queue, currentStream, writeBufferSize, timeoutLimit)
         {
+            SerializationStrategy = serializationStrategy ?? new DefaultSerializationStrategy<T>();
         }
 
         /// <inheritdoc cref="IPersistentQueueSession{T}"/>

@@ -24,5 +24,11 @@
             cancellationToken.ThrowIfCancellationRequested();
             return new PersistentQueueSession<T>(_loggerFactory, this, await CreateWriterAsync(cancellationToken).ConfigureAwait(false), SuggestedWriteBuffer, FileTimeoutMilliseconds);
         }
+
+        public async Task<IPersistentQueueSession<T>> OpenSessionAsync(ISerializationStrategy<T>? serializationStrategy, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return new PersistentQueueSession<T>(_loggerFactory, this, await CreateWriterAsync(cancellationToken).ConfigureAwait(false), SuggestedWriteBuffer, FileTimeoutMilliseconds, serializationStrategy);
+        }
     }
 }
