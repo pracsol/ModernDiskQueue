@@ -7,6 +7,7 @@ namespace ModernDiskQueue.Implementation
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using System.Text.Json;
 
     /// <summary>
     /// This class performs basic serialization from objects of Type T to byte arrays suitable for use in DiskQueue sessions.
@@ -15,18 +16,15 @@ namespace ModernDiskQueue.Implementation
     /// You are free to implement your own <see cref="ISerializationStrategy{T}"/> and inject it into <see cref="PersistentQueue{T}"/>.
     /// </summary>
     /// <typeparam name="T">Type to be stored and retrieved. It must be either [Serializable] or a primitive type</typeparam>
-    internal class DefaultSerializationStrategy<T> : ISerializationStrategy<T>
+    internal class SerializationStrategyJson<T> : ISerializationStrategy<T>
     {
-        private readonly DataContractSerializer _serialiser;
-
-        public DefaultSerializationStrategy()
+        public SerializationStrategyJson()
         {
             var set = new DataContractSerializerSettings
             {
                 PreserveObjectReferences = true,
                 SerializeReadOnlyTypes = true
             };
-            _serialiser = new DataContractSerializer(typeof(T), set);
         }
 
         /// <inheritdoc />
@@ -40,7 +38,7 @@ namespace ModernDiskQueue.Implementation
             if (typeof(T) == typeof(string)) return (T)((object)Encoding.UTF8.GetString(bytes));
 
             using MemoryStream ms = new(bytes);
-            var obj = _serialiser.ReadObject(ms);
+            var obj = JsonSerializer.Deserialize<T>(ms);
             if (obj == null)
             {
                 return default;
@@ -48,9 +46,22 @@ namespace ModernDiskQueue.Implementation
             return (T)obj;
         }
 
-        public ValueTask<T?> DeserializeAsync(byte[]? bytes, CancellationToken cancellationToken = default)
+        public async ValueTask<T?> DeserializeAsync(byte[]? bytes, CancellationToken cancellationToken = default)
         {
-            return new ValueTask<T?>(Deserialize(bytes));
+            if (bytes == null)
+            {
+                return default;
+            }
+
+            if (typeof(T) == typeof(string)) return (T)((object)Encoding.UTF8.GetString(bytes));
+
+            using MemoryStream ms = new(bytes);
+            var obj = await JsonSerializer.DeserializeAsync<T>(ms);
+            if (obj == null)
+            {
+                return default;
+            }
+            return (T)obj;
         }
 
         /// <inheritdoc />
@@ -64,13 +75,24 @@ namespace ModernDiskQueue.Implementation
             if (typeof(T) == typeof(string)) return Encoding.UTF8.GetBytes(obj.ToString() ?? string.Empty);
 
             using MemoryStream ms = new();
-            _serialiser.WriteObject(ms, obj);
+            JsonSerializer.Serialize<T>(ms, obj);//.WriteObject(ms, obj);
             return ms.ToArray();
         }
 
-        public ValueTask<byte[]?> SerializeAsync(T? obj, CancellationToken cancellationToken = default)
+        public async ValueTask<byte[]?> SerializeAsync(T? obj, CancellationToken cancellationToken = default)
         {
-            return new ValueTask<byte[]?>(Serialize(obj));
+            if (obj == null)
+            {
+                return null;
+            }
+
+            if (typeof(T) == typeof(string))
+            {
+                return Encoding.UTF8.GetBytes(obj.ToString() ?? string.Empty);
+            }
+            using MemoryStream ms = new();
+            await JsonSerializer.SerializeAsync(ms, obj);
+            return ms.ToArray();
         }
     }
 }

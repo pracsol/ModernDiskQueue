@@ -63,7 +63,7 @@ namespace ModernDiskQueue.Tests
             5000);
 
             // Assert
-            Assert.That(session.SerializationStrategy, Is.TypeOf<DefaultSerializationStrategy<string>>());
+            Assert.That(session.SerializationStrategy, Is.TypeOf<SerializationStrategyXml<string>>());
         }
 
         [Test]

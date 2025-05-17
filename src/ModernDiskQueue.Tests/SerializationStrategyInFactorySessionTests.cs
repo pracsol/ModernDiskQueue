@@ -84,7 +84,7 @@ namespace ModernDiskQueue.Tests
             // Assert
             Assert.That(session, Is.Not.Null);
             Assert.That(session, Is.TypeOf<PersistentQueueSession<string>>());
-            Assert.That(session.SerializationStrategy, Is.TypeOf<DefaultSerializationStrategy<string>>());
+            Assert.That(session.SerializationStrategy, Is.TypeOf<SerializationStrategyXml<string>>());
         }
     }
 }

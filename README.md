@@ -173,6 +173,29 @@ using (var queue = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(5)))
 }
 ```
 
+## Serialization of Data
+MDQ provides flexible options for serializing data. You can select one of the following approaches:
+* **Blind Bytes** - The **non-generic** queue `IPersistentQueue` will accept any byte array for storage. It's up to you to create this
+byte array, and the queue doesn't care what it represents.
+
+* **Built-In Default XML Serializer** - The generic queue `IPersistentQueue<T>` will use the default serializer based on `System.Runtime.Serialization.DataContractSerializer`. 
+This is a reflection-based XML serializer, and the queue will store a binary representation of this data. This is the default serialization strategy for the generic queue.
+
+* **Built-In JSON Serializer** - With the Async API, you can set this option during service registration. It
+uses `System.Text.Json` to serialize and deserialize objects. It is also reflection-based and will store data
+on disk in a human-readable format.
+
+* **Built-In MessagePack Serializer** - In the Async API, you can set this option during service registration. It uses the 
+`MessagePack-CSharp` library to serialize and deserialize objects into a fast and tight binary format.
+
+* **BYOS (Bring Your Own Serializer)** - Regardless of which default serializer is implemented at service
+registration, you can always specify your own `ISerializationStrategy<T>` when creating an `IPersistentQueueSession<T>`. This 
+approach offers two advantages - you may find it a more elegant/readable way to perform your own serialization compared
+to the 'blind bytes' approach, and it is ideal for implementing source-generated serialization rather than using reflection-based serialization.
+
+Obviously you need to use the same strategy when serializing and deserializing data. You cannot serialize
+data as JSON and then deserialize it using the default XML serializer or MessagePack.
+
 ## Transactions
 Each session is a transaction. Any Enqueues or Dequeues will be rolled back when the session is disposed unless
 you call `session.FlushAsync()`. Data will only be visible between threads once it has been flushed (similar to a database commit).

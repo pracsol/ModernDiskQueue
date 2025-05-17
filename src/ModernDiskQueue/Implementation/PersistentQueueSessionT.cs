@@ -22,7 +22,7 @@
             ISerializationStrategy<T>? serializationStrategy = null)
             : base(loggerFactory, queue, currentStream, writeBufferSize, timeoutLimit)
         {
-            SerializationStrategy = serializationStrategy ?? new DefaultSerializationStrategy<T>();
+            SerializationStrategy = serializationStrategy ?? new SerializationStrategyXml<T>();
         }
 
         /// <inheritdoc cref="IPersistentQueueSession{T}"/>
