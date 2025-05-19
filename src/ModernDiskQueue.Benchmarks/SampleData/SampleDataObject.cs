@@ -14,6 +14,40 @@ namespace ModernDiskQueue.Benchmarks.SampleData
 
     public class SampleDataObject
     {
+        public SampleDataObject()
+        {
+            StringList = [];
+            StringDoubleDictionary = [];
+            NestedList = [];
+            NestedObject = new NestedData();
+
+            IntegerValue = 0;
+            LongValue = default;
+            FloatValue = default;
+            DoubleValue = default;
+            DecimalValue = default;
+            BooleanValue = default;
+            CharValue = default;
+            StringValue = string.Empty;
+            ByteValue = default;
+
+            NullableInt = default;
+            NullableBool = default;
+            NullableDateTime = default;
+
+            DateTimeValue = default;
+            TimeSpanValue = default;
+            DateOnlyValue = default;
+            TimeOnlyValue = default;
+
+            IntArray = [];
+
+            EnumValue = default;
+
+            //ArbitraryObject = new object();
+            //DynamicValue = 0;
+        }
+
         // Primitive Types
         public int IntegerValue { get; set; }
 
@@ -29,7 +63,7 @@ namespace ModernDiskQueue.Benchmarks.SampleData
 
         public char CharValue { get; set; }
 
-        public string StringValue { get; set; }
+        public string StringValue { get; set; } = string.Empty;
 
         public byte ByteValue { get; set; }
 
@@ -63,9 +97,9 @@ namespace ModernDiskQueue.Benchmarks.SampleData
         public SampleEnum EnumValue { get; set; }
 
         // Object and Dynamic
-        public object ArbitraryObject { get; set; }
+        //public object ArbitraryObject { get; set; }
 
-        public dynamic DynamicValue { get; set; }
+        //public dynamic DynamicValue { get; set; }
 
         // Complex collection
         public List<NestedData> NestedList { get; set; }

@@ -7,36 +7,57 @@
 namespace ModernDiskQueue.Benchmarks
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
+    using System.Globalization;
+    using System.IO;
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
+    using BenchmarkDotNet.Columns;
+    using BenchmarkDotNet.Configs;
+    using BenchmarkDotNet.Diagnosers;
+    using BenchmarkDotNet.Exporters;
+    using BenchmarkDotNet.Exporters.Csv;
+    using BenchmarkDotNet.Jobs;
+    using BenchmarkDotNet.Loggers;
     using Microsoft.Extensions.Logging;
+    using ModernDiskQueue.Benchmarks.Helpers;
     using ModernDiskQueue.Benchmarks.SampleData;
     using ModernDiskQueue.Implementation;
 
-    [Config(typeof(BenchmarkConfigThreadTaskComparison))]
+    [Config(typeof(Config))]
     public class SerializerStrategies
     {
         private const int CountOfObjectsToEnqueue = 10;
-        private const string QueuePath = "q_SerializerStrategies";
-        private PersistentQueueFactory _factory = new ();
+        private PersistentQueueFactory _factory = new();
+
+        private int cleanupCounter = 1;
+        private int setupCounter = 1;
+
+        public record SerializerCase(
+            ISerializationStrategy<SampleDataObject> Strategy,
+            string QueuePath);
+
         private readonly SampleDataObject[] arrayOfSamples = new SampleDataObject[CountOfObjectsToEnqueue];
 
-        // Add the following property to provide the list of serialization strategies
-        public static IEnumerable<ISerializationStrategy<SampleDataObject>> SerializationStrategies => new ISerializationStrategy<SampleDataObject>[]
-        {
-            new SerializationStrategyXml<SampleDataObject>(),
-            new SerializationStrategyJson<SampleDataObject>(),
-        };
+        // Static dictionary to store file sizes per benchmark case
+        public static ConcurrentDictionary<string, long> FileSizes = new();
 
-        [ParamsSource(nameof(SerializationStrategies))]
-        public ISerializationStrategy<SampleDataObject> _serializer;
+
+        // Add the following property to provide the list of serialization strategies
+        public static IEnumerable<SerializerCase> SerializerCases =>
+        [
+            new SerializerCase(new SerializationStrategyXml<SampleDataObject>(), "q_SerializerStrategies_Xml"),
+           // new SerializerCase(new SerializationStrategyJson<SampleDataObject>(), "q_SerializerStrategies_Json"),
+        ];
+
+        [ParamsSource(nameof(SerializerCases))]
+        public SerializerCase Case { get; set; }
 
         [GlobalSetup]
         public void Setup()
         {
+            Console.WriteLine("// " + "GlobalSetup");
             var loggerFactory = LoggerFactory.Create(builder =>
             {
                 builder.SetMinimumLevel(LogLevel.Warning);
@@ -55,19 +76,68 @@ namespace ModernDiskQueue.Benchmarks
         [GlobalCleanup]
         public void Cleanup()
         {
-            Helpers.AttemptManualCleanup(QueuePath);
+            Console.WriteLine("// " + "GlobalCleanup");
         }
 
         [IterationSetup]
         public void IterationSetup()
         {
-            Helpers.AttemptManualCleanup(QueuePath);
+            // Setup count is not zero-based.
+            int currentIteration = ++setupCounter;
+
+            Console.WriteLine($"// Iteration Setup on iteration {currentIteration}");
+            FileManagement.AttemptManualCleanup(Case.QueuePath);
+        }
+
+        [IterationCleanup()]
+        public void IterationCleanup()
+        {
+            string queuePath = Case.QueuePath;
+
+            long fileSizeInBytes = 0;
+
+            // Cleanup count is not zero-based.
+            int currentIteration = ++cleanupCounter;
+
+            Console.WriteLine($"// Iteration Cleanup on iteration {currentIteration}");
+
+            // need to determine whether the event is fired from jitting, warmups, or iterations.
+            // Jitting will happen once? Warmups will happen per Config.WarmupCount
+            currentIteration = currentIteration - 2 - (Config.WarmupCount * SerializerCases.Count());
+
+            if (currentIteration > 0 && currentIteration <= Config.IterationCount)
+            {
+                Console.WriteLine($"// Writing file size data for workload iteration {currentIteration}");
+                // Get the data file size.
+                string dataFilePath = Path.Combine(queuePath, "Data.0");
+
+                if (File.Exists(dataFilePath))
+                {
+                    fileSizeInBytes = new FileInfo(dataFilePath).Length;
+                    Console.WriteLine($"// File size was {fileSizeInBytes} bytes.");
+                }
+                else
+                {
+                    Console.WriteLine($"// ---->> File Data.0 does not exist.");
+                    fileSizeInBytes = 0;
+                }
+
+                // write to file.. serializationstrategyname, iterationcount, filesize
+                string rowData = $"{Case.Strategy.GetType().Name}, {currentIteration}, {fileSizeInBytes}";
+                CsvFileHelper.AppendLineToCsv(rowData);
+            }
+            else
+            {
+                Console.WriteLine("// Skipping file size data write because this isn't a valid iteration.");
+            }
         }
 
         [Benchmark]
-        public async Task AsyncEnqueueDequeueConcurrentlyWithTasks()
+        public async Task TestSerializerSpeedAndSize()
         {
             const int TargetObjectCount = CountOfObjectsToEnqueue;
+            ISerializationStrategy<SampleDataObject> serializer = Case.Strategy;
+            string queuePath = Case.QueuePath;
             Exception? producerException = null;
             Exception? consumerException = null;
 
@@ -76,7 +146,7 @@ namespace ModernDiskQueue.Benchmarks
             var enqueueCompletionSource = new TaskCompletionSource<bool>();
             var dequeueCompletionSource = new TaskCompletionSource<bool>();
 
-            IPersistentQueue<SampleDataObject> q = await _factory.CreateAsync<SampleDataObject>(QueuePath);
+            IPersistentQueue<SampleDataObject> q = await _factory.CreateAsync<SampleDataObject>(queuePath);
 
             // Producer task
             var producerTask = Task.Run(async () =>
@@ -86,7 +156,7 @@ namespace ModernDiskQueue.Benchmarks
                     var rnd = new Random();
                     for (int i = 0; i < TargetObjectCount; i++)
                     {
-                        await using (var session = await q.OpenSessionAsync(_serializer))
+                        await using (var session = await q.OpenSessionAsync(serializer))
                         {
                             await session.EnqueueAsync(arrayOfSamples[i]);
                             Interlocked.Increment(ref enqueueCount);
@@ -112,7 +182,7 @@ namespace ModernDiskQueue.Benchmarks
                     var rnd = new Random();
                     do
                     {
-                        await using (var session = await q.OpenSessionAsync(_serializer))
+                        await using (var session = await q.OpenSessionAsync(serializer))
                         {
                             var obj = await session.DequeueAsync();
                             if (obj != null)
@@ -161,6 +231,36 @@ namespace ModernDiskQueue.Benchmarks
             }
 
             await q.DisposeAsync();
+        }
+
+        internal class Config : ManualConfig
+        {
+            public const int WarmupCount = 2;
+            public const int IterationCount = 1;
+            public const int LaunchCount = 1;
+            public const int UnrollFactor = 1;
+
+            public Config()
+            {
+                AddJob(Job.Default
+                    .WithWarmupCount(WarmupCount)
+                    .WithIterationCount(IterationCount)
+                    .WithInvocationCount(IterationCount)
+                    .WithLaunchCount(LaunchCount)
+                    .WithUnrollFactor(UnrollFactor)
+                    .WithId("SerializerStrategies"));
+                    // .WithOptions(ConfigOptions.DisableOptimizationsValidator);
+
+                AddLogger(ConsoleLogger.Default);
+                AddColumnProvider(DefaultColumnProviders.Instance);
+                AddDiagnoser(ThreadingDiagnoser.Default);
+                AddDiagnoser(MemoryDiagnoser.Default);
+                AddDiagnoser(new FileSizeDiagnoser());
+
+                // AddDiagnoser(new ConcurrencyVisualizerProfiler());
+                AddExporter(MarkdownExporter.Default);
+                AddExporter(CsvExporter.Default);
+            }
         }
     }
 }

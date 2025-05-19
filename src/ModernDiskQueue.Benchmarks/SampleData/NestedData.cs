@@ -21,5 +21,4 @@ namespace ModernDiskQueue.Benchmarks.SampleData
 
         public Uri Website { get; set; }
     }
-
 }

@@ -13,5 +13,4 @@ namespace ModernDiskQueue.Benchmarks.SampleData
         SecondOption,
         ThirdOption,
     }
-
 }
