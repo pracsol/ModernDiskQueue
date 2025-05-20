@@ -59,18 +59,21 @@ namespace ModernDiskQueue.Benchmarks
                     logger.WriteLine($"{stat.StrategyName} | {stat.Average} | {stat.Min} | {stat.Max}");
                 }
             }
-
-            logger.WriteLine($"Data file path was at: {Helpers.CsvFileHelper.GetFilePath()}");
-            logger.WriteLine();
-
         }
 
         public void Handle(HostSignal signal, DiagnoserActionParameters parameters)
         {
-            if (signal.Equals(HostSignal.AfterActualRun))
+            switch (signal)
             {
-                // Collect file size data after the actual run
-                AfterActualRun(parameters);
+                case HostSignal.BeforeActualRun:
+                    break;
+                case HostSignal.AfterActualRun:
+                    AfterActualRun(parameters);
+                    break;
+                case HostSignal.AfterAll:
+                    break;
+                case HostSignal.AfterProcessExit:
+                    break;
             }
 
             // This is a fallback implementation that ensures we collect data
@@ -107,15 +110,27 @@ namespace ModernDiskQueue.Benchmarks
 
         public void AfterActualRun(DiagnoserActionParameters parameters)
         {
-            Console.WriteLine($"Collecting data from file {CsvFileHelper.GetFilePath()}...");
+            fileSizeData = [];
             try
             {
-                fileSizeData = CsvFileHelper.ReadCsvToTupleList();
+                List<string> resultList = BenchmarkDataRecorder.GetBenchmarkResults($"{AppContext.BaseDirectory}\\BenchmarkDotNet.Artifacts\\").GetAwaiter().GetResult();
+                Console.WriteLine($"Retrieved {resultList.Count} results from the queue.");
+                foreach (var result in resultList)
+                {
+                    var parts = result.Split(',', StringSplitOptions.TrimEntries);
+                    if (parts.Length >= 3)
+                    {
+                        Console.WriteLine("Processing result: " + result);
+                        string strategyName = parts[0];
+                        int iterationCount = int.Parse(parts[1]);
+                        long fileSize = long.Parse(parts[2]);
+                        fileSizeData.Add((strategyName, iterationCount, fileSize));
+                    }
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error reading file size data: {ex.Message}");
-                fileSizeData = new List<(string, int, long)>();
+                Console.WriteLine($"Error processing benchmark results: {ex.Message}");
             }
 
             Console.WriteLine($"File size data collected: {fileSizeData.Count} entries.");

@@ -57,7 +57,6 @@ namespace ModernDiskQueue.Benchmarks
         [GlobalSetup]
         public void Setup()
         {
-            Console.WriteLine("// " + "GlobalSetup");
             var loggerFactory = LoggerFactory.Create(builder =>
             {
                 builder.SetMinimumLevel(LogLevel.Warning);
@@ -71,12 +70,6 @@ namespace ModernDiskQueue.Benchmarks
             {
                 arrayOfSamples[x] = SampleDataFactory.CreateRandomSampleData();
             }
-        }
-
-        [GlobalCleanup]
-        public void Cleanup()
-        {
-            Console.WriteLine("// " + "GlobalCleanup");
         }
 
         [IterationSetup]
@@ -124,7 +117,7 @@ namespace ModernDiskQueue.Benchmarks
 
                 // write to file.. serializationstrategyname, iterationcount, filesize
                 string rowData = $"{Case.Strategy.GetType().Name}, {currentIteration}, {fileSizeInBytes}";
-                CsvFileHelper.AppendLineToCsv(rowData);
+                BenchmarkDataRecorder.SaveBenchmarkResult(rowData).GetAwaiter().GetResult();
             }
             else
             {
@@ -156,7 +149,7 @@ namespace ModernDiskQueue.Benchmarks
                     var rnd = new Random();
                     for (int i = 0; i < TargetObjectCount; i++)
                     {
-                        await using (var session = await q.OpenSessionAsync(serializer))
+                        await using (var session = await q.OpenSessionAsync(serializer, CancellationToken.None))
                         {
                             await session.EnqueueAsync(arrayOfSamples[i]);
                             Interlocked.Increment(ref enqueueCount);
@@ -236,7 +229,7 @@ namespace ModernDiskQueue.Benchmarks
         internal class Config : ManualConfig
         {
             public const int WarmupCount = 2;
-            public const int IterationCount = 1;
+            public const int IterationCount = 2;
             public const int LaunchCount = 1;
             public const int UnrollFactor = 1;
 
