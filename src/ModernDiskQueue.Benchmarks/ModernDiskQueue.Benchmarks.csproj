@@ -13,6 +13,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="CustomColumns\**" />
+    <EmbeddedResource Remove="CustomColumns\**" />
+    <None Remove="CustomColumns\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="stylecop.json" />
   </ItemGroup>
 
@@ -38,10 +44,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ModernDiskQueue\ModernDiskQueue.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="CustomColumns\" />
   </ItemGroup>
 
 </Project>

@@ -1,8 +1,14 @@
-﻿namespace ModernDiskQueue.Benchmarks.Helpers
+﻿// -----------------------------------------------------------------------
+// <copyright file="BenchmarkDataRecorder.cs" company="ModernDiskQueue Contributors">
+// Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
+// </copyright>
+// -----------------------------------------------------------------------
+
+namespace ModernDiskQueue.Benchmarks.Helpers
 {
     using System;
     using System.Collections.Generic;
-    using System.Globalization;
+    using System.Text.Json;
     using System.Threading.Tasks;
     using ModernDiskQueue;
 
@@ -24,55 +30,68 @@
         /// <summary>
         /// Enqueues a string to a persistent queue for later processing.
         /// </summary>
-        /// <param name="dataLine">string representation of data to enqueue, e.g. comma-delimited list of values.</param>
+        /// <typeparam name="T">Type of data to save.</typeparam>
+        /// <param name="benchmarkData">Instance object of data to save.</param>
         /// <returns>Nothing.</returns>
-        public static async Task SaveBenchmarkResult(string dataLine)
+        public static async Task SaveBenchmarkResult<T>(T benchmarkData)
         {
+            ArgumentNullException.ThrowIfNull(benchmarkData, nameof(benchmarkData));
+
             if (!string.IsNullOrEmpty(_resolvedArtifactsPath) && !Directory.Exists(_resolvedArtifactsPath))
             {
                 Directory.CreateDirectory(_resolvedArtifactsPath);
             }
 
             Console.WriteLine($"Attempting to enqueue at {_resolvedArtifactsPath}{_queueName}");
-            await using (var q = await _queueFactory.WaitForAsync<string>($"{_pathToArtifactsFolder}{_queueName}", TimeSpan.FromSeconds(2)))
+            await using (var q = await _queueFactory.WaitForAsync<T>($"{_pathToArtifactsFolder}{_queueName}", TimeSpan.FromSeconds(2)))
             {
                 await using (var s = await q.OpenSessionAsync())
                 {
-                    await s.EnqueueAsync(dataLine);
+                    await s.EnqueueAsync(benchmarkData);
                     await s.FlushAsync();
                 }
             }
         }
 
         /// <summary>
-        /// Reads strings from queue and returns collection as a List.
+        /// Reads objects from queue and returns collection as a List.
         /// </summary>
         /// <returns>List of values.</returns>
-        public static async Task<List<string>> GetBenchmarkResults()
+        public static async Task<List<T>> GetBenchmarkResults<T>()
         {
-            return await GetBenchmarkResults(_resolvedArtifactsPath);
+            return await GetBenchmarkResults<T>(_resolvedArtifactsPath);
         }
 
-        public static async Task<List<string>> GetBenchmarkResults(string pathToArtifactsFolder)
+        /// <summary>
+        /// Reads objects from queue and returns collection as a List.
+        /// </summary>
+        /// <typeparam name="T">Type of data to extract.</typeparam>
+        /// <param name="pathToArtifactsFolder">File path to the queue folder.</param>
+        /// <param name="destructiveRead">If false, the value will stay in the queue after it's read. If true, the value is removed from the queue (default).</param>
+        /// <returns>Collection of deserialized objects.</returns>
+        public static async Task<List<T>> GetBenchmarkResults<T>(string pathToArtifactsFolder, bool destructiveRead = true)
         {
-            List<string> results = [];
+            List<T> results = [];
 
-            await using (var q = await _queueFactory.WaitForAsync<string>($"{pathToArtifactsFolder}{_queueName}", TimeSpan.FromSeconds(5)))
+            await using (var q = await _queueFactory.WaitForAsync<T>($"{pathToArtifactsFolder}{_queueName}", TimeSpan.FromSeconds(5)))
             {
                 await using (var s = await q.OpenSessionAsync())
                 {
-                    string dataFromQueue = string.Empty;
+                    object? dataFromQueue = null;
                     do
                     {
                         dataFromQueue = await s.DequeueAsync();
-                        if (dataFromQueue != null && dataFromQueue != string.Empty)
+                        if (dataFromQueue != null)
                         {
                             Console.WriteLine($"Dequeued data: {dataFromQueue}");
-                            results.Add(dataFromQueue);
-                            await s.FlushAsync();
+                            results.Add((T)dataFromQueue);
+                            if (destructiveRead)
+                            {
+                                await s.FlushAsync();
+                            }
                         }
                     }
-                    while (dataFromQueue != null && dataFromQueue != string.Empty);
+                    while (dataFromQueue != null);
                 }
             }
 

@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------
-// <copyright file="Helpers.cs" company="ModernDiskQueue Contributors">
+// <copyright file="FileManagement.cs" company="ModernDiskQueue Contributors">
 // Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
 // </copyright>
 // -----------------------------------------------------------------------
@@ -8,29 +8,29 @@ namespace ModernDiskQueue.Benchmarks.Helpers
 {
     internal static class FileManagement
     {
-        internal static void AttemptManualCleanup(string path, CleanupLogging logLevel = CleanupLogging.All)
+        internal static void AttemptManualCleanup(string path, LogLevelForFileManagement logLevel = LogLevelForFileManagement.All)
         {
             try
             {
                 if (!Directory.Exists(path))
                 {
-                    if (logLevel != CleanupLogging.None) Console.WriteLine($"Directory {path} does not exist. No cleanup needed.");
+                    if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Directory {path} does not exist. No cleanup needed.");
                     return;
                 }
 
                 var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
-                if (logLevel != CleanupLogging.None) Console.WriteLine($"Attempting to delete {files.Length} files manually");
+                if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Attempting to delete {files.Length} files manually");
 
                 foreach (var file in files)
                 {
                     try
                     {
                         File.Delete(file);
-                        if (logLevel == CleanupLogging.All) Console.WriteLine($"Successfully deleted {file}");
+                        if (logLevel == LogLevelForFileManagement.All) Console.WriteLine($"Successfully deleted {file}");
                     }
                     catch (Exception ex)
                     {
-                        if (logLevel != CleanupLogging.None) Console.WriteLine($"Failed to delete {file}: {ex.Message}");
+                        if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Failed to delete {file}: {ex.Message}");
                     }
                 }
 
@@ -41,11 +41,11 @@ namespace ModernDiskQueue.Benchmarks.Helpers
                     try
                     {
                         Directory.Delete(dir, true);
-                        if (logLevel == CleanupLogging.All) Console.WriteLine($"Successfully deleted directory {dir}");
+                        if (logLevel == LogLevelForFileManagement.All) Console.WriteLine($"Successfully deleted directory {dir}");
                     }
                     catch (Exception ex)
                     {
-                        if (logLevel != CleanupLogging.None) Console.WriteLine($"Failed to delete directory {dir}: {ex.Message}");
+                        if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Failed to delete directory {dir}: {ex.Message}");
                     }
                 }
 
@@ -53,11 +53,11 @@ namespace ModernDiskQueue.Benchmarks.Helpers
                 try
                 {
                     Directory.Delete(path);
-                    if (logLevel == CleanupLogging.All) Console.WriteLine($"Successfully deleted main directory {path}");
+                    if (logLevel == LogLevelForFileManagement.All) Console.WriteLine($"Successfully deleted main directory {path}");
                 }
                 catch (Exception ex)
                 {
-                    if (logLevel != CleanupLogging.None) Console.WriteLine($"Failed to delete main directory: {ex.Message}");
+                    if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Failed to delete main directory: {ex.Message}");
                 }
             }
             catch (Exception ex)

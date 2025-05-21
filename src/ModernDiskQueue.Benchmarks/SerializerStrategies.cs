@@ -21,40 +21,54 @@ namespace ModernDiskQueue.Benchmarks
     using BenchmarkDotNet.Jobs;
     using BenchmarkDotNet.Loggers;
     using Microsoft.Extensions.Logging;
+    using ModernDiskQueue.Benchmarks.CustomDiagnosers;
     using ModernDiskQueue.Benchmarks.Helpers;
     using ModernDiskQueue.Benchmarks.SampleData;
     using ModernDiskQueue.Implementation;
 
     [Config(typeof(Config))]
-    public class SerializerStrategies
+    public partial class SerializerStrategies
     {
         private const int CountOfObjectsToEnqueue = 10;
+        private readonly SampleDataObject[] _arrayOfSamples = new SampleDataObject[CountOfObjectsToEnqueue];
+
+        /// <summary>
+        /// Factory to create persistent queues.
+        /// </summary>
+        /// <remarks>
+        /// I had a lot of difficulty getting data from the benchmark post iteration events (collecting size of the Data.0 file) back up to the benchmark process.
+        /// I had explored in-memory solutions and writing out to a CSV. I had seen some discussion online about using SqlLite for this, which makes sense, but
+        /// why not just eat my own dog food and use MDQ? I already have the library referenced in the benchmark project, which would avoid the need to add another dependency.
+        /// So that's why it's here: each IterationCleanup method will write out the file size of the Data.0 file to a queue, which will remain available to be
+        /// read by the diagnoser running in the main benchmark process.
+        /// </remarks>
         private PersistentQueueFactory _factory = new();
 
-        private int cleanupCounter = 1;
-        private int setupCounter = 1;
+        /// <summary>
+        /// Counter to track the number of times the IterationSetup method has been called.
+        /// </summary>
+        private int _setupCounter = 0;
 
-        public record SerializerCase(
-            ISerializationStrategy<SampleDataObject> Strategy,
-            string QueuePath);
-
-        private readonly SampleDataObject[] arrayOfSamples = new SampleDataObject[CountOfObjectsToEnqueue];
-
-        // Static dictionary to store file sizes per benchmark case
-        public static ConcurrentDictionary<string, long> FileSizes = new();
-
+        /// <summary>
+        /// Counter to track the number of times the IterationCleanup method has been called.
+        /// </summary>
+        private int _cleanupCounter = 0;
 
         // Add the following property to provide the list of serialization strategies
-        public static IEnumerable<SerializerCase> SerializerCases =>
+        public static IEnumerable<SerializerBenchmarkCase> SerializerCases =>
         [
-            new SerializerCase(new SerializationStrategyXml<SampleDataObject>(), "q_SerializerStrategies_Xml"),
-           // new SerializerCase(new SerializationStrategyJson<SampleDataObject>(), "q_SerializerStrategies_Json"),
+            new SerializerBenchmarkCase("XML", new SerializationStrategyXml<SampleDataObject>(), "q_SerializerStrategies_Xml"),
+            new SerializerBenchmarkCase("JSON", new SerializationStrategyJson<SampleDataObject>(), "q_SerializerStrategies_Json"),
         ];
 
-        [ParamsSource(nameof(SerializerCases))]
-        public SerializerCase Case { get; set; }
+        /// <summary>
+        /// Gets or sets the current parameter to use with the benchmark.
+        /// </summary>
+        [ParamsSource(nameof(SerializerCases), Priority = -100)]
+        public SerializerBenchmarkCase Case { get; set; } = default!;
 
         [GlobalSetup]
+        /// <inheritdoc/>
         public void Setup()
         {
             var loggerFactory = LoggerFactory.Create(builder =>
@@ -68,15 +82,14 @@ namespace ModernDiskQueue.Benchmarks
             _factory = new PersistentQueueFactory(loggerFactory);
             for (int x = 0; x < CountOfObjectsToEnqueue; x++)
             {
-                arrayOfSamples[x] = SampleDataFactory.CreateRandomSampleData();
+                _arrayOfSamples[x] = SampleDataFactory.CreateRandomSampleData();
             }
         }
 
         [IterationSetup]
         public void IterationSetup()
         {
-            // Setup count is not zero-based.
-            int currentIteration = ++setupCounter;
+            int currentIteration = ++_setupCounter;
 
             Console.WriteLine($"// Iteration Setup on iteration {currentIteration}");
             FileManagement.AttemptManualCleanup(Case.QueuePath);
@@ -85,18 +98,20 @@ namespace ModernDiskQueue.Benchmarks
         [IterationCleanup()]
         public void IterationCleanup()
         {
+            const int NumberOfJittingIterations = 1;
             string queuePath = Case.QueuePath;
 
             long fileSizeInBytes = 0;
 
-            // Cleanup count is not zero-based.
-            int currentIteration = ++cleanupCounter;
+            int currentIteration = ++_cleanupCounter;
 
             Console.WriteLine($"// Iteration Cleanup on iteration {currentIteration}");
 
             // need to determine whether the event is fired from jitting, warmups, or iterations.
-            // Jitting will happen once? Warmups will happen per Config.WarmupCount
-            currentIteration = currentIteration - 2 - (Config.WarmupCount * SerializerCases.Count());
+            // Jitting will happen twice?
+            // Warmups will happen per Config.WarmupCount
+            // Each "case" in the params will be run as a separate process, so the counters reset.
+            currentIteration = currentIteration - (NumberOfJittingIterations + Config.WarmupCount);
 
             if (currentIteration > 0 && currentIteration <= Config.IterationCount)
             {
@@ -116,12 +131,20 @@ namespace ModernDiskQueue.Benchmarks
                 }
 
                 // write to file.. serializationstrategyname, iterationcount, filesize
-                string rowData = $"{Case.Strategy.GetType().Name}, {currentIteration}, {fileSizeInBytes}";
-                BenchmarkDataRecorder.SaveBenchmarkResult(rowData).GetAwaiter().GetResult();
+                SerializerBenchmarkResult result = new()
+                {
+                    Name = Case.Name,
+                    TypeName = Case.Strategy.GetType().Name,
+                    IterationCount = currentIteration,
+                    FileSize = fileSizeInBytes,
+                };
+
+                string rowData = $"{Case.Name}, {Case.Strategy.GetType().Name}, {currentIteration}, {fileSizeInBytes}";
+                BenchmarkDataRecorder.SaveBenchmarkResult<SerializerBenchmarkResult>(result).GetAwaiter().GetResult();
             }
             else
             {
-                Console.WriteLine("// Skipping file size data write because this isn't a valid iteration.");
+                Console.WriteLine("// Skipping file size data write because this isn't a valid workload.");
             }
         }
 
@@ -151,7 +174,7 @@ namespace ModernDiskQueue.Benchmarks
                     {
                         await using (var session = await q.OpenSessionAsync(serializer, CancellationToken.None))
                         {
-                            await session.EnqueueAsync(arrayOfSamples[i]);
+                            await session.EnqueueAsync(_arrayOfSamples[i]);
                             Interlocked.Increment(ref enqueueCount);
                             await Task.Delay(rnd.Next(0, 100));
                             await session.FlushAsync();

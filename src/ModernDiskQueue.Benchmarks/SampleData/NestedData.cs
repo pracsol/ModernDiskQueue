@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------
-// <copyright file="SampleDataFactory.cs" company="ModernDiskQueue Contributors">
+// <copyright file="NestedData.cs" company="ModernDiskQueue Contributors">
 // Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
 // </copyright>
 // -----------------------------------------------------------------------
