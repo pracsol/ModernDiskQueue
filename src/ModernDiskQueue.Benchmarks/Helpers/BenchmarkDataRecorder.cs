@@ -84,10 +84,18 @@ namespace ModernDiskQueue.Benchmarks.Helpers
                         if (dataFromQueue != null)
                         {
                             Console.WriteLine($"Dequeued data: {dataFromQueue}");
-                            results.Add((T)dataFromQueue);
-                            if (destructiveRead)
+                            if (dataFromQueue.GetType() != typeof(T))
                             {
-                                await s.FlushAsync();
+                                // just swallow this and move on since maybe there's multiple types in the queue??
+                                // throw new InvalidOperationException($"Data type mismatch. Expected {typeof(T)}, but got {dataFromQueue.GetType()}");
+                            }
+                            else
+                            {
+                                results.Add((T)dataFromQueue);
+                                if (destructiveRead)
+                                {
+                                    await s.FlushAsync();
+                                }
                             }
                         }
                     }

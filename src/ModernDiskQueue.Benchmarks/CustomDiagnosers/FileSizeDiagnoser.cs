@@ -16,6 +16,7 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
     using BenchmarkDotNet.Reports;
     using BenchmarkDotNet.Running;
     using BenchmarkDotNet.Validators;
+    using Microsoft.CodeAnalysis.CSharp.Syntax;
     using ModernDiskQueue.Benchmarks.Helpers;
 
     /// <inheritdoc/>
@@ -24,7 +25,7 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
         /// <summary>
         /// List to contain parsed data retrieved from the benchmark iterations.
         /// </summary>
-        private readonly List<(string StrategyName, string TypeName, int IterationCount, long FileSize)> _fileSizeData = [];
+        private readonly List<(string GroupName, int IterationCount, long FileSize)> _fileSizeData = [];
 
         /// <inheritdoc/>
         public IEnumerable<string> Ids => [nameof(FileSizeDiagnoser)];
@@ -60,7 +61,7 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
             logger.WriteLine("=== File Size Statistics ===");
 
             var statsByStrategy = _fileSizeData
-                .GroupBy(t => t.StrategyName)
+                .GroupBy(t => t.GroupName)
                 .Select(g => new
                 {
                     StrategyName = g.Key,
@@ -116,17 +117,17 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
         public IEnumerable<Metric> ProcessResults(DiagnoserResults results)
         {
             //_fileSizeData.Clear();
-            List<SerializerBenchmarkResult> resultList = BenchmarkDataRecorder.GetBenchmarkResults<SerializerBenchmarkResult>($"{AppContext.BaseDirectory}\\BenchmarkDotNet.Artifacts\\", false).GetAwaiter().GetResult();
+            List<FileSizeResult> resultList = BenchmarkDataRecorder.GetBenchmarkResults<FileSizeResult>($"{AppContext.BaseDirectory}\\BenchmarkDotNet.Artifacts\\", false).GetAwaiter().GetResult();
             Console.WriteLine($"PR Retrieved {resultList.Count} results from the queue.");
             foreach (var result in resultList)
             {
-                _fileSizeData.Add((result.Name, result.TypeName, result.IterationCount, result.FileSize));
+                _fileSizeData.Add((result.GroupName, result.IterationCount, result.FileSize));
             }
 
             Console.WriteLine("ValueInfo: " + results.BenchmarkCase.Parameters.ValueInfo);
             Console.WriteLine("DisplayInfo: " + results.BenchmarkCase.Parameters.DisplayInfo);
             var statsByStrategy = _fileSizeData
-                .GroupBy(t => t.StrategyName)
+                .GroupBy(t => t.GroupName)
                 .Select(g => new
                 {
                     StrategyName = g.Key,
@@ -152,11 +153,11 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
         {
             try
             {
-                List<SerializerBenchmarkResult> resultList = BenchmarkDataRecorder.GetBenchmarkResults<SerializerBenchmarkResult>($"{AppContext.BaseDirectory}\\BenchmarkDotNet.Artifacts\\").GetAwaiter().GetResult();
+                List<FileSizeResult> resultList = BenchmarkDataRecorder.GetBenchmarkResults<FileSizeResult>($"{AppContext.BaseDirectory}\\BenchmarkDotNet.Artifacts\\").GetAwaiter().GetResult();
                 Console.WriteLine($"AAR Retrieved {resultList.Count} results from the queue.");
                 foreach (var result in resultList)
                 {
-                    _fileSizeData.Add((result.Name, result.Name, result.IterationCount, result.FileSize));
+                    _fileSizeData.Add((result.GroupName, result.IterationCount, result.FileSize));
                 }
             }
             catch (Exception ex)

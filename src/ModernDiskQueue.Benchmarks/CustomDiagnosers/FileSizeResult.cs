@@ -4,27 +4,22 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-namespace ModernDiskQueue.Benchmarks
+namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
 {
     /// <summary>
     /// Record to hold the results of the serializer benchmark.
     /// </summary>
-    public class SerializerBenchmarkResult
+    public class FileSizeResult
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="SerializerBenchmarkResult"/> class.
+        /// Initializes a new instance of the <see cref="FileSizeResult"/> class.
         /// </summary>
-        public SerializerBenchmarkResult() { }
+        public FileSizeResult() { }
 
         /// <summary>
-        /// Gets or sets a friendly name of the strategy displayed in results.
+        /// Gets or sets a name for the results to be grouped under.
         /// </summary>
-        public string Name { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Gets or sets the name of the serialization strategy, e.g. nameof([SerializationStrategyClass]).
-        /// </summary>
-        public string TypeName { get; set; } = string.Empty;
+        public string GroupName { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the iteration number that generated this result.

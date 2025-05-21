@@ -131,16 +131,14 @@ namespace ModernDiskQueue.Benchmarks
                 }
 
                 // write to file.. serializationstrategyname, iterationcount, filesize
-                SerializerBenchmarkResult result = new()
+                FileSizeResult result = new()
                 {
-                    Name = Case.Name,
-                    TypeName = Case.Strategy.GetType().Name,
+                    GroupName = Case.Name,
                     IterationCount = currentIteration,
                     FileSize = fileSizeInBytes,
                 };
 
-                string rowData = $"{Case.Name}, {Case.Strategy.GetType().Name}, {currentIteration}, {fileSizeInBytes}";
-                BenchmarkDataRecorder.SaveBenchmarkResult<SerializerBenchmarkResult>(result).GetAwaiter().GetResult();
+                BenchmarkDataRecorder.SaveBenchmarkResult<FileSizeResult>(result).GetAwaiter().GetResult();
             }
             else
             {
