@@ -29,7 +29,12 @@ namespace ModernDiskQueue.Benchmarks
     [Config(typeof(Config))]
     public partial class SerializerStrategies
     {
-        private const int CountOfObjectsToEnqueue = 10;
+        /// <summary>
+        /// Number of objects to enqueue for each iteration. If testing for size, this doesn't
+        /// really matter, but if testing for speed, you may try increasing the number >10 to
+        /// get statistically relevant results.
+        /// </summary>
+        private const int CountOfObjectsToEnqueue = 30;
         private readonly SampleDataObject[] _arrayOfSamples = new SampleDataObject[CountOfObjectsToEnqueue];
 
         /// <summary>
@@ -99,7 +104,7 @@ namespace ModernDiskQueue.Benchmarks
             // increment the iteration counter
             _iterationCounter++;
 
-            Console.WriteLine($"// Iteration Setup on iteration {_iterationCounter}");
+            Console.WriteLine($"// Setup on iteration {_iterationCounter} of Case: {Case.Name}");
 
             // need to determine whether the event is fired from jitting, warmups, or iterations.
             // Jitting will happen once?
@@ -109,9 +114,9 @@ namespace ModernDiskQueue.Benchmarks
 
             _isActualWorkload = (_actualWorkloadIterationCounter > 0 && _actualWorkloadIterationCounter <= Config.IterationCount);
 
-            Console.WriteLine($"// Is this an actual workload? {_isActualWorkload}");
+            Console.WriteLine($"// Is this an actual workload? " + (_isActualWorkload ? $"Yes, number {_actualWorkloadIterationCounter}." : "No."));
 
-            Console.WriteLine("// Ready? Go!");
+            Console.WriteLine("// Running...");
             // delete any queue artifacts that may exist
             // FileManagement.AttemptManualCleanup(Case.QueuePath + (_iterationCounter -1));
         }
@@ -123,7 +128,7 @@ namespace ModernDiskQueue.Benchmarks
 
             long fileSizeInBytes = 0;
 
-            Console.WriteLine($"// Iteration Cleanup on iteration {_iterationCounter}");
+            Console.WriteLine($"// Cleanup on iteration {_iterationCounter}");
 
 
             if (_isActualWorkload)
@@ -279,7 +284,7 @@ namespace ModernDiskQueue.Benchmarks
         internal class Config : ManualConfig
         {
             public const int WarmupCount = 2;
-            public const int IterationCount = 10;
+            public const int IterationCount = 20;
             public const int LaunchCount = 1;
             public const int UnrollFactor = 1;
 
@@ -302,7 +307,7 @@ namespace ModernDiskQueue.Benchmarks
 
                 // AddDiagnoser(new ConcurrencyVisualizerProfiler());
                 AddExporter(MarkdownExporter.Default);
-                AddExporter(CsvExporter.Default);
+                //AddExporter(CsvExporter.Default);
             }
         }
     }

@@ -39,7 +39,9 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
         /// <inheritdoc/>
         public RunMode GetRunMode(BenchmarkCase benchmarkCase) => RunMode.NoOverhead;
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// This method is responsible for displaying the diagnoser detailed results.
+        /// </summary>
         public void DisplayResults(ILogger logger)
         {
             StringBuilder rowBuilder = new();
@@ -115,6 +117,7 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
                 case HostSignal.AfterAll:
                     break;
                 case HostSignal.AfterProcessExit:
+                    AfterProcessExit(parameters);
                     break;
             }
 
@@ -123,7 +126,9 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
             // We can leave it empty since AfterActualRun is handling our logic
         }
 
-        /// <inheritdoc/>
+        /// <Summary>
+        /// This method is what yields metrics to the benchmark summary.
+        /// </Summary>
         public IEnumerable<Metric> ProcessResults(DiagnoserResults results)
         {
             //_fileSizeData.Clear();
@@ -176,6 +181,11 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
             }
 
             Console.WriteLine($"File size data collected: {_fileSizeData.Count} entries.");
+        }
+
+        public void AfterProcessExit(DiagnoserActionParameters parameters)
+        {
+            BenchmarkDataRecorder.CleanupSavedData($"{AppContext.BaseDirectory}\\BenchmarkDotNet.Artifacts\\").GetAwaiter().GetResult();
         }
 
         /// <inheritdoc/>

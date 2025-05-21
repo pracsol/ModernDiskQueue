@@ -106,5 +106,18 @@ namespace ModernDiskQueue.Benchmarks.Helpers
             Console.WriteLine($"Returning {results.Count} results from queue.");
             return results;
         }
+
+        /// <summary>
+        /// Deletes the benchmarkresults queue.
+        /// </summary>
+        /// <param name="queuePath">path to the queue.</param>
+        /// <returns>Nothing.</returns>
+        public static async Task CleanupSavedData(string queuePath)
+        {
+            await using (var q = await _queueFactory.WaitForAsync($"{queuePath}{_queueName}", TimeSpan.FromSeconds(5)))
+            {
+                await q.HardDeleteAsync(false);
+            }
+        }
     }
 }
