@@ -19,6 +19,10 @@
     - [Register MDQ Factory in DI Container](#register-mdq-factory-in-di-container)
     - [Create a queue and add some data using async API and injected factory.](#create-a-queue-and-add-some-data-using-async-api-and-injected-factory.)
     - [Create a queue and add some data with legacy synchronous API](#create-a-queue-and-add-some-data-with-legacy-synchronous-api)
+  - [Serialization of Data](#serialization-of-data)
+    - [Be Consistent](#be-consistent)
+    - [Data Contracts and Options](#data-contracts-and-options)
+    - [Built-In Serialization Performance](#built-in-serialization-performance)
   - [Transactions](#transactions)
   - [Data Loss and Transaction Truncation](#data-loss-and-transaction-truncation)
   - [Global default settings](#global-default-settings)
@@ -176,25 +180,42 @@ using (var queue = PersistentQueue.WaitFor(QueuePath, TimeSpan.FromSeconds(5)))
 ## Serialization of Data
 MDQ provides flexible options for serializing data. You can select one of the following approaches:
 * **Blind Bytes** - The **non-generic** queue `IPersistentQueue` will accept any byte array for storage. It's up to you to create this
-byte array, and the queue doesn't care what it represents.
+byte array, and the queue doesn't care what it represents - binary data like an image file or a complex data structure you serialized yourself. 
 
-* **Built-In Default XML Serializer** - The generic queue `IPersistentQueue<T>` will use the default serializer based on `System.Runtime.Serialization.DataContractSerializer`. 
-This is a reflection-based XML serializer, and the queue will store a binary representation of this data. This is the default serialization strategy for the generic queue.
+* **Built-In XML Serializer (Default)** - The generic queue `IPersistentQueue<T>` will use the default serializer based on `System.Runtime.Serialization.DataContractSerializer`. 
+This is a reflection-based XML serializer. It offers the advantage of storing your data in human-readable format, but is verbose. 
 
-* **Built-In JSON Serializer** - With the Async API, you can set this option during service registration. It
-uses `System.Text.Json` to serialize and deserialize objects. It is also reflection-based and will store data
-on disk in a human-readable format.
+* **Built-In JSON Serializer** - The generic queue can use uses `System.Text.Json` to serialize and deserialize objects. It is also reflection-based and will store data
+on disk in a human-readable format, but represents a >50% reduction in size on disk and is generally more performant than the XML serializer.
 
-* **Built-In MessagePack Serializer** - In the Async API, you can set this option during service registration. It uses the 
-`MessagePack-CSharp` library to serialize and deserialize objects into a fast and tight binary format.
-
-* **BYOS (Bring Your Own Serializer)** - Regardless of which default serializer is implemented at service
-registration, you can always specify your own `ISerializationStrategy<T>` when creating an `IPersistentQueueSession<T>`. This 
+* **BYOS (Bring Your Own Serializer)** - You can always specify your own `ISerializationStrategy<T>` when creating an `IPersistentQueueSession<T>`. This 
 approach offers two advantages - you may find it a more elegant/readable way to perform your own serialization compared
-to the 'blind bytes' approach, and it is ideal for implementing source-generated serialization rather than using reflection-based serialization.
+to the 'blind bytes' approach; it is ideal for implementing source-generated serialization rather than using reflection-based serialization.
 
+### Be Consistent
 Obviously you need to use the same strategy when serializing and deserializing data. You cannot serialize
-data as JSON and then deserialize it using the default XML serializer or MessagePack.
+data as JSON and then deserialize it using the XML serializer.
+
+### Data Contracts and Options
+
+It's important to recognize that the built-in XML and JSON serializers have different default behaviors inherent to the .NET libraries they use. This behavior can be manipulated with the myriad approaches supported by the built-in libraries, typically by adding the appropriate attributes to your class definitions.
+
+The JSON serializer contains overloads to allow for `JsonSerializerOptions` to be passed in. This allows you to specify options like `PropertyNamingPolicy` and `DefaultIgnoreCondition`  to control how the data is serialized. You can also use this feature to specify a `TypeInfoResolver` as a way to support source generation and data contracts.
+
+### Built-In Serialization Performance
+
+In the benchmarks project, `ModernDiskQueue.Benchmarks`, the `SerializerStrategies` benchmark attempts to enqueue and dequeue a bunch of objects using the different built-in serializer strategies with the goal of understanding impact to file size and performance.
+As you might imagine, the JSON serializer results in a much smaller footprint on disk than XML.
+
+
+| Strategy Name | Iter. Count| Average File Size* |
+|---------------|------------|-------------------|
+| JSON          | 20         | 32,098 (b)           |
+| XML           | 20         | 72,361 (b)          |
+
+\* This test was run enqueueing the same 30 objects created with the `SampleDataFactory` class in `ModernDiskQueue.Benchmarks.SampleData`. Actual file size depends on what you're enqueuing.
+
+Performance is a little harder to evaluate using this benchmark unless you measure a lot of iterations to smooth out the outliers. Generally the differences in (de)serialization speed seem statistically irrelevant in the context of MDQ.
 
 ## Transactions
 Each session is a transaction. Any Enqueues or Dequeues will be rolled back when the session is disposed unless
