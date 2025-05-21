@@ -43,35 +43,44 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
         public void DisplayResults(ILogger logger)
         {
             StringBuilder rowBuilder = new();
-            const int Col1Width = 31;
-            const int Col2Width = 20;
-            const int Col3Width = 16;
-            const int Col4Width = 15;
+            const int Col1Width = 30;
+            const int Col2Width = 13;
+            const int Col3Width = 20;
+            const int Col4Width = 16;
+            const int Col5Width = 16;
             const string col1Name = "Strategy Name";
-            const string col2Name = "Average File Size";
-            const string col3Name = "Min File Size";
-            const string col4Name = "Max File Size";
+            const string col2Name = "Iter. Count";
+            const string col3Name = "Average File Size";
+            const string col4Name = "Min File Size";
+            const string col5Name = "Max File Size";
 
-            rowBuilder.Append(col1Name.PadRight(Col1Width));
-            rowBuilder.Append("| " + col2Name.PadRight(Col2Width));
-            rowBuilder.Append("| " + col3Name.PadRight(Col3Width));
-            rowBuilder.Append("| " + col4Name.PadRight(Col4Width));
+            rowBuilder.Append($"| {col1Name}".PadRight(Col1Width));
+            rowBuilder.Append($"| {col2Name}".PadRight(Col2Width));
+            rowBuilder.Append($"| {col3Name}".PadRight(Col3Width));
+            rowBuilder.Append($"| {col4Name}".PadRight(Col4Width));
+            rowBuilder.Append($"| {col5Name}".PadRight(Col5Width) + '|');
+            rowBuilder.AppendLine();
+            rowBuilder.Append("|".PadRight(Col1Width, '-'));
+            rowBuilder.Append("|".PadRight(Col2Width, '-'));
+            rowBuilder.Append("|".PadRight(Col3Width, '-'));
+            rowBuilder.Append("|".PadRight(Col4Width, '-'));
+            rowBuilder.Append("|".PadRight(Col5Width, '-') + '|');
 
             logger.WriteLine();
             logger.WriteLine("=== File Size Statistics ===");
+            logger.WriteLine(rowBuilder.ToString());
 
             var statsByStrategy = _fileSizeData
                 .GroupBy(t => t.GroupName)
                 .Select(g => new
                 {
                     StrategyName = g.Key,
+                    NumberOfIterations = g.Count(),
                     Average = g.Average(x => x.FileSize),
                     Min = g.Min(x => x.FileSize),
                     Max = g.Max(x => x.FileSize),
                 })
                 .ToList();
-
-            logger.WriteLine(rowBuilder.ToString());
 
             if (statsByStrategy.Count == 0)
             {
@@ -83,10 +92,11 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
                 foreach (var stat in statsByStrategy)
                 {
                     rowBuilder.Clear();
-                    rowBuilder.Append(stat.StrategyName.PadRight(Col1Width));
-                    rowBuilder.Append("| " + stat.Average.ToString("N0").PadRight(Col2Width));
-                    rowBuilder.Append("| " + stat.Min.ToString("N0").PadRight(Col3Width));
-                    rowBuilder.Append("| " + stat.Max.ToString("N0").PadRight(Col4Width));
+                    rowBuilder.Append($"| {stat.StrategyName}".PadRight(Col1Width));
+                    rowBuilder.Append($"| {stat.NumberOfIterations}".PadRight(Col2Width));
+                    rowBuilder.Append($"| {stat.Average.ToString("N0")}".PadRight(Col3Width));
+                    rowBuilder.Append($"| {stat.Min.ToString("N0")}".PadRight(Col4Width));
+                    rowBuilder.Append($"| {stat.Max.ToString("N0")}".PadRight(Col5Width) + '|');
                     logger.WriteLine(rowBuilder.ToString());
                 }
             }
