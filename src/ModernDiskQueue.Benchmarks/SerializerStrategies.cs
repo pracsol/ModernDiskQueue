@@ -45,14 +45,19 @@ namespace ModernDiskQueue.Benchmarks
         private PersistentQueueFactory _factory = new();
 
         /// <summary>
-        /// Counter to track the number of times the IterationSetup method has been called.
+        /// Counter to track the number of iterations that have been run.
         /// </summary>
-        private int _setupCounter = 0;
+        private int _iterationCounter = 0;
 
         /// <summary>
-        /// Counter to track the number of times the IterationCleanup method has been called.
+        /// Counter to track the number of actual workload iterations that have been run.
         /// </summary>
-        private int _cleanupCounter = 0;
+        int _actualWorkloadIterationCounter = 0;
+
+        /// <summary>
+        /// Reflects whether the current iteration is an actual workload.
+        /// </summary>
+        private bool _isActualWorkload = false;
 
         // Add the following property to provide the list of serialization strategies
         public static IEnumerable<SerializerBenchmarkCase> SerializerCases =>
@@ -79,6 +84,7 @@ namespace ModernDiskQueue.Benchmarks
                     c.TimestampFormat = "[HH:mm:ss:ffff] ";
                 });
             });
+
             _factory = new PersistentQueueFactory(loggerFactory);
             for (int x = 0; x < CountOfObjectsToEnqueue; x++)
             {
@@ -89,33 +95,39 @@ namespace ModernDiskQueue.Benchmarks
         [IterationSetup]
         public void IterationSetup()
         {
-            int currentIteration = ++_setupCounter;
+            const int NumberOfJittingIterations = 1;
+            // increment the iteration counter
+            _iterationCounter++;
 
-            Console.WriteLine($"// Iteration Setup on iteration {currentIteration}");
-            FileManagement.AttemptManualCleanup(Case.QueuePath);
+            Console.WriteLine($"// Iteration Setup on iteration {_iterationCounter}");
+
+            // need to determine whether the event is fired from jitting, warmups, or iterations.
+            // Jitting will happen once?
+            // Warmups will happen per Config.WarmupCount
+            // Each "case" in the params will be run as a separate process, so the counters reset.
+            _actualWorkloadIterationCounter = _iterationCounter - (NumberOfJittingIterations + Config.WarmupCount);
+
+            _isActualWorkload = (_actualWorkloadIterationCounter > 0 && _actualWorkloadIterationCounter <= Config.IterationCount);
+
+            Console.WriteLine($"// Is this an actual workload? {_isActualWorkload}");
+
+            Console.WriteLine("// Ready? Go!");
+            // delete any queue artifacts that may exist
+            // FileManagement.AttemptManualCleanup(Case.QueuePath + (_iterationCounter -1));
         }
 
-        [IterationCleanup()]
+        [IterationCleanup]
         public void IterationCleanup()
         {
-            const int NumberOfJittingIterations = 1;
-            string queuePath = Case.QueuePath;
+            string queuePath = Case.QueuePath + _iterationCounter;
 
             long fileSizeInBytes = 0;
 
-            int currentIteration = ++_cleanupCounter;
+            Console.WriteLine($"// Iteration Cleanup on iteration {_iterationCounter}");
 
-            Console.WriteLine($"// Iteration Cleanup on iteration {currentIteration}");
 
-            // need to determine whether the event is fired from jitting, warmups, or iterations.
-            // Jitting will happen twice?
-            // Warmups will happen per Config.WarmupCount
-            // Each "case" in the params will be run as a separate process, so the counters reset.
-            currentIteration = currentIteration - (NumberOfJittingIterations + Config.WarmupCount);
-
-            if (currentIteration > 0 && currentIteration <= Config.IterationCount)
+            if (_isActualWorkload)
             {
-                Console.WriteLine($"// Writing file size data for workload iteration {currentIteration}");
                 // Get the data file size.
                 string dataFilePath = Path.Combine(queuePath, "Data.0");
 
@@ -134,7 +146,7 @@ namespace ModernDiskQueue.Benchmarks
                 FileSizeResult result = new()
                 {
                     GroupName = Case.Name,
-                    IterationCount = currentIteration,
+                    IterationCount = _actualWorkloadIterationCounter,
                     FileSize = fileSizeInBytes,
                 };
 
@@ -146,12 +158,24 @@ namespace ModernDiskQueue.Benchmarks
             }
         }
 
-        [Benchmark]
-        public async Task TestSerializerSpeedAndSize()
+        /// <summary>
+        /// Test the serializer speed and size.
+        /// </summary>
+        /// <remarks>
+        /// Need to be really careful about only executing single op per iteration.
+        /// If testing speed, include a great number of iterations and increase number of objects
+        /// to enqueue to generate statisticaly relevant results that have lower stdev. Since file
+        /// size should be constant across iterations (as long as they don't time out) then doing
+        /// only one iteration or a few to be safe should tell you the size results, but speed
+        /// requires a more intense test.
+        /// </remarks>
+        /// <returns>Return value is only included to prevent dead code elimination.</returns>
+        [Benchmark(OperationsPerInvoke = 1)]
+        public async Task<int> TestSerializerSpeedAndSize()
         {
-            const int TargetObjectCount = CountOfObjectsToEnqueue;
+            int targetObjectCount = CountOfObjectsToEnqueue;
             ISerializationStrategy<SampleDataObject> serializer = Case.Strategy;
-            string queuePath = Case.QueuePath;
+            string queuePath = Case.QueuePath + _iterationCounter;
             Exception? producerException = null;
             Exception? consumerException = null;
 
@@ -162,13 +186,14 @@ namespace ModernDiskQueue.Benchmarks
 
             IPersistentQueue<SampleDataObject> q = await _factory.CreateAsync<SampleDataObject>(queuePath);
 
+            // Console.WriteLine($"Creating task to enqueue {targetObjectCount} objects");
             // Producer task
             var producerTask = Task.Run(async () =>
             {
                 try
                 {
                     var rnd = new Random();
-                    for (int i = 0; i < TargetObjectCount; i++)
+                    for (int i = 0; i < targetObjectCount; i++)
                     {
                         await using (var session = await q.OpenSessionAsync(serializer, CancellationToken.None))
                         {
@@ -178,7 +203,7 @@ namespace ModernDiskQueue.Benchmarks
                             await session.FlushAsync();
                         }
                     }
-
+                    // Console.WriteLine($"Enqueued {enqueueCount} objects.");
                     enqueueCompletionSource.SetResult(true);
                 }
                 catch (Exception ex)
@@ -210,7 +235,8 @@ namespace ModernDiskQueue.Benchmarks
                             }
                         }
                     }
-                    while (dequeueCount < TargetObjectCount);
+                    while (dequeueCount < targetObjectCount);
+                    // Console.WriteLine($"Dequeued {dequeueCount} objects");
                     dequeueCompletionSource.SetResult(true);
                 }
                 catch (Exception ex)
@@ -229,6 +255,7 @@ namespace ModernDiskQueue.Benchmarks
 
             try
             {
+                //Console.WriteLine("Starting tasks..");
                 await Task.WhenAll(completionTasks);
             }
             catch (TimeoutException)
@@ -244,13 +271,15 @@ namespace ModernDiskQueue.Benchmarks
                 }
             }
 
+            // Console.WriteLine("disposing q");
             await q.DisposeAsync();
+            return enqueueCount;
         }
 
         internal class Config : ManualConfig
         {
             public const int WarmupCount = 2;
-            public const int IterationCount = 2;
+            public const int IterationCount = 10;
             public const int LaunchCount = 1;
             public const int UnrollFactor = 1;
 
@@ -259,11 +288,11 @@ namespace ModernDiskQueue.Benchmarks
                 AddJob(Job.Default
                     .WithWarmupCount(WarmupCount)
                     .WithIterationCount(IterationCount)
-                    .WithInvocationCount(IterationCount)
+                    .WithInvocationCount(1)
                     .WithLaunchCount(LaunchCount)
                     .WithUnrollFactor(UnrollFactor)
                     .WithId("SerializerStrategies"));
-                    // .WithOptions(ConfigOptions.DisableOptimizationsValidator);
+                    //.WithOptions(ConfigOptions.DisableOptimizationsValidator)
 
                 AddLogger(ConsoleLogger.Default);
                 AddColumnProvider(DefaultColumnProviders.Instance);
