@@ -8,10 +8,9 @@ namespace ModernDiskQueue.Benchmarks.SampleData
 {
     using System;
     using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
+    using MessagePack;
 
+    [MessagePackObject]
     public class SampleDataObject
     {
         public SampleDataObject()
@@ -49,51 +48,72 @@ namespace ModernDiskQueue.Benchmarks.SampleData
         }
 
         // Primitive Types
+        [Key(0)]
         public int IntegerValue { get; set; }
 
+        [Key(1)]
         public long LongValue { get; set; }
 
+        [Key(2)]
         public float FloatValue { get; set; }
 
+        [Key(3)]
         public double DoubleValue { get; set; }
 
+        [Key(4)]
         public decimal DecimalValue { get; set; }
 
+        [Key(5)]
         public bool BooleanValue { get; set; }
 
+        [Key(6)]
         public char CharValue { get; set; }
 
+        [Key(7)]
         public string StringValue { get; set; } = string.Empty;
 
+        [Key(8)]
         public byte ByteValue { get; set; }
 
         // Nullable Types
+        [Key(9)]
         public int? NullableInt { get; set; }
 
+        [Key(10)]
         public bool? NullableBool { get; set; }
 
+        [Key(11)]
         public DateTime? NullableDateTime { get; set; }
 
         // Date and Time
+        [Key(12)]
         public DateTime DateTimeValue { get; set; }
 
+        [Key(13)]
         public TimeSpan TimeSpanValue { get; set; }
 
+        [Key(14)]
         public DateOnly DateOnlyValue { get; set; }
 
+        [Key(15)]
         public TimeOnly TimeOnlyValue { get; set; }
 
         // Collections
+        [Key(16)]
         public int[] IntArray { get; set; }
 
+        [Key(17)]
         public List<string> StringList { get; set; }
 
+        [Key(18)]
         public Dictionary<string, double> StringDoubleDictionary { get; set; }
 
         // Nested Objects
+        [Key(19)]
         public NestedData NestedObject { get; set; }
 
         // Enum
+        [Key(20)]
         public SampleEnum EnumValue { get; set; }
 
         // Object and Dynamic
@@ -102,6 +122,7 @@ namespace ModernDiskQueue.Benchmarks.SampleData
         //public dynamic DynamicValue { get; set; }
 
         // Complex collection
+        [Key(21)]
         public List<NestedData> NestedList { get; set; }
     }
 }

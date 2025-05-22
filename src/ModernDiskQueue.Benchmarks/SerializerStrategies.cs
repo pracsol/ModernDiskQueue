@@ -17,11 +17,11 @@ namespace ModernDiskQueue.Benchmarks
     using BenchmarkDotNet.Configs;
     using BenchmarkDotNet.Diagnosers;
     using BenchmarkDotNet.Exporters;
-    using BenchmarkDotNet.Exporters.Csv;
     using BenchmarkDotNet.Jobs;
     using BenchmarkDotNet.Loggers;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Benchmarks.CustomDiagnosers;
+    using ModernDiskQueue.Benchmarks.CustomSerializers;
     using ModernDiskQueue.Benchmarks.Helpers;
     using ModernDiskQueue.Benchmarks.SampleData;
     using ModernDiskQueue.Implementation;
@@ -34,7 +34,7 @@ namespace ModernDiskQueue.Benchmarks
         /// really matter, but if testing for speed, you may try increasing the number >10 to
         /// get statistically relevant results.
         /// </summary>
-        private const int CountOfObjectsToEnqueue = 30;
+        private const int CountOfObjectsToEnqueue = 3;
         private readonly SampleDataObject[] _arrayOfSamples = new SampleDataObject[CountOfObjectsToEnqueue];
 
         /// <summary>
@@ -67,8 +67,9 @@ namespace ModernDiskQueue.Benchmarks
         // Add the following property to provide the list of serialization strategies
         public static IEnumerable<SerializerBenchmarkCase> SerializerCases =>
         [
-            new SerializerBenchmarkCase("XML", new SerializationStrategyXml<SampleDataObject>(), "q_SerializerStrategies_Xml"),
-            new SerializerBenchmarkCase("JSON", new SerializationStrategyJson<SampleDataObject>(), "q_SerializerStrategies_Json"),
+            new SerializerBenchmarkCase("XML (built-in)", new SerializationStrategyXml<SampleDataObject>(), "q_SerializerStrategies_Xml"),
+            new SerializerBenchmarkCase("JSON (built-in)", new SerializationStrategyJson<SampleDataObject>(), "q_SerializerStrategies_Json"),
+            new SerializerBenchmarkCase("MessagePack (custom)", new SerializationStrategyMsgPack<SampleDataObject>(), "q_SerializerStrategies_MsgPack"),
         ];
 
         /// <summary>
