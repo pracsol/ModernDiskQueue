@@ -14,11 +14,11 @@
 
         /// <inheritdoc cref="IPersistentQueueSession{T}"/>
         public PersistentQueueSession(
-            ILoggerFactory loggerFactory, 
-            IPersistentQueueImpl queue, 
-            IFileStream currentStream, 
-            int writeBufferSize, 
-            int timeoutLimit, 
+            ILoggerFactory loggerFactory,
+            IPersistentQueueImpl queue,
+            IFileStream currentStream,
+            int writeBufferSize,
+            int timeoutLimit,
             ISerializationStrategy<T>? serializationStrategy = null)
             : base(loggerFactory, queue, currentStream, writeBufferSize, timeoutLimit)
         {

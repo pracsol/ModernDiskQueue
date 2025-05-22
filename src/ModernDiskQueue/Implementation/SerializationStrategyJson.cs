@@ -18,13 +18,10 @@ namespace ModernDiskQueue.Implementation
     /// <typeparam name="T">Type to be stored and retrieved. It must be either [Serializable] or a primitive type</typeparam>
     internal class SerializationStrategyJson<T> : ISerializationStrategy<T>
     {
+        private readonly JsonSerializerOptions defaultOptions = JsonSerializerOptions.Default;
+
         public SerializationStrategyJson()
         {
-            var set = new DataContractSerializerSettings
-            {
-                PreserveObjectReferences = true,
-                SerializeReadOnlyTypes = true
-            };
         }
 
         /// <inheritdoc />
@@ -48,6 +45,11 @@ namespace ModernDiskQueue.Implementation
 
         public async ValueTask<T?> DeserializeAsync(byte[]? bytes, CancellationToken cancellationToken = default)
         {
+            return await DeserializeAsync(bytes, defaultOptions, cancellationToken);
+        }
+
+        public async ValueTask<T?> DeserializeAsync(byte[]? bytes, JsonSerializerOptions options, CancellationToken cancellationToken = default)
+        {
             if (bytes == null)
             {
                 return default;
@@ -56,7 +58,7 @@ namespace ModernDiskQueue.Implementation
             if (typeof(T) == typeof(string)) return (T)((object)Encoding.UTF8.GetString(bytes));
 
             using MemoryStream ms = new(bytes);
-            var obj = await JsonSerializer.DeserializeAsync<T>(ms);
+            var obj = await JsonSerializer.DeserializeAsync<T>(ms, options, cancellationToken);
             if (obj == null)
             {
                 return default;
@@ -67,6 +69,12 @@ namespace ModernDiskQueue.Implementation
         /// <inheritdoc />
         public byte[]? Serialize(T? obj)
         {
+            return Serialize(obj, defaultOptions);
+        }
+
+        /// <inheritdoc />
+        public byte[]? Serialize(T? obj, JsonSerializerOptions options)
+        {
             if (obj == null)
             {
                 return null;
@@ -75,11 +83,16 @@ namespace ModernDiskQueue.Implementation
             if (typeof(T) == typeof(string)) return Encoding.UTF8.GetBytes(obj.ToString() ?? string.Empty);
 
             using MemoryStream ms = new();
-            JsonSerializer.Serialize<T>(ms, obj);//.WriteObject(ms, obj);
+            JsonSerializer.Serialize<T>(ms, obj, options);//.WriteObject(ms, obj);
             return ms.ToArray();
         }
 
         public async ValueTask<byte[]?> SerializeAsync(T? obj, CancellationToken cancellationToken = default)
+        {
+            return await SerializeAsync(obj, defaultOptions, cancellationToken);
+        }
+
+        public async ValueTask<byte[]?> SerializeAsync(T? obj, JsonSerializerOptions options, CancellationToken cancellationToken = default)
         {
             if (obj == null)
             {
@@ -91,7 +104,7 @@ namespace ModernDiskQueue.Implementation
                 return Encoding.UTF8.GetBytes(obj.ToString() ?? string.Empty);
             }
             using MemoryStream ms = new();
-            await JsonSerializer.SerializeAsync(ms, obj);
+            await JsonSerializer.SerializeAsync(ms, obj, options, cancellationToken);
             return ms.ToArray();
         }
     }

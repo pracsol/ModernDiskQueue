@@ -89,7 +89,7 @@
         /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
         /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
         /// </remarks>
-        /// <param name="serializationStrategy">Specify a custom serialization strategy.</param>
+        /// <param name="serializationStrategy">Specify a custom serialization strategy using <see cref="ISerializationStrategy{T}"/>.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
         /// <returns><see cref="IPersistentQueueSession{T}"/></returns>
         public async Task<IPersistentQueueSession<T>> OpenSessionAsync(ISerializationStrategy<T> serializationStrategy, CancellationToken cancellationToken = default)
@@ -116,5 +116,38 @@
             }
         }
 
+        /// <summary>
+        /// Open a read/write session asynchronously.
+        /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
+        /// <param name="serializationStrategy">Specify a custom serialization strategy using <see cref="SerializationStrategy"/>.</param>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
+        /// <returns><see cref="IPersistentQueueSession{T}"/></returns>
+        public async Task<IPersistentQueueSession<T>> OpenSessionAsync(SerializationStrategy serializationStrategy, CancellationToken cancellationToken = default)
+        {
+            if (Queue == null) throw new Exception("This queue has been disposed");
+            if (Queue is PersistentQueueImpl<T> typedQueue)
+            {
+                // Get the base session from the async call
+                var baseSession = await typedQueue.OpenSessionAsync(serializationStrategy, cancellationToken).ConfigureAwait(false);
+
+                // Cast it to the generic version
+                if (baseSession is IPersistentQueueSession<T> genericSession)
+                {
+                    return genericSession;
+                }
+                else
+                {
+                    throw new InvalidOperationException("Session created is not compatible with IPersistentQueueSession<T>");
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("Queue is not of type PersistentQueueImpl<T>");
+            }
+        }
     }
 }

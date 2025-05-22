@@ -9,10 +9,8 @@
     <PackageTags>net8</PackageTags>
     <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
     <PackageProjectUrl>https://github.com/pracsol/ModernDiskQueue</PackageProjectUrl>
-    <Version>2.0.0</Version>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <Version>3.0.0-rc.1</Version>
     <AssemblyName>ModernDiskQueue</AssemblyName>
-    <FileVersion>2.0.0.0</FileVersion>
     <LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

@@ -1,5 +1,6 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using ModernDiskQueue.Implementation;
 
 namespace ModernDiskQueue
 {
@@ -21,9 +22,17 @@ namespace ModernDiskQueue
         /// <summary>
         /// Open a read/write session asynchronously.
         /// </summary>
-        /// <param name="serializationStrategy">Specify a custom serialization strategy.</param>
+        /// <param name="serializationStrategy">Specify a custom serialization strategy using <see cref="ISerializationStrategy{T}"/>.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
         /// <returns><see cref="IPersistentQueueSession{T}"/></returns>
         Task<IPersistentQueueSession<T>> OpenSessionAsync(ISerializationStrategy<T> serializationStrategy, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Open a read/write session asynchronously.
+        /// </summary>
+        /// <param name="serializationStrategy">Specify a custom serialization strategy using <see cref="SerializationStrategy"/></param>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
+        /// <returns><see cref="IPersistentQueueSession{T}"/></returns>
+        Task<IPersistentQueueSession<T>> OpenSessionAsync(SerializationStrategy serializationStrategy, CancellationToken cancellationToken = default);
     }
 }

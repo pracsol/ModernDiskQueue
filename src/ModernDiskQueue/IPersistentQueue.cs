@@ -49,6 +49,19 @@ namespace ModernDiskQueue
         int MaxFileSize { get; }
 
         /// <summary>
+        /// If the transaction log is near this size, it will be flushed and trimmed.
+        /// If you set Internals.ParanoidFlushing, this value is ignored.
+        /// </summary>
+        long SuggestedMaxTransactionLogSize { get; set; }
+
+        /// <summary>
+        /// Defaults to true.
+        /// If true, transactions will be flushed and trimmed on Dispose (makes dispose a bit slower)
+        /// If false, transaction log will be left as-is on Dispose.
+        /// </summary>
+        bool TrimTransactionLogOnDispose { get; set; }
+
+        /// <summary>
         /// WARNING: Dangerous!
         /// Attempt to delete the queue, all its data, and all support files.
         /// This is not thread safe, multi-process safe, or safe in any other way.
