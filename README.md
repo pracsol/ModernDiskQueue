@@ -4,7 +4,7 @@
 
 ModernDiskQueue (MDQ) is a fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue. MDQ **adds first-class async support**, **dependency injection semantics**, and is built on the **latest .NET LTS runtime**.
 
-MDQ is ideal for lightweight, resilient, First-In-First-Out storage of data using modern coding semantics.
+MDQ is ideal for lightweight, resilient, First-In-First-Out (FIFO) storage of data using modern coding semantics.
 
 **MDQ v3.*** - Improved support for custom serialization strategies.
 
@@ -81,7 +81,7 @@ To install the package from NuGet, use the following command in the Package Mana
 Install-Package ModernDiskQueue
 ```
 
-ModernDiskQueue (MDQ) is written in C# on .NET 8. 0.
+ModernDiskQueue (MDQ) is written in C# on .NET 8.0.
 
 ## Requirements and Environment
 
@@ -147,7 +147,7 @@ public class MyClass
 * Typed queues are available with `PersistentQueueFactory.CreateAsync<T>(...)` or `PersistentQueueFactory.WaitForAsync<T>(...)`. This will create a strongly-typed queue that will handle the serialization and deserialization of elements in the queue. 
 * This returned queue object can be shared amongst threads. Each thread should call `OpenSessionAsync()` to get its own session object.
 * Generally speaking, ALWAYS wrap your `IPersistentQueue` and `IPersistentQueueSession` in an `await using()` block, or otherwise disposed of properly (i.e. `DisposeAsync()`). Failure to do this will result in runtime errors or lock contention -- you will get errors that the queue is still in use. Be careful about using the simplified `await using` declarations introduced in C# 8.0 (no `{}`) when conducting multiple operations. Generally, you have more control over the scope of the object using the classic `await using [obj] {..}` statements.
-* DO NOT use the sync and async APIs interchangeably in the same queue lifecycle. The two implementations are not interchangeable and will cause deadlocks or other issues if you try to mix them. The lock awareness mechanisms under the hood are necessarily different for the sync and async APIs. Specifically, when using the async API, use the `PersistentQueueFactory` and its `.CreateAsync()` or `.WaitForAsync()` methods instead of the `PersistentQueue` constructors or the `IPersistentQueue.Create()` or `.WaitFor()` static methods. Every method has an Async API equivalent suffixed with *Async*.
+> ⚠️DO NOT use the sync and async APIs interchangeably in the same queue lifecycle. The two implementations are not interchangeable and will cause deadlocks or other issues if you try to mix them. The lock awareness mechanisms under the hood are necessarily different for the sync and async APIs. Specifically, when using the async API, use the `PersistentQueueFactory` and its `.CreateAsync()` or `.WaitForAsync()` methods instead of the `PersistentQueue` constructors or the `IPersistentQueue.Create()` or `.WaitFor()` static methods. Every method has an Async API equivalent suffixed with *Async*.
 
 ### Dependency Injection Containers (first supported in v2)
 * The `PersistentQueueFactory` can be registered with your DI container. This will allow you to inject the factory into your classes and use it to create queues. Use `services.AddModernDiskQueue()` to register the factory with the default settings.
@@ -174,7 +174,7 @@ use your own serializer (e.g System.Text.Json). This is done by assigning your i
 ### Flexible Options
 MDQ provides flexible options for serializing data. You can select one of the following approaches:
 * **Blind Bytes** - The **non-generic** queue `IPersistentQueue` will accept any byte array for storage. It's up to you to create this
-byte array, and the queue doesn't care what it represents - it could be binary data like an image file or a complex data structure you serialized yourself. 
+byte array, and the queue doesn't care what it represents - it could be binary data like an image file or a complex data structure you serialized yourself (out-of-band serialization). 
 
 * **Built-In XML Serializer (Default)** - The generic queue `IPersistentQueue<T>` will use the default serializer based on `System.Runtime.Serialization.DataContractSerializer`. 
 This is a reflection-based XML serializer. It offers the advantage of storing your data in human-readable format, but is verbose. It is retained as the default for backward compatibility but new projects may
@@ -205,11 +205,28 @@ specify options like `PropertyNamingPolicy`, `DefaultIgnoreCondition` and `MaxDe
 serialized. You can also use this feature to specify a `TypeInfoResolver` as a way to support source generation 
 and data contracts.
 
+### Examples for Setting Strategies
+For in-band serialization on typed queues, the default serializer is `System.Runtime.Serialization.DataContractSerializer`. You can override this default in a variety of ways and at different points in the queue lifecycle.
+```mermaid
+graph TD
+A(Queue) --> B(Session);
+subgraph subA [" "]
+    A
+    noteA[Can set a different default strategy here;
+    applies to all new sessions.]
+end
+subgraph subB [" "]
+    B
+    noteB[Can override queue default 
+    strategy here for this session only.]
+end
+```
+
 #### Example of Specifying the Serialization Strategy at Queue Creation
 ```csharp
 // Specify the a ISerializationStrategy<T> when instantiating the queue.
 // All sessions created from this queue object will use this strategy by default.
-var queue = await _factory.CreateAsync<MyClass>(QueueName, new SerializationStrategyJson<MyClass>()));
+var queue = await _factory.CreateAsync<MyClass>(QueueName, new SerializationStrategyJson<MyClass>());
 
 // Alternatively, you can use the SerializationStrategy enum to specify one of the built-in 
 // strategies.
@@ -239,23 +256,25 @@ queue.DefaultSerializationStrategy = new SerializationStrategyJson<MyClass>();
 session.SerializationStrategy = new SerializationStrategyXml<MyClass>();
 ```
 
+
+
 ### Implementing Custom Serialization Strategies
 As mentioned earlier, if you want to handle your own serialization you can do it with your own service
-employing `IPersistentQueue` to store byte arrays, or you can create an implementation of 
-`ISerializationStrategy<T>` to use with the strongly-typed `IPersistentQueue<T>`.
+generating byte arrays passed to `IPersistentQueue` (out-of-band), or you can create an implementation of 
+`ISerializationStrategy<T>` to use with the strongly-typed `IPersistentQueue<T>` (in-band).
 
-Implementing `ISerializationStrategy<T>` requires the implementation of `Serialize`
-`SerializeAsync`, `Deserialize`, and `DeserializeAsync` methods. There are two base classes that you can
-inherit to cut this work in half: `AsyncSerializationStrategyBase` and `SyncSerializationStrategyBase`.
+Implementing `ISerializationStrategy<T>` requires the implementation of the following methods: `Serialize`;
+`SerializeAsync`; `Deserialize`; and `DeserializeAsync`. Two base classes that you can
+inherit will cut this work in half: `AsyncSerializationStrategyBase` and `SyncSerializationStrategyBase`.
 `AsyncSerializationStrategyBase` contains abstract definitions for the async methods, with virtual
-methods to satisfy the sync definitions, which just invoke the your async methods. 
+methods to satisfy the sync definitions. Those sync methods just invoke the your async methods. 
 `SyncSerializationBase` contains the opposite. These base classes let you implement `ISerializationStrategy<T>`
 without having to implement all four methods, which can reduce friction if you know you're 
 focusing on one idiom or the other.
 
 #### Example of a Custom Serialization Strategy
 This is a very basic example of a custom serialization strategy using MessagePack. 
-It implements the `ISerializationStrategy<T>` interface and uses the MessagePack library to 
+It implements the `ISerializationStrategy<T>` interface and uses the third-party MessagePack library to 
 serialize and deserialize objects of type `T`. The `SerializeAsync` method converts the 
 object to a byte array, while the `DeserializeAsync` method converts the byte array back to an 
 object of type `T`.
@@ -298,15 +317,32 @@ can just inherit `ISerializationStrategy<T>` directly.
 
 You can also review the `SerializationStrategyJson` and `SerializationStrategyXml` classes in the source code for more examples of how to implement custom serialization strategies.
 
+#### Why Would You Implement Your Own Serialization Strategy?
+Driven by Requirements:
+* If you are already annotating your class definitions with data contract information specific to a serializer (e.g. MessagePack), you can leverage that metadata by implementing an `ISerializationStrategy<T>`. This not only saves time and keeps your class definitions cleaner, but it also provides more consistent (de)serialization behavior across your codebase.
+* If you are implementing source-generated serialization, you can use the `ISerializationStrategy<T>` interface to help facilitate this (see more under **Advanced Topics** below).
+
+Driven by Design:
+
+If you implement a serialization service that converts your complex object data into a byte array outside of MDQ, you can pass that byte array directly to an IPersistentQueue for storage.
+
+This approach may be appropriate if:
+
+* You need to store **multiple object types** in the queue, and
+
+* You have a reliable way to **determine the object type during dequeue and deserialize accordingly**.
+
+However, if you're only storing a single complex object type per queue, it’s more elegant to encapsulate your serialization logic within an ISerializationStrategy. This allows you to pass the object itself to MDQ, without explicitly making calls to an intermediate (de)serialization service.
+
 ## Transactions
 
-### Commitment
+### ACID
 Each session is a transaction. Any Enqueues or Dequeues will be rolled back when the session is disposed unless
-you call `session.FlushAsync()`. Data will only be visible between threads once it has been flushed (similar to a database commit).
+you call `session.FlushAsync()`. Data will only be visible between threads once it has been flushed (similar to a database commit). The locking strategies described below under the **Advanced Topics** section keep transactions isolated.
 
 ### Managing Flushing Behavior
-Each flush incurs a performance penalty due to disk I/O and fsync. By default, each flush is persisted to disk before continuing. You 
-can get more speed at a safety cost by setting `queue.ParanoidFlushing = false;`. Additionally, the transaction log will get cleaned up of unnecessary operations (e.g. dequeued items) each time the queue itself is disposed if `TrimTransactionLogOnDispose` is set to true. This is the default behavior. Because the trimming of the transaction log involves disk IO, there is a performance penalty each time this operation happens.
+Each flush incurs a performance penalty due to disk I/O and fsync. By default, each transaction is persisted to disk before continuing. You 
+can get more speed at a safety cost by setting `queue.ParanoidFlushing = false;`. Additionally, the transaction log will get cleaned up of unnecessary operations (e.g. dequeued items) each time the queue itself is disposed if `TrimTransactionLogOnDispose` is set to `true`. This is the default behavior. Because the trimming of the transaction log involves disk IO, there is a performance penalty each time this operation happens.
 Each instance of a `PersistentQueue` has its own settings for flush levels and corruption behavior. You can set these individually after creating an instance.
 
 For example, if performance is more important than crash safety:
@@ -521,7 +557,7 @@ Application hosted service:
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 {
-	_localStorageService.InitializeService();
+	await _localStorageService.InitializeService();
 	// now do work
 	[...]
 }
@@ -557,7 +593,7 @@ public class MyService
 ```
 
 ### Task-Based Workers
-The `ThreadsAndTasks.AsyncEnqueueDequeueConscurrentlyWithTasks()` method in the `ModernDiskQueue.Benchmarks` project provides a decent example of how one might implement a producer/consumer pattern using the async API. This example uses a `TaskCompletionSource` to signal when the producer and consumer tasks have completed, and uses `Interlocked` to safely increment the enqueue and dequeue counts across multiple threads. The example also includes a timeout for the tasks to complete, which was useful for debugging and testing purposes.
+The `ThreadsAndTasks.AsyncEnqueueDequeueConcurrentlyWithTasks()` method in the `ModernDiskQueue.Benchmarks` project provides a decent example of how one might implement a producer/consumer pattern using the async API. This example uses a `TaskCompletionSource` to signal when the producer and consumer tasks have completed, and uses `Interlocked` to safely increment the enqueue and dequeue counts across multiple threads. The example also includes a timeout for the tasks to complete, which was useful for debugging and testing purposes.
 
 ```Csharp
 public async Task AsyncEnqueueDequeueConcurrentlyWithTasks()
@@ -663,7 +699,9 @@ This scenario is likely to arise from two discrete applications attempting to ac
 ### Multi-Thread Work
 This scenario is likely to arise from a single application with multiple threads trying to access the same storage queue. This may come from tasks running on the shared thread pool (following common async patterns) or through the creation of dedicated threads to do the work (more common with the synchronous API). The guidance for this scenario is to create a long-lived queue object outside of the task or thread-based workloads, creating and disposing of sessions as needed. This will allow the threads to share the queue object and avoid contention and performance penalties associated with the cross-process file locking mechanism.
 
-How this is implemented - your design decisions - can greatly affect performance. **Library consumers are advised to leverage Task-based asynchronous programming patterns rather than building dedicated threads when using the async API**. If a dedicated thread is created to handle, for example, all the dequeue operations while the main call stack works on enqueuing objects, be sure to follow best practices for executing asynchronous operations inside a thread. It's **very easy** to do this incorrectly, creating deadlocks, executing blocking synchronous units of work, or creating a thread that does nothing more than throwing the body of work back on the shared thread pool, with no thread affinity, which may not yield the results you're after.
+If you create the queue instances within each thread, you will be employing the multi-process lock mechanism unnecessarily, which will slow down queue performance. In fact, this is how we simulate multi-process contention in the unit tests.
+
+Your design decisions can greatly affect performance. **Library consumers are advised to leverage Task-based asynchronous programming patterns rather than building dedicated threads when using the async API**. If a dedicated thread is created to handle, for example, all the dequeue operations while the main call stack works on enqueuing objects, be sure to follow best practices for executing asynchronous operations inside a thread. It's **very easy** to do this incorrectly, creating deadlocks, executing blocking synchronous units of work, or creating a thread that does nothing more than throwing the body of work back on the shared thread pool, with no thread affinity, which may not yield the results you're after.
 ## Advanced Topics
 ### Inter-Thread and Cross-Process Locking
 
@@ -772,3 +810,25 @@ For more info, please see
 - https://learn.microsoft.com/en-us/dotnet/core/compatibility/serialization/8.0/publishtrimmed
 - https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation
 - https://github.com/i-e-b/DiskQueue/issues/35
+## How To Build
+Once you have cloned the code locally, open the `ModernDiskQueue.sln` solution in your favorite IDE and build. 
+
+The library is located in the project `ModernDiskQueue`. There are several supporting projects within the solution, including:
+* `ModernDiskQueue.Benchmarks` (used for performance tests)
+* `ModernDiskQUeue.Tests` (used for unit tests)
+* `TestDummyProcess` (used by test suite)
+* `TestTrimmedExecutable` (used by test suite)
+
+### ⚠️ First Build
+When you build the solution for the first tim, or after cleaning your solution, you are likely to get an error from the `TestTrimmedExecutable` project. The error happens if `TestTrimmedExecutable` cannot find the DLL for the `ModernDiskQueue` library. This happens because `TestTrimmedExecutable` is built before `ModernDiskQueue`, but it has a reference to `ModernDiskQueue` (see below, note that it is NOT a project reference by design). When the DLL doesn't exist, the build fails.
+
+### 🔧 Fix It!
+Simply build the solution again, and now since the `ModernDiskQueue` DLL exists, the `TestTrimmedExecutable` project will build successfully.
+
+
+```xml
+<Reference Include="ModernDiskQueue">
+    <HintPath>$(ProjectDir)..\src\ModernDiskQueue\bin\$(Configuration)\net8.0\ModernDiskQueue.dll</HintPath>
+</Reference>
+```
+Why does it use a plain reference and not a project reference? The effects of a project reference break the trimming scenario for which this executable was designed.
