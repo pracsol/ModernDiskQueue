@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PackageId>ModernDiskQueue</PackageId>
-    <Description>A fork of DiskQueue, implementing first-class async support on the current LTS .NET runtime</Description>
+    <Description>A modern fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue. MDQ adds first-class async support, dependency injection semantics, and is built on the latest .NET LTS runtime.</Description>
     <PackageIcon>MDQLogo-small.png</PackageIcon>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>

@@ -6,11 +6,13 @@ ModernDiskQueue (MDQ) is a fork of DiskQueue, a robust, thread-safe, and multi-p
 
 MDQ is ideal for lightweight, resilient, First-In-First-Out (FIFO) storage of data using modern coding semantics.
 
-**MDQ v3.*** - Improved support for custom serialization strategies.
+## Major Feature History
 
-**MDQ v2.*** - Added first-class async support and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two APIs should not be invoked interchangeably.
-
-**MDQ v1.*** - Upgraded the runtime to .NET 8, but otherwise functionally equivalent to the original DiskQueue synchronous library.
+| Version       | Changes                     |
+|---------------| ----------------------------|
+|**MDQ&nbsp;v3.***| Added built-in JSON serialization strategy; Improved support for custom serialization strategies.|
+|**MDQ&nbsp;v2.***| Added first-class async support and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two APIs should not be invoked interchangeably.|
+|**MDQ&nbsp;v1.*** | Upgraded the runtime to .NET 8, but otherwise functionally equivalent to the original DiskQueue synchronous library.|
 
 **NuGet Package:** https://nuget.org/packages/ModernDiskQueue
 
@@ -35,13 +37,15 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
     - [Flexible Options](#flexible-options)
     - [Be Consistent](#be-consistent)
     - [Data Contracts and Options](#data-contracts-and-options)
+    - [Examples for Setting Strategies](#examples-for-setting-strategies)
       - [Example of Specifying the Serialization Strategy at Queue Creation](#example-of-specifying-the-serialization-strategy-at-queue-creation)
       - [Example of Specifying the Serialization Strategy at Session Creation](#example-of-specifying-the-serialization-strategy-at-session-creation)
       - [Example of Setting Serialization Strategy Properties](#example-of-setting-serialization-strategy-properties)
     - [Implementing Custom Serialization Strategies](#implementing-custom-serialization-strategies)
       - [Example of a Custom Serialization Strategy](#example-of-a-custom-serialization-strategy)
+      - [Why Would You Implement Your Own Serialization Strategy?](#why-would-you-implement-your-own-serialization-strategy)
   - [Transactions](#transactions)
-    - [Commitment](#commitment)
+    - [ACID](#acid)
     - [Managing Flushing Behavior](#managing-flushing-behavior)
     - [Managing Corruption](#managing-corruption)
   - [Global Default Configuration](#global-default-configuration)
@@ -49,6 +53,8 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
     - [Sync API](#sync-api)
   - [Logging](#logging)
     - [Async API](#async-api)
+      - [ILogger Support](#ilogger-support)
+      - [What Gets Logged?](#what-gets-logged)
     - [Sync API](#sync-api)
   - [Removing or Resetting Queues](#removing-or-resetting-queues)
     - [Async API](#async-api)
@@ -71,9 +77,12 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
     - [Multi-Thread Work](#multi-thread-work)
   - [Advanced Topics](#advanced-topics)
     - [Inter-Thread and Cross-Process Locking](#inter-thread-and-cross-process-locking)
-    - [Trim Self-Contained Deployments and Executables](#trim-self-contained-deployments-and-executables)
+    - [Publishing With Trimmed Executables (Tree-Shaking)](#publishing-with-trimmed-executables-tree-shaking)
       - [Dependency Errors in Trimmed Applications](#dependency-errors-in-trimmed-applications)
       - [Serialization Issues in Trimmed Applications](#serialization-issues-in-trimmed-applications)
+  - [How To Build](#how-to-build)
+    - [⚠️ First Build](#-first-build)
+    - [🔧 Fix It!](#-fix-it)
 <!--/TOC-->
 ## Installation
 To install the package from NuGet, use the following command in the Package Manager Console:
