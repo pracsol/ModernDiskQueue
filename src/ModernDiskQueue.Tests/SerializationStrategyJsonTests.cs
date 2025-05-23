@@ -7,6 +7,8 @@
 namespace ModernDiskQueue.Tests
 {
     using System;
+    using System.Net;
+    using System.Net.Sockets;
     using System.Text.Json;
     using System.Text.Json.Serialization;
     using System.Threading.Tasks;
@@ -111,6 +113,9 @@ namespace ModernDiskQueue.Tests
                 TypeInfoResolver = SourceGenerationContext.Default
             };
 
+            // Explicitly add the converter to the options
+            options.Converters.Add(new SourceGenerationContext.IPAddressConverter());
+
             var jsonStrategy = new SerializationStrategyJson<TestClassSlim>(options);
             await using var queue = await _factory.CreateAsync<TestClassSlim>(QueueName + "_optionsSG", jsonStrategy);
 
@@ -130,30 +135,35 @@ namespace ModernDiskQueue.Tests
             await queue.HardDeleteAsync(false);
             Assert.That(obj, Is.Not.Null);
             Assert.That(testObject, Is.EqualTo(obj));
+            Assert.That(testObject.IPAddress, Is.EqualTo(obj.IPAddress), "IP Address was not serialized correctly.");
         }
 
         [Test]
         public async Task StrategyJson_SerializeUnsupportedTypeWithReflection_SerializationFails()
         {
             var jsonStrategy = new SerializationStrategyJson<TestClassSlim>();
+
+            TestClassSlim testObject = new(7)
+            {
+                IPAddress = IPAddress.Parse("10.10.10.10"),
+            };
+
             await using var queue = await _factory.CreateAsync<TestClassSlim>(QueueName + "_optionsRF", jsonStrategy);
 
             await using var session1 = await queue.OpenSessionAsync(jsonStrategy);
 
-            TestClassSlim testObject = new(7);
-            await session1.EnqueueAsync(testObject);
+            Assert.ThrowsAsync<SocketException>(async () => await session1.EnqueueAsync(testObject), "Reflection serialization should fail when attempting to serialize IPAddress without a converter.");
             await session1.FlushAsync();
             await session1.DisposeAsync();
-
-            // Use the default options with maxdepth of 64
-            await using var session2 = await queue.OpenSessionAsync();
+            /*
+            await using var session2 = await queue.OpenSessionAsync(jsonStrategy);
             TestClassSlim obj = await session2.DequeueAsync();
             await session2.FlushAsync();
             await session2.DisposeAsync();
-
-            await queue.HardDeleteAsync(false);
             Assert.That(obj, Is.Not.Null);
             Assert.That(testObject, Is.EqualTo(obj));
+            */
+            await queue.HardDeleteAsync(false);
         }
     }
 }

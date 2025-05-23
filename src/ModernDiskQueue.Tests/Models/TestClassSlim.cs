@@ -28,8 +28,9 @@ namespace ModernDiskQueue.Tests.Models
 
         public int IntegerValue { get; set;  }
 
-        [JsonInclude]
-        private string StringValue { get; set; } = string.Empty;
+        public string StringValue { get; set; } = string.Empty;
+
+        public System.Net.IPAddress IPAddress { get; set; } = System.Net.IPAddress.Loopback;
 
         public int? NullableIntegerValue { get; } = null;
 
