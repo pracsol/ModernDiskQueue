@@ -13,6 +13,8 @@ namespace ModernDiskQueue.Tests
     [Serializable]
     public class TestClass : IEquatable<TestClass>
     {
+        private int _integerField = 0;
+
         public TestClass(int integerValue, string stringValue, int? nullableIntegerValue)
         {
             IntegerValue = integerValue;
@@ -20,7 +22,13 @@ namespace ModernDiskQueue.Tests
             NullableIntegerValue = nullableIntegerValue;
             TimeOffset = DateTimeOffset.Now;
             Time = DateTime.Now;
+            ArbitraryObjectType = new object();
+            ArbitraryDynamicType = stringValue;
         }
+
+        public object ArbitraryObjectType { get; set; }
+
+        public dynamic ArbitraryDynamicType { get; set; }
 
         public int IntegerValue { get; }
 
@@ -28,7 +36,7 @@ namespace ModernDiskQueue.Tests
 
         public int? NullableIntegerValue { get; }
 
-        public DateTimeOffset TimeOffset { get; }
+        public DateTimeOffset TimeOffset { get; set; }
 
         public DateTime Time { get; set; }
 
@@ -92,6 +100,16 @@ namespace ModernDiskQueue.Tests
         public override string ToString()
         {
             return $"{IntegerValue}|{StringValue}|{NullableIntegerValue}";
+        }
+
+        public int GetInternalField()
+        {
+            return _integerField;
+        }
+
+        public void SetInternalField(int value)
+        {
+            _integerField = value;
         }
     }
 }
