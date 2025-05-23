@@ -209,10 +209,20 @@ to the .NET libraries they use. For example, the handling of dynamic types and p
 two strategies. The behavior of the serializers can be manipulated with the myriad approaches supported by the 
 built-in libraries, typically by adding the appropriate attributes to your class definitions.
 
-The JSON serializer contains overloads to allow for `JsonSerializerOptions` to be passed in. This allows you to 
+The built in JSON serializer contains overloads to allow for `JsonSerializerOptions` to be passed in. This allows you to 
 specify options like `PropertyNamingPolicy`, `DefaultIgnoreCondition` and `MaxDepth` to control how the data is 
 serialized. You can also use this feature to specify a `TypeInfoResolver` as a way to support source generation 
 and data contracts.
+
+#### Specifying JSON Options
+```csharp
+var stat = new SerializationStrategyJson<MyClass>(new JsonSerializerOptions
+{
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    MaxDepth = 10
+});
+```
 
 ### Examples for Setting Strategies
 For in-band serialization on typed queues, the default serializer is `System.Runtime.Serialization.DataContractSerializer`. You can override this default in a variety of ways and at different points in the queue lifecycle.

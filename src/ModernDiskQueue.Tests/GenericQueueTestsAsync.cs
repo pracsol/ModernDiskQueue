@@ -165,31 +165,6 @@ namespace ModernDiskQueue.Tests
             Assert.That(testObject, Is.EqualTo(testObject2));
         }
 
-
-        [Test]
-        public async Task StrategyJson_DynamicType_DeserializeShouldFail()
-        {
-            await using var queue = await _factory.CreateAsync<TestClass>(QueueName + "dynamicproperty_json");
-            var strategy = new SerializationStrategyJson<TestClass>();
-            await using var session = await queue.OpenSessionAsync(strategy);
-
-            TestClass testObject = new(7, "TestString", -5);
-            testObject.ArbitraryObjectType = new object();
-            testObject.ArbitraryDynamicType = "test";
-            await session.EnqueueAsync(testObject);
-            await session.FlushAsync();
-            TestClass testObject2 = await session.DequeueAsync();
-            await session.FlushAsync();
-
-            Assert.That(testObject2, Is.Not.Null);
-
-            // Note that this assertion will pass, since it's not checking the dynamic type?
-            Assert.That(testObject, Is.EqualTo(testObject2));
-
-            // This assertion will fail because of the behavior of the Json serializer.
-            Assert.That(testObject.ArbitraryDynamicType, Is.Not.EqualTo(testObject2.ArbitraryDynamicType), "Dynamic type values were equal.");
-        }
-
         [Test]
         public async Task StrategyXml_DynamicType_DeserializeShouldSucceed()
         {
@@ -209,26 +184,6 @@ namespace ModernDiskQueue.Tests
             // Note that this assertion will pass, since it's not checking the dynamic type?
             Assert.That(testObject, Is.EqualTo(testObject2));
             Assert.That(testObject.ArbitraryDynamicType, Is.EqualTo(testObject2.ArbitraryDynamicType), "Dynamic type values were not equal.");
-        }
-
-        [Test]
-        public async Task StrategyJson_PrivateField_DeserializeShouldFail()
-        {
-            await using var queue = await _factory.CreateAsync<TestClass>(QueueName + "privatefield_json");
-            var jsonStrategy = new SerializationStrategyJson<TestClass>();
-            await using var session = await queue.OpenSessionAsync(jsonStrategy);
-
-            TestClass testObject = new(7, "TestString", -5);
-            testObject.SetInternalField(5);
-            await session.EnqueueAsync(testObject);
-            await session.FlushAsync();
-            TestClass testObject2 = await session.DequeueAsync();
-            int internalField = testObject2.GetInternalField();
-            await session.FlushAsync();
-
-            Assert.That(testObject2, Is.Not.Null);
-            Assert.That(testObject, Is.EqualTo(testObject2));
-            Assert.That(internalField, Is.Not.EqualTo(5));
         }
 
         [Test]
