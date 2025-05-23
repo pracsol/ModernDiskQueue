@@ -11,6 +11,5 @@ namespace ModernDiskQueue.Tests.Models
 
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata)]
     [JsonSerializable(typeof(TestClassSlim))]
-    [JsonSerializable(typeof(TimeZoneInfo))]
     internal partial class SourceGenerationContext : JsonSerializerContext;
 }

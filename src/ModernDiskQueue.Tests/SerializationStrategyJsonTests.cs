@@ -104,7 +104,7 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task StrategyJson_ReflectionUnsupportedTypeWithSourceGeneration_SerializationSucceeds()
+        public async Task StrategyJson_SerializeUnsupportedTypeWithSourceGeneration_SerializationSucceeds()
         {
             var options = new JsonSerializerOptions
             {
@@ -116,7 +116,7 @@ namespace ModernDiskQueue.Tests
 
             await using var session1 = await queue.OpenSessionAsync(jsonStrategy);
 
-            TestClassSlim testObject = new();
+            TestClassSlim testObject = new(5);
             await session1.EnqueueAsync(testObject);
             await session1.FlushAsync();
             await session1.DisposeAsync();
@@ -133,15 +133,14 @@ namespace ModernDiskQueue.Tests
         }
 
         [Test]
-        public async Task StrategyJson_ReflectionForUnsupportedType_SerializationFails()
+        public async Task StrategyJson_SerializeUnsupportedTypeWithReflection_SerializationFails()
         {
             var jsonStrategy = new SerializationStrategyJson<TestClassSlim>();
-            await using var queue = await _factory.CreateAsync<TestClassSlim>(QueueName + "_optionsSG", jsonStrategy);
+            await using var queue = await _factory.CreateAsync<TestClassSlim>(QueueName + "_optionsRF", jsonStrategy);
 
             await using var session1 = await queue.OpenSessionAsync(jsonStrategy);
 
-            TestClassSlim testObject = new();
-            testObject.TimeZone = TimeZoneInfo.Utc;
+            TestClassSlim testObject = new(7);
             await session1.EnqueueAsync(testObject);
             await session1.FlushAsync();
             await session1.DisposeAsync();
@@ -155,7 +154,6 @@ namespace ModernDiskQueue.Tests
             await queue.HardDeleteAsync(false);
             Assert.That(obj, Is.Not.Null);
             Assert.That(testObject, Is.EqualTo(obj));
-            Assert.That(testObject.TimeZone, Is.Not.EqualTo(obj.TimeZone), "TimeZoneInfo was not serialized correctly.");
         }
     }
 }

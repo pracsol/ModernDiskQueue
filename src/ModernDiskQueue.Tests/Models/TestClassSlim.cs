@@ -7,6 +7,7 @@
 namespace ModernDiskQueue.Tests.Models
 {
     using System;
+    using System.Text.Json.Serialization;
     using ModernDiskQueue;
 
     /// <summary>
@@ -14,6 +15,11 @@ namespace ModernDiskQueue.Tests.Models
     /// </summary>
     public class TestClassSlim : IEquatable<TestClassSlim>
     {
+        public TestClassSlim(int integerValue)
+        {
+            IntegerValue = integerValue;
+        }
+
         private int _integerField = 0;
 
         //public object ArbitraryObjectType { get; set; } = new object();
@@ -22,15 +28,14 @@ namespace ModernDiskQueue.Tests.Models
 
         public int IntegerValue { get; set;  }
 
-        public string StringValue { get; set; } = string.Empty;
+        [JsonInclude]
+        private string StringValue { get; set; } = string.Empty;
 
         public int? NullableIntegerValue { get; } = null;
 
         public DateTimeOffset TimeOffset { get; set; } = DateTimeOffset.Now;
 
         public DateTime Time { get; set; } = DateTime.Now;
-
-        public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Local;
 
         public static bool operator ==(TestClassSlim left, TestClassSlim right)
         {
