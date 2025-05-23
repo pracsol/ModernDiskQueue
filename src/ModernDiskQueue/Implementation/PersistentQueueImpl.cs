@@ -814,9 +814,7 @@ namespace ModernDiskQueue.Implementation
                     // Since we're performing a hard delete, and the whole point is to clean up the folders and files, 
                     // we override the flag TrimTransactionLogOnDispose, setting it false to avoid the 
                     // transaction log being recreated.
-                    bool archivedTransactionLogConfiguration = TrimTransactionLogOnDispose;
                     TrimTransactionLogOnDispose = false;
-                    TrimTransactionLogOnDispose = archivedTransactionLogConfiguration;
                 }
             }
             catch (Exception ex)
