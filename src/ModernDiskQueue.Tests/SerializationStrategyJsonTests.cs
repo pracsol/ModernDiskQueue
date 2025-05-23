@@ -7,13 +7,12 @@
 namespace ModernDiskQueue.Tests
 {
     using System;
-    using System.Collections.Generic;
-    using System.Linq;
     using System.Text.Json;
     using System.Text.Json.Serialization;
     using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.Tests.Models;
     using NSubstitute;
     using NUnit.Framework;
 
@@ -102,6 +101,61 @@ namespace ModernDiskQueue.Tests
             await using var session2 = await queue.OpenSessionAsync();
             Assert.DoesNotThrowAsync(async () => await session2.EnqueueAsync(testObject), "Default MaxDepth was used.");
             await session2.FlushAsync();
+        }
+
+        [Test]
+        public async Task StrategyJson_ReflectionUnsupportedTypeWithSourceGeneration_SerializationSucceeds()
+        {
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = SourceGenerationContext.Default
+            };
+
+            var jsonStrategy = new SerializationStrategyJson<TestClassSlim>(options);
+            await using var queue = await _factory.CreateAsync<TestClassSlim>(QueueName + "_optionsSG", jsonStrategy);
+
+            await using var session1 = await queue.OpenSessionAsync(jsonStrategy);
+
+            TestClassSlim testObject = new();
+            await session1.EnqueueAsync(testObject);
+            await session1.FlushAsync();
+            await session1.DisposeAsync();
+
+            // Use the default options with maxdepth of 64
+            await using var session2 = await queue.OpenSessionAsync();
+            TestClassSlim obj = await session2.DequeueAsync();
+            await session2.FlushAsync();
+            await session2.DisposeAsync();
+
+            await queue.HardDeleteAsync(false);
+            Assert.That(obj, Is.Not.Null);
+            Assert.That(testObject, Is.EqualTo(obj));
+        }
+
+        [Test]
+        public async Task StrategyJson_ReflectionForUnsupportedType_SerializationFails()
+        {
+            var jsonStrategy = new SerializationStrategyJson<TestClassSlim>();
+            await using var queue = await _factory.CreateAsync<TestClassSlim>(QueueName + "_optionsSG", jsonStrategy);
+
+            await using var session1 = await queue.OpenSessionAsync(jsonStrategy);
+
+            TestClassSlim testObject = new();
+            testObject.TimeZone = TimeZoneInfo.Utc;
+            await session1.EnqueueAsync(testObject);
+            await session1.FlushAsync();
+            await session1.DisposeAsync();
+
+            // Use the default options with maxdepth of 64
+            await using var session2 = await queue.OpenSessionAsync();
+            TestClassSlim obj = await session2.DequeueAsync();
+            await session2.FlushAsync();
+            await session2.DisposeAsync();
+
+            await queue.HardDeleteAsync(false);
+            Assert.That(obj, Is.Not.Null);
+            Assert.That(testObject, Is.EqualTo(obj));
+            Assert.That(testObject.TimeZone, Is.Not.EqualTo(obj.TimeZone), "TimeZoneInfo was not serialized correctly.");
         }
     }
 }

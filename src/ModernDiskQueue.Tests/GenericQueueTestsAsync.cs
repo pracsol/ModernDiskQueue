@@ -9,6 +9,7 @@ namespace ModernDiskQueue.Tests
     using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.Tests.Models;
     using NSubstitute;
     using NUnit.Framework;
 

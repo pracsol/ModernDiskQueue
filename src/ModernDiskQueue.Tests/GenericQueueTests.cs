@@ -6,6 +6,7 @@
 namespace ModernDiskQueue.Tests
 {
     using System;
+    using ModernDiskQueue.Tests.Models;
     using NUnit.Framework;
 
     [TestFixture]

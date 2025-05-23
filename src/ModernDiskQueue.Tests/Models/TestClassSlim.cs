@@ -1,56 +1,48 @@
-﻿// <copyright file="TestClass.cs" company="ModernDiskQueue Contributors">
+﻿// -----------------------------------------------------------------------
+// <copyright file="TestClassSlim.cs" company="ModernDiskQueue Contributors">
 // Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
 // </copyright>
+// -----------------------------------------------------------------------
 
-// ReSharper disable AssignNullToNotNullAttribute
-namespace ModernDiskQueue.Tests
+namespace ModernDiskQueue.Tests.Models
 {
     using System;
+    using ModernDiskQueue;
 
     /// <summary>
     /// Test class for tests on <see cref="PersistentQueue{T}"/>.
     /// </summary>
-    [Serializable]
-    public class TestClass : IEquatable<TestClass>
+    public class TestClassSlim : IEquatable<TestClassSlim>
     {
         private int _integerField = 0;
 
-        public TestClass(int integerValue, string stringValue, int? nullableIntegerValue)
-        {
-            IntegerValue = integerValue;
-            StringValue = stringValue;
-            NullableIntegerValue = nullableIntegerValue;
-            TimeOffset = DateTimeOffset.Now;
-            Time = DateTime.Now;
-            ArbitraryObjectType = new object();
-            ArbitraryDynamicType = stringValue;
-        }
+        //public object ArbitraryObjectType { get; set; } = new object();
 
-        public object ArbitraryObjectType { get; set; }
+        //public dynamic ArbitraryDynamicType { get; set; } = string.Empty;
 
-        public dynamic ArbitraryDynamicType { get; set; }
+        public int IntegerValue { get; set;  }
 
-        public int IntegerValue { get; }
+        public string StringValue { get; set; } = string.Empty;
 
-        public string StringValue { get; }
+        public int? NullableIntegerValue { get; } = null;
 
-        public int? NullableIntegerValue { get; }
+        public DateTimeOffset TimeOffset { get; set; } = DateTimeOffset.Now;
 
-        public DateTimeOffset TimeOffset { get; set; }
+        public DateTime Time { get; set; } = DateTime.Now;
 
-        public DateTime Time { get; set; }
+        public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Local;
 
-        public static bool operator ==(TestClass left, TestClass right)
+        public static bool operator ==(TestClassSlim left, TestClassSlim right)
         {
             return Equals(left, right);
         }
 
-        public static bool operator !=(TestClass left, TestClass right)
+        public static bool operator !=(TestClassSlim left, TestClassSlim right)
         {
             return !Equals(left, right);
         }
 
-        public bool Equals(TestClass? other)
+        public bool Equals(TestClassSlim? other)
         {
             if (ReferenceEquals(null, other))
             {
@@ -81,12 +73,12 @@ namespace ModernDiskQueue.Tests
                 return true;
             }
 
-            if (obj.GetType() != this.GetType())
+            if (obj.GetType() != GetType())
             {
                 return false;
             }
 
-            return Equals((TestClass)obj);
+            return Equals((TestClassSlim)obj);
         }
 
         public override int GetHashCode()
