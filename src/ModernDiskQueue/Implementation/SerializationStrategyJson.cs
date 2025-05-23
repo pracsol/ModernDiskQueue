@@ -24,6 +24,11 @@ namespace ModernDiskQueue.Implementation
         {
         }
 
+        public SerializationStrategyJson(JsonSerializerOptions options)
+        {
+            defaultOptions = options;
+        }
+
         /// <inheritdoc />
         public T? Deserialize(byte[]? bytes)
         {
