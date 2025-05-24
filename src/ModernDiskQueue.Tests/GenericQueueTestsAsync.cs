@@ -8,6 +8,7 @@ namespace ModernDiskQueue.Tests
     using System;
     using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
+    using ModernDiskQueue;
     using ModernDiskQueue.Implementation;
     using ModernDiskQueue.Tests.Models;
     using NSubstitute;

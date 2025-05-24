@@ -1,4 +1,4 @@
-namespace ModernDiskQueue.Implementation
+namespace ModernDiskQueue
 {
     /// <summary>
     /// Used to set the serialization strategy for the queue

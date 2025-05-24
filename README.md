@@ -37,6 +37,7 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
     - [Flexible Options](#flexible-options)
     - [Be Consistent](#be-consistent)
     - [Data Contracts and Options](#data-contracts-and-options)
+      - [Specifying JSON Options](#specifying-json-options)
     - [Examples for Setting Strategies](#examples-for-setting-strategies)
       - [Example of Specifying the Serialization Strategy at Queue Creation](#example-of-specifying-the-serialization-strategy-at-queue-creation)
       - [Example of Specifying the Serialization Strategy at Session Creation](#example-of-specifying-the-serialization-strategy-at-session-creation)
@@ -46,7 +47,7 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
       - [Why Would You Implement Your Own Serialization Strategy?](#why-would-you-implement-your-own-serialization-strategy)
   - [Transactions](#transactions)
     - [ACID](#acid)
-    - [Managing Flushing Behavior](#managing-flushing-behavior)
+    - [Managing Flushing of the Transaction Log](#managing-flushing-of-the-transaction-log)
     - [Managing Corruption](#managing-corruption)
   - [Global Default Configuration](#global-default-configuration)
     - [Async API](#async-api)
@@ -80,6 +81,9 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
     - [Publishing With Trimmed Executables (Tree-Shaking)](#publishing-with-trimmed-executables-tree-shaking)
       - [Dependency Errors in Trimmed Applications](#dependency-errors-in-trimmed-applications)
       - [Serialization Issues in Trimmed Applications](#serialization-issues-in-trimmed-applications)
+  - [Migrating from DiskQueue](#migrating-from-diskqueue)
+    - [Preserving Your Sync API Implementation](#preserving-your-sync-api-implementation)
+    - [Implementing the Async API](#implementing-the-async-api)
   - [How To Build](#how-to-build)
     - [⚠️ First Build](#-first-build)
     - [🔧 Fix It!](#-fix-it)
@@ -411,7 +415,7 @@ By default, the queues are set up to prioritize data integrity over performance.
 ### Async API
 In the async api, the global defaults are specifiedd using the Options pattern using the `ModernDiskQueueOptions` class, provided when configuring services. 
 
-ℹ️ As stated earlier, the default settings favor safety over performance.
+> ℹ️ As stated earlier, the default settings favor safety over performance.
 ```csharp
 // Add Options configuration via the registration helper. These are the default
 // settings, and listed here to illustrate how they can be set initially 
@@ -429,7 +433,7 @@ services.AddModernDiskQueue(options =>
 
 Each instance of a queue created using the `IPersistentQueueFactory.CreateAsync()` or `IPersistentQueueFactory.WaitForAsync()` methods can have these values set directly on a per-instance basis, which will override the global defaults if you need to affect a specific queue's behavior at runtime. 
 
-ℹ️ This behaves differently than the sync API, in that the async API does not envision the *global defaults* being changed at runtime. Rather, change the settings on a queue instance at runtime as needed.
+> ℹ️ This behaves differently than the sync API, in that the async API does not envision the *global defaults* being changed at runtime. Rather, change the settings on a queue instance at runtime as needed.
 
 ### Sync API
 
@@ -473,7 +477,7 @@ This defaults to stdout, i.e. `System.Console.WriteLine`, but can be replaced wi
 Queues create a directory and set of files for storage. You can remove all files for a queue with the `HardDeleteAsync` method.
 If you give `true` as the reset parameter, the directory will be written again without any of the files.
 
-⚠️ WARNING: This WILL delete ANY AND ALL files inside the queue directory. You should not call this method in normal use.
+> ⚠️ WARNING: This WILL delete ANY AND ALL files inside the queue directory. You should not call this method in normal use.
 If you start a queue with the same path as an existing directory, this method will delete the entire directory, not just
 the queue files.
 
@@ -490,6 +494,7 @@ await using (var queue = await _factory.CreateAsync(QueuePath))
 var subject = new PersistentQueue("queue_a");
 subject.HardDelete(true); // wipe any existing data and recreate containing folder.
 ```
+
 ⚠️ NOTE: there is a bug in the legacy sync API that happens when `PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose` is set to `true`. The `HardDelete` method successfully removes files and folder, but when the queue object is disposed, a new transaction.log file is written, recreating the folder and transaction file. This will be corrected in a future release, but care has been taken to preserve original sync API in all respects for now.
 
 ## Performance
@@ -834,13 +839,16 @@ If you are migrating from the original DiskQueue library, there is very little c
 ### Preserving Your Sync API Implementation
 * Install the ModernDiskQueue nuget package.
 * Change the `using` statements from `DiskQueue` to `ModernDiskQueue`.
-* If you have defined custom serialization strategies by implementing `ISerializationStrategy<T>`, change these to inherit from `SyncSerializationStrategyBase`.
-* If you are using the implementation interfaces (IFileDriver, IBinaryReader, etc), include the new namespace in your `using` statements. The implementation interfaces have been moved to the `ModernDiskQueue.Implementation.Interfaces` namespace.
+* ⚠️ If you have defined custom serialization strategies by implementing `ISerializationStrategy<T>`, change these to inherit from `SyncSerializationStrategyBase`.
+* ⚠️ If you are using the implementation interfaces (IFileDriver, IBinaryReader, etc), include the new namespace in your `using` statements. The implementation interfaces have been moved to the `ModernDiskQueue.Implementation.Interfaces` namespace.
+* ⚠️ If you directly reference `DefaultSerializationStrategy<T>`, this class has been replaced with `SerializationStrategyXml<T>`.
 
 Once you have done this, your code should compile and run as before. The sync API has not changed in any significant way.
 
 ### Implementing the Async API
-If you're ready to start using the async API, you can follow the guidance above in the Quick Start section. Conceptually, the async API is very similar to the sync API, but there are differences in how you create queues, primarily. Levarging both sync and async APIs in the same project can be done, but as mentioned in several cautionary notes above, don't intermix them by, for example, creating a queue with the sync API and then interacting with it using the async methods. 
+If you're ready to start using the async API, please refer to the guidance above in the [**Quick Start**](#quick-start) section.
+
+Conceptually, the async API is very similar to the sync API, but there are differences in how you create queues, primarily. Levarging both sync and async APIs in the same project can be done, but as mentioned in several cautionary notes above, don't intermix them by, for example, creating a queue with the sync API and then interacting with it using the async methods. 
 
 
 ## How To Build
