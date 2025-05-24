@@ -19,7 +19,7 @@ MDQ is ideal for lightweight, resilient, First-In-First-Out (FIFO) storage of da
 **Source Repository:** https://github.com/pracsol/ModernDiskQueue
 
 **Original DiskQueue project is at:** https://github.com/i-e-b/DiskQueue. MDQ was conceived as a drop-in
-replacement for DiskQueue, but some minor breaking changes have been introduced in v2 onwards. See the section on Migration From DiskQueue below.
+replacement for DiskQueue, but some minor breaking changes have been introduced in v2 onwards. See the section on [Migrating From DiskQueue](#migrating-from-diskQueue) below.
 
 ## Table of Contents
 <!--TOC-->
@@ -199,6 +199,8 @@ in a human-readable format. It represents a >50% reduction in size on disk compa
 * **BYOS (Bring Your Own Serializer)** - You can specify your own `ISerializationStrategy<T>` for several advantages - you may find it a more elegant/readable way to integrate your own serialization compared
 to the 'blind bytes' approach; it is ideal for implementing source-generated serialization rather than using reflection-based serialization; custom serializers can be used to natively store your data in MessagePack, protoBuf, or any other format you choose.
 
+> ℹ️ The built-in XML Serializer, using `DataContractSerializer`, does not support source-generated serialization. For this reason, amongst others, new projects may prefer the built-in JSON serializer, which does support source-generated serialization.
+
 ### Be Consistent
 Obviously you need to use the same strategy when serializing and deserializing data. You cannot serialize
 data as JSON and then deserialize it using the XML serializer.
@@ -219,7 +221,7 @@ not required by the built-in serializers provided by MDQ. You may want to use at
 The built-in JSON serializer, `SerializationStrategyJson<T>`, allows for a `JsonSerializerOptions` object to be passed in. This allows you to 
 specify options like `PropertyNamingPolicy`, `DefaultIgnoreCondition`, `MaxDepth` and many other options to control how the data is 
 serialized. You can use this feature to specify a `TypeInfoResolver` as a way to support source generation 
-and versioned data contracts.
+and versioned data contracts. For more inforamtion, see the [**Advanced Topics**](#advanced-topics) section below.
 
 #### Specifying JSON Options
 ```csharp
@@ -375,7 +377,7 @@ However, if you're only storing a single complex object type per queue, it’s m
 
 ### ACID
 Each session is a transaction. Any enqueues or dequeues will be rolled back when the session is disposed unless
-you call `session.FlushAsync()`. Data will only be visible between threads once it has been flushed (similar to a database commit). The locking strategies described below under the **Advanced Topics** section keep transactions isolated.
+you call `session.FlushAsync()`. Data will only be visible between threads once it has been flushed (similar to a database commit). The locking strategies described below under the [**Advanced Topics**](#advanced-topics) section keep transactions isolated.
 
 ### Managing Flushing of the Transaction Log
 You have flexibility to control the safety of the transaction log. Each flush incurs a performance penalty due to disk IO and fsync. By default, each transaction is persisted to disk before continuing. You 
@@ -549,7 +551,7 @@ Please see the [examples](#More-detailed-examples) section below for some ideas 
 Generally speaking, the async API should perform just as well as the sync API while providing the semantics of asynchronous programming and other benefits as described earlier. As well, the async API may offer better scalability due to more efficient thread usage, though clearly memory utilization is higher. Again, actual performance will vary depending on workload and system configuration
 
 ### Contentious Access
-Please see the section **Guidance for Multi-Process and Multi-Thread Work** for some insights into maximizing performance when high contention is anticipated.
+Please see the section [**Guidance for Multi-Process and Multi-Thread Work**](#guidance-for-multi-process-and-multi-thread-work) for some insights into maximizing performance when high contention is anticipated.
 
 ## More Detailed Examples
 
@@ -738,7 +740,7 @@ public async Task AsyncEnqueueDequeueConcurrentlyWithTasks()
 Some of the examples in the original DiskQueue library showing how to create a thread to enqueue and a thread to dequeue have been left out of this README. The implementation of such a pattern is a bit outside the scope of this library, particularly as it concerns the async API. But some thoughts follow.
 
 ### Multi-Process Work
-This scenario is likely to arise from two discrete applications attempting to access the same storage queue. As described above, the guidance for this scenario is to instantiate and dispose of the queue as quickly as possible so the multi-process file lock is not held for any longer than needed. For more information on this, see the locking section under Advanced Topics.
+This scenario is likely to arise from two discrete applications attempting to access the same storage queue. As described above, the guidance for this scenario is to instantiate and dispose of the queue as quickly as possible so the multi-process file lock is not held for any longer than needed. For more information on this, see the locking section under [**Advanced Topics**](#advanced-topics).
 
 ### Multi-Thread Work
 This scenario is likely to arise from a single application with multiple threads trying to access the same storage queue. This may come from tasks running on the shared thread pool (following common async patterns) or through the creation of dedicated threads to do the work (more common with the synchronous API). The guidance for this scenario is to create a long-lived queue object outside of the task or thread-based workloads, creating and disposing of sessions as needed. This will allow the threads to share the queue object and avoid contention and performance penalties associated with the cross-process file locking mechanism.
