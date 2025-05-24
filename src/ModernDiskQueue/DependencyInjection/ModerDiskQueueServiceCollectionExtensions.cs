@@ -1,15 +1,14 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using ModernDiskQueue.Implementation;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using System;
-using System.Diagnostics.CodeAnalysis;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using System.Linq;
-using ModernDiskQueue.Implementation.Interfaces;
-
-namespace ModernDiskQueue.DependencyInjection
+﻿namespace ModernDiskQueue.DependencyInjection
 {
+    using System;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Linq;
+    using Microsoft.Extensions.DependencyInjection;
+    using ModernDiskQueue.Implementation;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using ModernDiskQueue.Implementation.Interfaces;
+
     /// <summary>
     /// Extension methods for <see cref="IServiceCollection"/> to add ModernDiskQueue services.
     /// </summary>
@@ -29,9 +28,6 @@ namespace ModernDiskQueue.DependencyInjection
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IPersistentQueueFactory))]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IFileDriver))]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IServiceCollection))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory))]
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Microsoft.Extensions.Logging.Abstractions.NullLogger<>))]
-
         public static IServiceCollection AddModernDiskQueue(
             this IServiceCollection services,
             Action<ModernDiskQueueOptions>? configure = null)
