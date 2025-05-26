@@ -543,7 +543,7 @@ Tight loops of enqueueing and dequeueing may be rare in real-world implementatio
 #### Guidance
 The work on unit tests and benchmarks consistently demonstrated that implementation patterns play an incredibly important role in async API performance, with small adjustments in consumer loop design having a profound impact - sometimes by an order of magnitude. If your tolerances are tight and demands high, you will want to carefully tune your loops to avoid "thundering herd" or starvation issues by introducing random or fixed jitter into each iteration. As well, increasing timeouts waiting for queues will make concurrently running processes more tolerant of lock contention. 
 
-Please read the [Multi-Process and Multi-Thread Work](#multi-process-and-multi-thread-work) section for additional guidance.
+Please read the [Multi-Process and Multi-Thread Work](#guidance-for-multi-process-and-multi-thread-work) section for additional guidance.
 
 Please see the [examples](#More-detailed-examples) section below for some ideas on implementation. The unit tests and other benchmarks may provide additional ideas.
 
