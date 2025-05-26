@@ -1,48 +1,54 @@
-﻿// <copyright file="TestClass.cs" company="ModernDiskQueue Contributors">
+﻿// -----------------------------------------------------------------------
+// <copyright file="TestClassSlim.cs" company="ModernDiskQueue Contributors">
 // Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
 // </copyright>
+// -----------------------------------------------------------------------
 
-// ReSharper disable AssignNullToNotNullAttribute
-namespace ModernDiskQueue.Tests
+namespace ModernDiskQueue.Tests.Models
 {
     using System;
+    using System.Text.Json.Serialization;
+    using ModernDiskQueue;
 
     /// <summary>
     /// Test class for tests on <see cref="PersistentQueue{T}"/>.
     /// </summary>
-    [Serializable]
-    public class TestClass : IEquatable<TestClass>
+    public class TestClassSlim : IEquatable<TestClassSlim>
     {
-        public TestClass(int integerValue, string stringValue, int? nullableIntegerValue)
+        public TestClassSlim(int integerValue)
         {
             IntegerValue = integerValue;
-            StringValue = stringValue;
-            NullableIntegerValue = nullableIntegerValue;
-            TimeOffset = DateTimeOffset.Now;
-            Time = DateTime.Now;
         }
 
-        public int IntegerValue { get; }
+        private int _integerField = 0;
 
-        public string StringValue { get; }
+        //public object ArbitraryObjectType { get; set; } = new object();
 
-        public int? NullableIntegerValue { get; }
+        //public dynamic ArbitraryDynamicType { get; set; } = string.Empty;
 
-        public DateTimeOffset TimeOffset { get; }
+        public int IntegerValue { get; set;  }
 
-        public DateTime Time { get; set; }
+        public string StringValue { get; set; } = string.Empty;
 
-        public static bool operator ==(TestClass left, TestClass right)
+        public System.Net.IPAddress IPAddress { get; set; } = System.Net.IPAddress.Loopback;
+
+        public int? NullableIntegerValue { get; } = null;
+
+        public DateTimeOffset TimeOffset { get; set; } = DateTimeOffset.Now;
+
+        public DateTime Time { get; set; } = DateTime.Now;
+
+        public static bool operator ==(TestClassSlim left, TestClassSlim right)
         {
             return Equals(left, right);
         }
 
-        public static bool operator !=(TestClass left, TestClass right)
+        public static bool operator !=(TestClassSlim left, TestClassSlim right)
         {
             return !Equals(left, right);
         }
 
-        public bool Equals(TestClass? other)
+        public bool Equals(TestClassSlim? other)
         {
             if (ReferenceEquals(null, other))
             {
@@ -73,12 +79,12 @@ namespace ModernDiskQueue.Tests
                 return true;
             }
 
-            if (obj.GetType() != this.GetType())
+            if (obj.GetType() != GetType())
             {
                 return false;
             }
 
-            return Equals((TestClass)obj);
+            return Equals((TestClassSlim)obj);
         }
 
         public override int GetHashCode()
@@ -92,6 +98,16 @@ namespace ModernDiskQueue.Tests
         public override string ToString()
         {
             return $"{IntegerValue}|{StringValue}|{NullableIntegerValue}";
+        }
+
+        public int GetInternalField()
+        {
+            return _integerField;
+        }
+
+        public void SetInternalField(int value)
+        {
+            _integerField = value;
         }
     }
 }

@@ -3,7 +3,7 @@
 [assembly: InternalsVisibleTo("ModernDiskQueue.Tests")]
 namespace ModernDiskQueue.Implementation
 {
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue.Implementation.Interfaces;
     using System;
     using System.Buffers;
     using System.IO;

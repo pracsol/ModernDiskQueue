@@ -1,8 +1,5 @@
 namespace ModernDiskQueue.Implementation
 {
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using ModernDiskQueue.PublicInterfaces;
     using System;
     using System.Buffers;
     using System.Collections.Concurrent;
@@ -12,6 +9,10 @@ namespace ModernDiskQueue.Implementation
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using ModernDiskQueue;
+    using ModernDiskQueue.Implementation.Interfaces;
 
     /// <summary>
     /// A persistent queue implementation.
@@ -71,7 +72,7 @@ namespace ModernDiskQueue.Implementation
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         /// <param name="path">The path to the folder in which the queue will be created.</param>
         /// <param name="maxFileSize">The maximum file size of the queue.</param>
-        /// <param name="throwOnConflict"></param>
+        /// <param name="throwOnConflict">When true, if data files are damaged, throw an InvalidOperationException. This will stop program flow.</param>
         /// <param name="isAsyncMode">Typically set to true. This parameter differentiates the constructor.</param>
         /// <param name="options"><see cref="ModernDiskQueueOptions"/> for the queue, including file size, flushing behavior, and more.</param>
         /// <param name="fileDriver">Implementation of <see cref="IFileDriver"/></param>
@@ -179,7 +180,16 @@ namespace ModernDiskQueue.Implementation
             // by the user invoking Dispose() or DisposeAsync(), either manually or through using or await using statements.
             if (!_disposed && _isAsyncMode)
             {
-                System.Diagnostics.Debug.Fail("PersistentQueueImpl was not properly disposed!");
+                try
+                {
+                    throw new Exception("PersistentQueueImpl was not properly disposed!");
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    Console.WriteLine(ex.StackTrace);
+                    System.Diagnostics.Debug.Fail("PersistentQueueImpl was not properly disposed!");
+                }
             }
         }
 #else
@@ -804,9 +814,7 @@ namespace ModernDiskQueue.Implementation
                     // Since we're performing a hard delete, and the whole point is to clean up the folders and files, 
                     // we override the flag TrimTransactionLogOnDispose, setting it false to avoid the 
                     // transaction log being recreated.
-                    bool archivedTransactionLogConfiguration = TrimTransactionLogOnDispose;
                     TrimTransactionLogOnDispose = false;
-                    TrimTransactionLogOnDispose = archivedTransactionLogConfiguration;
                 }
             }
             catch (Exception ex)

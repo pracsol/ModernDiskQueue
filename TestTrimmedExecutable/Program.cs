@@ -227,7 +227,7 @@ namespace TestTrimmedExecutable
                 Console.WriteLine("Creating queue for simple object");
             }
 
-            await using (PersistentQueue<int> queue = await factory.CreateAsync<int>(FolderNameSimpleQueueAsync))
+            await using (IPersistentQueue<int> queue = await factory.CreateAsync<int>(FolderNameSimpleQueueAsync))
             {
                 try
                 {
@@ -380,7 +380,7 @@ namespace TestTrimmedExecutable
                 Console.WriteLine("Creating queue");
             }
 
-            PersistentQueue<Report> queue = await factory.CreateAsync<Report>(FolderNameComplexQueueAsync);
+            IPersistentQueue<Report> queue = await factory.CreateAsync<Report>(FolderNameComplexQueueAsync);
             try
             {
                 Report myTestReport = new()
@@ -442,6 +442,7 @@ namespace TestTrimmedExecutable
 
                 await queue.HardDeleteAsync(false);
                 DeleteFolderAndFiles(FolderNameComplexQueue);
+                await queue.DisposeAsync();
             }
 
             return retrievedTime;

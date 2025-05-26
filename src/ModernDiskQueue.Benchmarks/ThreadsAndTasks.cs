@@ -11,6 +11,7 @@ namespace ModernDiskQueue.Benchmarks
     using BenchmarkDotNet.Attributes;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue;
+    using ModernDiskQueue.Benchmarks.Helpers;
 
     /// <summary>
     /// Benchmarks the performance of enqueuing and dequeuing objects using threads and tasks.
@@ -41,17 +42,17 @@ namespace ModernDiskQueue.Benchmarks
         [GlobalCleanup]
         public void Cleanup()
         {
-            Helpers.AttemptManualCleanup(QueuePathForAsyncThreads);
-            Helpers.AttemptManualCleanup(QueuePathForAsyncTasks);
-            Helpers.AttemptManualCleanup(QueuePathForSyncThreads);
+            FileManagement.AttemptManualCleanup(QueuePathForAsyncThreads);
+            FileManagement.AttemptManualCleanup(QueuePathForAsyncTasks);
+            FileManagement.AttemptManualCleanup(QueuePathForSyncThreads);
         }
 
         [IterationSetup]
         public void IterationSetup()
         {
-            Helpers.AttemptManualCleanup(QueuePathForAsyncThreads);
-            Helpers.AttemptManualCleanup(QueuePathForAsyncTasks);
-            Helpers.AttemptManualCleanup(QueuePathForSyncThreads);
+            FileManagement.AttemptManualCleanup(QueuePathForAsyncThreads);
+            FileManagement.AttemptManualCleanup(QueuePathForAsyncTasks);
+            FileManagement.AttemptManualCleanup(QueuePathForSyncThreads);
         }
 
         [Benchmark]

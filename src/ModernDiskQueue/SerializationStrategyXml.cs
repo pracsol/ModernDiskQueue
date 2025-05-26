@@ -1,7 +1,8 @@
-﻿
+﻿using System.Runtime.CompilerServices;
+[assembly: InternalsVisibleTo("ModernDiskQueue.Benchmarks")]
 namespace ModernDiskQueue.Implementation
 {
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue;
     using System.IO;
     using System.Runtime.Serialization;
     using System.Text;
@@ -15,11 +16,11 @@ namespace ModernDiskQueue.Implementation
     /// You are free to implement your own <see cref="ISerializationStrategy{T}"/> and inject it into <see cref="PersistentQueue{T}"/>.
     /// </summary>
     /// <typeparam name="T">Type to be stored and retrieved. It must be either [Serializable] or a primitive type</typeparam>
-    internal class DefaultSerializationStrategy<T> : ISerializationStrategy<T>
+    internal class SerializationStrategyXml<T> : ISerializationStrategy<T>
     {
         private readonly DataContractSerializer _serialiser;
 
-        public DefaultSerializationStrategy()
+        public SerializationStrategyXml()
         {
             var set = new DataContractSerializerSettings
             {

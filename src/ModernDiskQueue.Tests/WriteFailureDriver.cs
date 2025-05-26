@@ -9,7 +9,7 @@ namespace ModernDiskQueue.Tests
     using System.Threading;
     using System.Threading.Tasks;
     using ModernDiskQueue.Implementation;
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue.Implementation.Interfaces;
 
     public class WriteFailureDriver : IFileDriver
     {

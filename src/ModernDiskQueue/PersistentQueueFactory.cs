@@ -1,16 +1,16 @@
 ﻿
 namespace ModernDiskQueue
 {
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using Microsoft.Extensions.Options;
-    using ModernDiskQueue.Implementation;
     using System;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using Microsoft.Extensions.Options;
+    using ModernDiskQueue.Implementation;
 
     /// <summary>
     /// Factory for creating <see cref="PersistentQueue{T}"/> instances.
@@ -77,15 +77,15 @@ namespace ModernDiskQueue
         private StandardFileDriver FileDriver => _lazyFileDriver.Value;
 
         /// <inheritdoc/>
-        public async Task<PersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default)
+        public async Task<IPersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default)
         {
-            return await CreateAsync(storagePath, Constants._32Megabytes, true, cancellationToken).ConfigureAwait(false);
+            return await CreateAsync(storagePath, Constants._32Megabytes, _options.ThrowOnConflict, cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public async Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
+        public async Task<IPersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString());
+            _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString(throwOnConflict));
             SetGlobalDefaultsFromFactoryOptions(_options);
             var queue = new PersistentQueueImpl(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, FileDriver);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
@@ -93,17 +93,36 @@ namespace ModernDiskQueue
         }
 
         /// <inheritdoc/>
-        public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, CancellationToken cancellationToken = default)
+        public async Task<IPersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, CancellationToken cancellationToken = default)
         {
-            return await CreateAsync<T>(storagePath, Constants._32Megabytes, true, cancellationToken).ConfigureAwait(false);
+            return await CreateAsync<T>(storagePath, new SerializationStrategyXml<T>(), Constants._32Megabytes, _options.ThrowOnConflict, cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public async Task<PersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
+        public async Task<IPersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString());
+            return await CreateAsync<T>(storagePath, new SerializationStrategyXml<T>(), Constants._32Megabytes, throwOnConflict, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IPersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, ISerializationStrategy<T> defaultSessionStrategy, CancellationToken cancellationToken = default)
+        {
+            return await CreateAsync<T>(storagePath, defaultSessionStrategy, Constants._32Megabytes, _options.ThrowOnConflict, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IPersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, SerializationStrategy defaultSessionStrategy, CancellationToken cancellationToken = default)
+        {
+            return await CreateAsync<T>(storagePath, (defaultSessionStrategy == SerializationStrategy.Xml) ? new SerializationStrategyXml<T>() : new SerializationStrategyJson<T>(), Constants._32Megabytes, _options.ThrowOnConflict, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IPersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, ISerializationStrategy<T> defaultSessionStrategy, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString(throwOnConflict));
             SetGlobalDefaultsFromFactoryOptions(_options);
             var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, FileDriver);
+            queue.DefaultSerializationStrategy = defaultSessionStrategy;
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
             return new PersistentQueue<T>(_loggerFactory, queue);
         }
@@ -190,7 +209,30 @@ namespace ModernDiskQueue
         /// <returns></returns>
         public async Task<IPersistentQueue<T>> WaitForAsync<T>(string storagePath, int maxSize, bool throwOnConflict, TimeSpan maxWait, CancellationToken cancellationToken = default)
         {
-            return await WaitForAsync(() => CreateAsync<T>(storagePath, maxSize, throwOnConflict, cancellationToken), maxWait, storagePath, cancellationToken).ConfigureAwait(false);
+            return await WaitForAsync(() => CreateAsync<T>(storagePath, new SerializationStrategyXml<T>(), maxSize, throwOnConflict, cancellationToken), maxWait, storagePath, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Wait a maximum time to open an exclusive session.
+        /// <para>If sharing storage between processes, the resulting queue should disposed
+        /// as soon as possible.</para>
+        /// <para>Throws a TimeoutException if the queue can't be locked in the specified time</para>
+        /// </summary>
+        /// <remarks>
+        /// This class implements <see cref="IAsyncDisposable"/>. Always use <c>await using</c>
+        /// instead of <c>using</c> with async methods to ensure proper asynchronous resource cleanup.
+        /// </remarks>
+        /// <typeparam name="T">A strongly-typed queue will be created using this type.</typeparam>
+        /// <param name="storagePath">Folder to hold the queue resources.</param>
+        /// <param name="defaultSerializationStrategy">The default serialization strategy used when creating queue sessions.</param>
+        /// <param name="maxSize">The maximum size of the Data file holding queue data.</param>
+        /// <param name="throwOnConflict">When true, if data files are damaged, throw an InvalidOperationException. This will stop program flow.</param>
+        /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown</param>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/>.</param>
+        /// <returns></returns>
+        public async Task<IPersistentQueue<T>> WaitForAsync<T>(string storagePath, ISerializationStrategy<T> defaultSerializationStrategy, int maxSize, bool throwOnConflict, TimeSpan maxWait, CancellationToken cancellationToken = default)
+        {
+            return await WaitForAsync(() => CreateAsync<T>(storagePath, defaultSerializationStrategy, maxSize, throwOnConflict, cancellationToken), maxWait, storagePath, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<T> WaitForAsync<T>(Func<Task<T>> generator, TimeSpan maxWait, string lockName, CancellationToken cancellationToken = default)

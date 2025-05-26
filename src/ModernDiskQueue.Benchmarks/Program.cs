@@ -16,7 +16,8 @@ namespace ModernDiskQueue.Benchmarks
             {
                 // typeof(ContentiousEnqueues),
                 // typeof(HighVolumeEnqueues),
-                typeof(ThreadsAndTasks),
+                // typeof(ThreadsAndTasks),
+                typeof(SerializerStrategies),
             });
         }
     }

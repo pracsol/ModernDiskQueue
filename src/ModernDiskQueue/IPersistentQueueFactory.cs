@@ -2,6 +2,7 @@
 namespace ModernDiskQueue
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -17,7 +18,7 @@ namespace ModernDiskQueue
         /// <param name="storagePath"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task<PersistentQueue<T>> CreateAsync<T>(string storagePath, CancellationToken cancellationToken = default);
+        Task<IPersistentQueue<T>> CreateAsync<T>(string storagePath, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Create a new queue instance.
@@ -28,17 +29,27 @@ namespace ModernDiskQueue
         /// <param name="throwOnConflict"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task<PersistentQueue<T>> CreateAsync<T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default);
+        Task<IPersistentQueue<T>> CreateAsync<T>(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Create a new queue instance.
         /// </summary>
-        Task<PersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default);
+        Task<IPersistentQueue> CreateAsync(string storagePath, int maxSize, bool throwOnConflict = true, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Create a new queue instance.
         /// </summary>
-        Task<PersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default);
+        Task<IPersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Create a new queue instance.
+        /// </summary>
+        Task<IPersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, ISerializationStrategy<T> defaultSessionStrategy, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Create a new queue instance.
+        /// </summary>
+        Task<IPersistentQueue<T>> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(string storagePath, SerializationStrategy defaultSessionStrategy, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Wait for a queue to be created.
@@ -59,5 +70,10 @@ namespace ModernDiskQueue
         /// Wait for a queue to be created.
         /// </summary>
         Task<IPersistentQueue<T>> WaitForAsync<T>(string storagePath, int maxSize, bool throwOnConflict, TimeSpan maxWait, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Wait for a queue to be created.
+        /// </summary>
+        Task<IPersistentQueue<T>> WaitForAsync<T>(string storagePath, ISerializationStrategy<T> defaultSerializationStrategy, int maxSize, bool throwOnConflict, TimeSpan maxWait, CancellationToken cancellationToken = default);
     }
 }

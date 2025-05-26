@@ -1,7 +1,8 @@
 ﻿namespace ModernDiskQueue.Implementation
 {
     using Microsoft.Extensions.Logging;
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue;
+    using ModernDiskQueue.Implementation.Interfaces;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -15,13 +16,31 @@
 
         public new IPersistentQueueSession<T> OpenSession()
         {
-            return new PersistentQueueSession<T>(_loggerFactory, this, CreateWriter(), SuggestedWriteBuffer, FileTimeoutMilliseconds);
+            return new PersistentQueueSession<T>(_loggerFactory, this, CreateWriter(), SuggestedWriteBuffer, FileTimeoutMilliseconds, DefaultSerializationStrategy);
         }
 
         public new async Task<IPersistentQueueSession<T>> OpenSessionAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return new PersistentQueueSession<T>(_loggerFactory, this, await CreateWriterAsync(cancellationToken).ConfigureAwait(false), SuggestedWriteBuffer, FileTimeoutMilliseconds);
+            return new PersistentQueueSession<T>(_loggerFactory, this, await CreateWriterAsync(cancellationToken).ConfigureAwait(false), SuggestedWriteBuffer, FileTimeoutMilliseconds, DefaultSerializationStrategy);
         }
+
+        public async Task<IPersistentQueueSession<T>> OpenSessionAsync(ISerializationStrategy<T>? serializationStrategy, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return new PersistentQueueSession<T>(_loggerFactory, this, await CreateWriterAsync(cancellationToken).ConfigureAwait(false), SuggestedWriteBuffer, FileTimeoutMilliseconds, serializationStrategy);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IPersistentQueueSession<T>> OpenSessionAsync(SerializationStrategy serializationStrategy, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return new PersistentQueueSession<T>(_loggerFactory, this, await CreateWriterAsync(cancellationToken).ConfigureAwait(false), SuggestedWriteBuffer, FileTimeoutMilliseconds, (serializationStrategy == SerializationStrategy.Xml) ? new SerializationStrategyXml<T>() : new SerializationStrategyJson<T>());
+        }
+
+        /// <summary>
+        /// The default serialization strategy used by the opensessionasync methods will be set to this.
+        /// </summary>
+        public ISerializationStrategy<T> DefaultSerializationStrategy { get; set; } = new SerializationStrategyXml<T>();
     }
 }

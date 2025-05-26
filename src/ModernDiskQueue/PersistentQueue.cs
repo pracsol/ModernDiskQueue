@@ -3,7 +3,7 @@
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
     using ModernDiskQueue.Implementation;
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue.Implementation.Interfaces;
     using System;
     using System.Diagnostics;
     using System.IO;
@@ -133,7 +133,7 @@
         /// <param name="maxSize">Maximum size in bytes for each storage file. Files will be rotated after reaching this limit.
         /// <param name="throwOnConflict">When true, if data files are damaged, throw an InvalidOperationException. This will stop program flow.
         /// When false, damaged data files should result in silent data truncation</param>
-        /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown</param>
+        /// <param name="maxWait">If the storage path can't be locked within this time, a TimeoutException will be thrown.</param>
         /// The entire queue is NOT limited by this value.</param>
         public static IPersistentQueue WaitFor(string storagePath, int maxSize, bool throwOnConflict, TimeSpan maxWait)
         {

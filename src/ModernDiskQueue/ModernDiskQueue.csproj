@@ -2,17 +2,15 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PackageId>ModernDiskQueue</PackageId>
-    <Description>A fork of DiskQueue, implementing first-class async support on the current LTS .NET runtime</Description>
+    <Description>A modern fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue. MDQ adds first-class async support, dependency injection semantics, and is built on the latest .NET LTS runtime.</Description>
     <PackageIcon>MDQLogo-small.png</PackageIcon>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>net8</PackageTags>
     <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
     <PackageProjectUrl>https://github.com/pracsol/ModernDiskQueue</PackageProjectUrl>
-    <Version>2.0.0</Version>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <Version>3.0.0-rc.1</Version>
     <AssemblyName>ModernDiskQueue</AssemblyName>
-    <FileVersion>2.0.0.0</FileVersion>
     <LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -54,6 +52,6 @@
     <TrimmerRootAssembly Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
     <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
-    <TrimmerRootAssembly Include="Microsoft.Extensions.Options" Version="8.0.2"/>
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Options" Version="8.0.2" />
   </ItemGroup>
 </Project>

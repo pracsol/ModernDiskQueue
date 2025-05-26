@@ -11,7 +11,7 @@ namespace ModernDiskQueue.Tests
     using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue.Implementation;
-    using ModernDiskQueue.PublicInterfaces;
+    using ModernDiskQueue.Implementation.Interfaces;
     using ModernDiskQueue.Tests.Helpers;
     using NSubstitute;
     using NUnit.Framework;

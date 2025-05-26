@@ -11,6 +11,7 @@ namespace ModernDiskQueue.Benchmarks
     using BenchmarkDotNet.Attributes;
     using Microsoft.Extensions.Logging;
     using ModernDiskQueue;
+    using ModernDiskQueue.Benchmarks.Helpers;
 
     [Config(typeof(BenchmarkConfigNormal))]
     public class HighVolumeEnqueues
@@ -35,13 +36,13 @@ namespace ModernDiskQueue.Benchmarks
         [GlobalCleanup]
         public void Cleanup()
         {
-            Helpers.AttemptManualCleanup(QueuePath);
+            FileManagement.AttemptManualCleanup(QueuePath);
         }
 
         [IterationSetup]
         public void IterationSetup()
         {
-            Helpers.AttemptManualCleanup(QueuePath);
+            FileManagement.AttemptManualCleanup(QueuePath);
         }
 
         [Benchmark]

@@ -1,4 +1,6 @@
-﻿namespace ModernDiskQueue
+﻿using ModernDiskQueue.Implementation;
+
+namespace ModernDiskQueue
 {
     /// <summary>
     /// Options for configuring the ModernDiskQueue.
@@ -45,12 +47,28 @@
         public int FileTimeoutMilliseconds { get; set; } = 10_000;
 
         /// <summary>
+        /// Gets or sets a value indicating whether an InvalidOperationException is thrown when data files are damaged. This will stop program flow.
+        /// </summary>
+        public bool ThrowOnConflict { get; set; } = true;
+
+        /// <summary>
         /// Gets a string representation of the options values.
         /// </summary>
         /// <returns></returns>
         public override string ToString()
         {
-            return $"AllowTruncatedEntries: {AllowTruncatedEntries}; FileTimeoutInMilliseconds: {FileTimeoutMilliseconds}; ParanoidFlushing: {ParanoidFlushing}; SetFilePermissions {SetFilePermissions}; TrimTransactionLogOnDispose: {TrimTransactionLogOnDispose};";
+            return $"AllowTruncatedEntries: {AllowTruncatedEntries}; FileTimeoutInMilliseconds: {FileTimeoutMilliseconds}; ParanoidFlushing: {ParanoidFlushing}; SetFilePermissions {SetFilePermissions}; TrimTransactionLogOnDispose: {TrimTransactionLogOnDispose}; ThrowOnConflict: {ThrowOnConflict}";
+        }
+
+        /// <summary>
+        /// Gets a string representation of the options values, but overrides ThrowsOnConflict with the provided value.
+        /// <para>Use this when queue construction may be overriding the default setting in Options.</para>
+        /// </summary>
+        /// <param name="throwOnConflictOverride">Overridden value for throwOnConflict.</param>
+        /// <returns>String representation of all the options and their values.</returns>
+        internal string ToString(bool throwOnConflictOverride)
+        {
+            return $"AllowTruncatedEntries: {AllowTruncatedEntries}; FileTimeoutInMilliseconds: {FileTimeoutMilliseconds}; ParanoidFlushing: {ParanoidFlushing}; SetFilePermissions {SetFilePermissions}; TrimTransactionLogOnDispose: {TrimTransactionLogOnDispose}; ThrowOnConflict: {throwOnConflictOverride}";
         }
     }
 }
