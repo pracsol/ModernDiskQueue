@@ -19,7 +19,7 @@ MDQ is ideal for lightweight, resilient, First-In-First-Out (FIFO) storage of da
 **Source Repository:** https://github.com/pracsol/ModernDiskQueue
 
 **Original DiskQueue project is at:** https://github.com/i-e-b/DiskQueue. MDQ was conceived as a drop-in
-replacement for DiskQueue, but some minor breaking changes have been introduced in v2 onwards. See the section on [Migrating From DiskQueue](#migrating-from-diskQueue) below.
+replacement for DiskQueue, but some minor breaking changes have been introduced in v2 onwards. See the section on [Migrating From DiskQueue](#migrating-from-diskqueue) below.
 
 ## Table of Contents
 <!--TOC-->
@@ -415,7 +415,7 @@ By default, the queues are set up to prioritize data integrity over performance.
 ## Global Default Configuration
 
 ### Async API
-In the async api, the global defaults are specifiedd using the Options pattern using the `ModernDiskQueueOptions` class, provided when configuring services. 
+In the async api, the global defaults are specified using the Options pattern using the `ModernDiskQueueOptions` class, provided when configuring services. 
 
 > ℹ️ As stated earlier, the default settings favor safety over performance.
 ```csharp
@@ -439,7 +439,7 @@ Each instance of a queue created using the `IPersistentQueueFactory.CreateAsync(
 
 ### Sync API
 
-Global default settings can be set using the `PersistentQueue.DefaultSettings' static class.
+Global default settings can be set using the `PersistentQueue.DefaultSettings` static class.
 
 Default settings are applied to all queue instances *in the same process* created only *after* the setting is changed. The SetFilePermissions value behaves differently in that changes *will* affect behavior for existing queue instances.
 
@@ -850,7 +850,7 @@ Once you have done this, your code should compile and run as before. The sync AP
 ### Implementing the Async API
 If you're ready to start using the async API, please refer to the guidance above in the [**Quick Start**](#quick-start) section.
 
-Conceptually, the async API is very similar to the sync API, but there are differences in how you create queues, primarily. Levarging both sync and async APIs in the same project can be done, but as mentioned in several cautionary notes above, don't intermix them by, for example, creating a queue with the sync API and then interacting with it using the async methods. 
+Conceptually, the async API is very similar to the sync API, but there are differences in how you create queues, primarily. Leveraging both sync and async APIs in the same project can be done, but as mentioned in several cautionary notes above, don't intermix them by, for example, creating a queue with the sync API and then interacting with it using the async methods. 
 
 
 ## How To Build
