@@ -1,6 +1,6 @@
 # ModernDiskQueue
-[![NuGet](https://img.shields.io/nuget/v/ModernDiskQueue.svg)](https://www.nuget.org/packages/ModernDiskQueue)
-[![Releases](https://img.shields.io/github/v/release/pracsol/ModernDiskQueue)](https://github.com/pracsol/ModernDiskQueue/)
+[![NuGet](https://img.shields.io/nuget/vpre/ModernDiskQueue.svg)](https://www.nuget.org/packages/ModernDiskQueue)
+[![Releases](https://img.shields.io/github/v/release/pracsol/ModernDiskQueue?include_prereleases)](https://github.com/pracsol/ModernDiskQueue/)
 
 ModernDiskQueue (MDQ) is a fork of DiskQueue, a robust, thread-safe, and multi-process persistent queue. MDQ **adds first-class async support**, **dependency injection semantics**, and is built on the **latest .NET LTS runtime**.
 
