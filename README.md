@@ -215,13 +215,13 @@ two strategies. The behavior of the serializers can be manipulated with the myri
 built-in libraries, typically by adding the appropriate attributes to your class definitions.
 
 The built-in serializers do not require any attribute annotation of your classes unless you are unhappy with
-the results of the default behavior. The original DiskQueue library had advised annotating your classes with the `[Serializable]` attribute, but this was a requirement of the deprecated `BinaryFormatter` library and is
-not required by the built-in serializers provided by MDQ. You may want to use attribute annotation to control inclusion, manage naming, serialize private fields, or add versioning to explicit behavior directives.
+the results of the default behavior. You may want to use attribute annotation to control inclusion, manage naming, serialize private fields, or add versioning to explicit behavior directives. The original DiskQueue library had advised annotating your classes with the `[Serializable]` attribute, but this was a requirement of the deprecated `BinaryFormatter` library and is
+not required by the built-in serializers provided by MDQ. 
 
 The built-in JSON serializer, `SerializationStrategyJson<T>`, allows for a `JsonSerializerOptions` object to be passed in. This allows you to 
 specify options like `PropertyNamingPolicy`, `DefaultIgnoreCondition`, `MaxDepth` and many other options to control how the data is 
 serialized. You can use this feature to specify a `TypeInfoResolver` as a way to support source generation 
-and versioned data contracts. For more inforamtion, see the [**Advanced Topics**](#advanced-topics) section below.
+and versioned data contracts without having to create your own implementation of `ISerializationStrategy<T>`. For more inforamtion, see the [**Advanced Topics**](#advanced-topics) section below.
 
 #### Specifying JSON Options
 ```csharp
@@ -233,6 +233,8 @@ var strat = new SerializationStrategyJson<MyClass>(new JsonSerializerOptions
 });
 var q = await _factory.CreateAsync<MyClass>(QueueName, strat);
 ```
+
+A similar approach can be used to specify the `DataContractSerializerSettings` with `SerializationStrategyXml<T>` if you are using the XML serializer.
 
 ### Examples for Setting Strategies
 For in-band serialization on typed queues, the default serializer is `System.Runtime.Serialization.DataContractSerializer`. You have a lot of flexibility to override the default at different points in the queue lifecycle.
