@@ -850,9 +850,9 @@ If you are migrating from the original DiskQueue library, there is very little c
 Once you have done this, your code should compile and run as before. The sync API has not changed in any significant way.
 
 ### Implementing the Async API
-If you're ready to start using the async API, please refer to the guidance above in the [**Quick Start**](#quick-start) section.
+If you're ready to start using the async API, please refer to the guidance above in the [**Quick Start**](#quick-start) section, and be aware of the notes in the [**Performance**](#performance) section.
 
-Conceptually, the async API is very similar to the sync API, but there are differences in how you create queues, primarily. Leveraging both sync and async APIs in the same project can be done, but as mentioned in several cautionary notes above, don't intermix them by, for example, creating a queue with the sync API and then interacting with it using the async methods. 
+Conceptually, the async API is very similar to the sync API, but there are differences in how you create queues, primarily. Leveraging both sync and async APIs in the same project can be done, but as mentioned in several cautionary notes above, don't intermix them by, for example, creating a queue with the sync API and then interacting with it using the async methods.
 
 
 ## How To Build
