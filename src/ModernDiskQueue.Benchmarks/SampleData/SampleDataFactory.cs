@@ -55,8 +55,8 @@ namespace ModernDiskQueue.Benchmarks.SampleData
                 EnumValue = (SampleEnum)_rand.Next(0, Enum.GetValues(typeof(SampleEnum)).Length),
 
                 // Object and Dynamic
-                //ArbitraryObject = new { Key = "Random", Value = _rand.Next(1000) },
-                //DynamicValue = new { Foo = "Bar", Baz = _rand.Next(999) },
+                // ArbitraryObject = new { Key = "Random", Value = _rand.Next(1000) },
+                // DynamicValue = new { Foo = "Bar", Baz = _rand.Next(999) },
 
                 // Complex Collection
                 NestedList = new List<NestedData>

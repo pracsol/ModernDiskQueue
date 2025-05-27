@@ -1,6 +1,8 @@
+// -----------------------------------------------------------------------
 // <copyright file="PersistentQueueSessionTests.cs" company="ModernDiskQueue Contributors">
 // Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
 // </copyright>
+// -----------------------------------------------------------------------
 
 // ReSharper disable PossibleNullReferenceException
 namespace ModernDiskQueue.Tests

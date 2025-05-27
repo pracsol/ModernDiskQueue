@@ -9,8 +9,6 @@ namespace ModernDiskQueue.Tests
     using System;
     using System.Threading;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
-    using NSubstitute;
     using NUnit.Framework;
 
     [TestFixture]

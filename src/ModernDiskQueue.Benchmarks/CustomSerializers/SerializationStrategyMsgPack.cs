@@ -31,6 +31,7 @@ namespace ModernDiskQueue.Benchmarks.CustomSerializers
             {
                 return default;
             }
+
             using MemoryStream ms = new(data);
             return await MessagePackSerializer.DeserializeAsync<T>(ms, null, cancellationToken);
         }

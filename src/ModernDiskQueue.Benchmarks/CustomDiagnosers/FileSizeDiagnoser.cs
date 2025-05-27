@@ -129,7 +129,7 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
         /// </Summary>
         public IEnumerable<Metric> ProcessResults(DiagnoserResults results)
         {
-            //_fileSizeData.Clear();
+            // _fileSizeData.Clear();
             List<FileSizeResult> resultList = BenchmarkDataRecorder.GetBenchmarkResults<FileSizeResult>($"{AppContext.BaseDirectory}\\BenchmarkDotNet.Artifacts\\", false).GetAwaiter().GetResult();
             Console.WriteLine($"PR Retrieved {resultList.Count} results from the queue.");
             foreach (var result in resultList)
@@ -153,8 +153,9 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
             foreach (var stat in statsByStrategy)
             {
                 yield return new Metric(new FileSizeAvgMetricDescriptor(stat.StrategyName), stat.Average);
-                //yield return new Metric(new FileSizeMinMetricDescriptor(stat.StrategyName), stat.Min);
-                //yield return new Metric(new FileSizeMaxMetricDescriptor(stat.StrategyName), stat.Max);
+
+                // yield return new Metric(new FileSizeMinMetricDescriptor(stat.StrategyName), stat.Min);
+                // yield return new Metric(new FileSizeMaxMetricDescriptor(stat.StrategyName), stat.Max);
             }
         }
 

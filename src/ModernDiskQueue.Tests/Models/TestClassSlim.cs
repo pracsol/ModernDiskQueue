@@ -7,7 +7,6 @@
 namespace ModernDiskQueue.Tests.Models
 {
     using System;
-    using System.Text.Json.Serialization;
     using ModernDiskQueue;
 
     /// <summary>
@@ -26,7 +25,7 @@ namespace ModernDiskQueue.Tests.Models
 
         //public dynamic ArbitraryDynamicType { get; set; } = string.Empty;
 
-        public int IntegerValue { get; set;  }
+        public int IntegerValue { get; set; }
 
         public string StringValue { get; set; } = string.Empty;
 

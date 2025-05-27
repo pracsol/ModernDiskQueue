@@ -14,7 +14,9 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
         /// <summary>
         /// Initializes a new instance of the <see cref="FileSizeResult"/> class.
         /// </summary>
-        public FileSizeResult() { }
+        public FileSizeResult()
+        {
+        }
 
         /// <summary>
         /// Gets or sets a name for the results to be grouped under.

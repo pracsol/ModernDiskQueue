@@ -16,9 +16,9 @@ namespace ModernDiskQueue.Benchmarks.SampleData
         public Guid Id { get; set; }
 
         [Key(1)]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [Key(2)]
-        public Uri Website { get; set; }
+        public Uri Website { get; set; } = default!;
     }
 }

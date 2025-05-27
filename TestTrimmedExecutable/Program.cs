@@ -13,6 +13,21 @@ namespace TestTrimmedExecutable
     using Microsoft.Extensions.DependencyInjection;
     using ModernDiskQueue;
 
+    /// <summary>
+    /// The entry point of the application.
+    /// </summary>
+    /// <remarks>This class contains the <c>Main</c> method, which serves as the entry point for the
+    /// application. It processes command-line arguments to determine the test case to execute and the input value to
+    /// use. The application supports both synchronous and asynchronous tests for simple and complex object queueing.
+    /// Command-line arguments: <list type="bullet"> <item> <term>test</term> <description>Specifies the test case to
+    /// run. Valid values are 1, 2, 3, or 4.</description> </item> <item> <term>value</term> <description>Specifies the
+    /// input value for the test. For test cases 1 and 3, this should be an integer. For test cases 2 and 4, this should
+    /// be a <see cref="DateTimeOffset"/> string.</description> </item> <item> <term>writeoutput</term>
+    /// <description>Optional. Enables console logging if set to <see langword="true"/>.</description> </item> </list>
+    /// Exit codes: <list type="bullet"> <item> <term>0</term> <description>Indicates successful
+    /// execution.</description> </item> <item> <term>1</term> <description>Indicates a general error occurred during
+    /// execution.</description> </item> <item> <term>2</term> <description>Indicates a serialization-related error
+    /// occurred.</description> </item> </list></remarks>
     public static class Program
     {
         private const string FolderNameSimpleQueue = "simpleQueue";
@@ -21,6 +36,31 @@ namespace TestTrimmedExecutable
         private const string FolderNameComplexQueueAsync = "complexQueueAsync";
         private static bool _isConsoleLoggingEnabled = false; // note this will pollute output for testing, so only enable if you're running this project directly for debug purposes.
 
+        /// <summary>
+        /// The entry point of the application. Processes command-line arguments to execute specific tests  for object
+        /// serialization and deserialization using synchronous or asynchronous APIs.
+        /// </summary>
+        /// <remarks>This method expects two command-line arguments in the format: <c>test={1 | 2 | 3 |
+        /// 4}</c> and <c>value={[int] | [DateTimeOffset string]}</c>. - The <c>test</c> argument specifies the type of
+        /// test to run:   <list type="bullet">     <item><description><c>1</c>: Tests serialization of a simple object
+        /// (integer) using the synchronous API.</description></item>     <item><description><c>2</c>: Tests
+        /// serialization of a complex object (<see cref="DateTimeOffset"/>) using the synchronous
+        /// API.</description></item>     <item><description><c>3</c>: Tests serialization of a simple object (integer)
+        /// using the asynchronous API.</description></item>     <item><description><c>4</c>: Tests serialization of a
+        /// complex object (<see cref="DateTimeOffset"/>) using the asynchronous API.</description></item>   </list> -
+        /// The <c>value</c> argument specifies the input value for the test:   <list type="bullet">
+        /// <item><description>An integer for tests <c>1</c> and <c>3</c>.</description></item>     <item><description>A
+        /// <see cref="DateTimeOffset"/> string for tests <c>2</c> and <c>4</c>.</description></item>   </list>  If the
+        /// <c>writeoutput</c> argument is provided with the value <c>true</c>, console logging is enabled.  Exceptions
+        /// are thrown for invalid or missing arguments, and the application exits with an appropriate exit code: <list
+        /// type="bullet">   <item><description><c>0</c>: Success.</description></item>   <item><description><c>1</c>:
+        /// General error.</description></item>   <item><description><c>2</c>: Serialization-related
+        /// error.</description></item> </list></remarks>
+        /// <param name="args">The command-line arguments passed to the application.</param>
+        /// <returns>Nothing.</returns>
+        /// <exception cref="ArgumentException">Thrown if fewer than two arguments are provided.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if arguments are not in the expected format or contain invalid values.</exception>
+        /// <exception cref="ArgumentNullException">Thrown if required arguments are missing.</exception>
         public static async Task Main(string[] args)
         {
             // Set up the DI container
@@ -149,9 +189,13 @@ namespace TestTrimmedExecutable
             Environment.Exit(exitCode);
         }
 
+        /// <summary>
+        /// Tests the serialization and deserialization of a simple object (int) using the synchronous API.
+        /// </summary>
+        /// <param name="inputInt">Integer value you want to see returned.</param>
+        /// <returns>If working, the same integer value you supplied as an argument.</returns>
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(IPersistentQueueFactory))]
-
         public static int TestSimpleObjectQueueing(int inputInt)
         {
             int outputInt;
@@ -218,6 +262,12 @@ namespace TestTrimmedExecutable
             return outputInt;
         }
 
+        /// <summary>
+        /// Tests the serialization and deserialization of a simple object (int) using the asynchronous API.
+        /// </summary>
+        /// <param name="inputInt">Integer value you want to see returned.</param>
+        /// <param name="factory">Injected instance of <see cref="IPersistentQueueFactory"/>.</param>
+        /// <returns>If working, the integer you supplied as an argument.</returns>
         public static async Task<int> TestSimpleObjectQueueingAsync(int inputInt, IPersistentQueueFactory factory)
         {
             int outputInt;
@@ -296,6 +346,11 @@ namespace TestTrimmedExecutable
             return outputInt;
         }
 
+        /// <summary>
+        /// Tests the serialization and deserialization of a complex object (<see cref="Report"/>) using the synchronous API.
+        /// </summary>
+        /// <param name="submittedTime">A <see cref="DateTimeOffset"/> value you want to see returned.</param>
+        /// <returns>If working, the value you submitted as an argument.</returns>
         public static DateTimeOffset TestComplexObjectQueueing(DateTimeOffset submittedTime)
         {
             DateTimeOffset retrievedTime;
@@ -371,6 +426,12 @@ namespace TestTrimmedExecutable
             return retrievedTime;
         }
 
+        /// <summary>
+        /// Tests the serialization and deserialization of a complex object (<see cref="Report"/>) using the asynchronous API.
+        /// </summary>
+        /// <param name="submittedTime">A <see cref="DateTimeOffset"/> value you want to see returned.</param>
+        /// <param name="factory">An injected instance of <see cref="IPersistentQueueFactory"/>.</param>
+        /// <returns>The value you submitted as an argument.</returns>
         public static async Task<DateTimeOffset> TestComplexObjectQueueingAsync(DateTimeOffset submittedTime, IPersistentQueueFactory factory)
         {
             DateTimeOffset retrievedTime;
