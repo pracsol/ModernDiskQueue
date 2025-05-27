@@ -73,7 +73,7 @@ namespace ModernDiskQueue.Benchmarks.SampleData
             {
                 Id = Guid.NewGuid(),
                 Name = $"Name_{_rand.Next(1000)}",
-                Website = new Uri($"https://{new string('a', _rand.Next(1,100))}.example.com"),
+                Website = new Uri($"https://{new string('a', _rand.Next(1, 100))}.example.com"),
             };
         }
     }

@@ -6,17 +6,8 @@
 
 namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
 {
-    using System.Text;
-    using BenchmarkDotNet.Analysers;
     using BenchmarkDotNet.Columns;
-    using BenchmarkDotNet.Diagnosers;
-    using BenchmarkDotNet.Engines;
-    using BenchmarkDotNet.Exporters;
-    using BenchmarkDotNet.Loggers;
     using BenchmarkDotNet.Reports;
-    using BenchmarkDotNet.Running;
-    using BenchmarkDotNet.Validators;
-    using ModernDiskQueue.Benchmarks.Helpers;
 
     public class FileSizeMinMetricDescriptor : IMetricDescriptor
     {

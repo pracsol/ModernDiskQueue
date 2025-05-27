@@ -7,7 +7,6 @@
 namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
 {
     using System.Text;
-    using System.Text.Json;
     using BenchmarkDotNet.Analysers;
     using BenchmarkDotNet.Diagnosers;
     using BenchmarkDotNet.Engines;
@@ -16,7 +15,6 @@ namespace ModernDiskQueue.Benchmarks.CustomDiagnosers
     using BenchmarkDotNet.Reports;
     using BenchmarkDotNet.Running;
     using BenchmarkDotNet.Validators;
-    using Microsoft.CodeAnalysis.CSharp.Syntax;
     using ModernDiskQueue.Benchmarks.Helpers;
 
     /// <inheritdoc/>

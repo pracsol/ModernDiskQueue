@@ -7,9 +7,7 @@
 namespace ModernDiskQueue.Benchmarks
 {
     using System;
-    using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Globalization;
     using System.IO;
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
@@ -298,7 +296,7 @@ namespace ModernDiskQueue.Benchmarks
                     .WithLaunchCount(LaunchCount)
                     .WithUnrollFactor(UnrollFactor)
                     .WithId("SerializerStrategies"));
-                    //.WithOptions(ConfigOptions.DisableOptimizationsValidator)
+                //.WithOptions(ConfigOptions.DisableOptimizationsValidator)
 
                 AddLogger(ConsoleLogger.Default);
                 AddColumnProvider(DefaultColumnProviders.Instance);

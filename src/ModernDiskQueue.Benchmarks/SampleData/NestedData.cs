@@ -7,12 +7,7 @@
 namespace ModernDiskQueue.Benchmarks.SampleData
 {
     using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
     using MessagePack;
-    using static ModernDiskQueue.Benchmarks.SerializerStrategies;
 
     [MessagePackObject]
     public class NestedData

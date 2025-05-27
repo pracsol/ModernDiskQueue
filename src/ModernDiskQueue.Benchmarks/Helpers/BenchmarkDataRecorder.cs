@@ -8,7 +8,6 @@ namespace ModernDiskQueue.Benchmarks.Helpers
 {
     using System;
     using System.Collections.Generic;
-    using System.Text.Json;
     using System.Threading.Tasks;
     using ModernDiskQueue;
 
