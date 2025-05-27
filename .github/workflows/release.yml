@@ -1,0 +1,42 @@
+name: Release and Publish to NuGet
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on a newly pushed tag, like v4.0.0, and sets github.ref_name to that value, later used as the release name.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'  # !! Keep this in sync with runtime used in project, should be the only changing value here.
+
+    - name: Restore dependencies
+      run: dotnet restore src/ModernDiskQueue/ModernDiskQueue.csproj
+
+    - name: Build
+      run: dotnet build src/ModernDiskQueue/ModernDiskQueue.csproj --configuration Release --no-restore
+
+    - name: Pack
+      run: dotnet pack src/ModernDiskQueue/ModernDiskQueue.csproj --configuration Release --no-build --output ./nupkg
+
+    - name: Push to NuGet
+      run: dotnet nuget push ./nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
+
+    - name: Create Draft GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: ${{ github.ref_name }}
+        files: ./nupkg/*.nupkg
+        draft: true
+        prerelease: ${{ contains(github.ref_name, '-') }} # If the version contains a '-rc.1' or '-alpha' suffix, the prerelease flag will get set to true.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
