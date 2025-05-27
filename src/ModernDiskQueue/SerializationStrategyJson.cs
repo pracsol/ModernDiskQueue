@@ -4,7 +4,6 @@ namespace ModernDiskQueue.Implementation
     using ModernDiskQueue;
     using System;
     using System.IO;
-    using System.Runtime.Serialization;
     using System.Text;
     using System.Text.Json;
     using System.Threading;

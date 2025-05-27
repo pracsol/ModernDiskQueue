@@ -43,8 +43,8 @@ namespace ModernDiskQueue.Benchmarks.SampleData
 
             EnumValue = default;
 
-            //ArbitraryObject = new object();
-            //DynamicValue = 0;
+            // ArbitraryObject = new object();
+            // DynamicValue = 0;
         }
 
         // Primitive Types
@@ -117,9 +117,9 @@ namespace ModernDiskQueue.Benchmarks.SampleData
         public SampleEnum EnumValue { get; set; }
 
         // Object and Dynamic
-        //public object ArbitraryObject { get; set; }
+        // public object ArbitraryObject { get; set; }
 
-        //public dynamic DynamicValue { get; set; }
+        // public dynamic DynamicValue { get; set; }
 
         // Complex collection
         [Key(21)]

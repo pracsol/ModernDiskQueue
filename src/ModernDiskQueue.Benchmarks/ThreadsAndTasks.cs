@@ -23,7 +23,7 @@ namespace ModernDiskQueue.Benchmarks
         private const string QueuePathForAsyncThreads = "AsyncThreadBased";
         private const string QueuePathForAsyncTasks = "AsyncTaskBased";
         private const string QueuePathForSyncThreads = "SyncThreadBased";
-        private PersistentQueueFactory _factory = new ();
+        private PersistentQueueFactory _factory = new();
 
         [GlobalSetup]
         public void Setup()
@@ -62,7 +62,7 @@ namespace ModernDiskQueue.Benchmarks
             int enqueueCount = 0, dequeueCount = 0;
 
             // Use a thread-local Random instance to avoid race conditions
-            ThreadLocal<Random> threadLocalRandom = new (() => new Random());
+            ThreadLocal<Random> threadLocalRandom = new(() => new Random());
 
             IPersistentQueue q = new PersistentQueue(QueuePathForSyncThreads);
 
@@ -336,7 +336,7 @@ namespace ModernDiskQueue.Benchmarks
         private void RunAsyncInDedicatedThread(Func<Task> asyncFunc)
         {
             Exception? capturedException = null;
-            ManualResetEventSlim completionEvent = new (false);
+            ManualResetEventSlim completionEvent = new(false);
 
             var thread = new Thread(() =>
             {
@@ -361,7 +361,8 @@ namespace ModernDiskQueue.Benchmarks
 
                             // Complete the synchronization context.
                             syncCtx.Complete();
-                        }, TaskScheduler.Default);
+                        },
+                        TaskScheduler.Default);
 
                     // Run the message loop on the dedicated thread.
                     syncCtx.RunOnCurrentThread();

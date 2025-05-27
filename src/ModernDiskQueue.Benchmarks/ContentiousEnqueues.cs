@@ -20,7 +20,7 @@ namespace ModernDiskQueue.Benchmarks
     {
         private const string QueuePath = "AsyncEnqueue";
         private static int _progressCounter = 0;
-        private PersistentQueueFactory _factory = new ();
+        private PersistentQueueFactory _factory = new();
 
         public event Action<int>? ProgressUpdated;
 

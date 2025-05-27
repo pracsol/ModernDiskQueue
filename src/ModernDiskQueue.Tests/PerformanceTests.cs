@@ -1,17 +1,15 @@
+// -----------------------------------------------------------------------
 // <copyright file="PerformanceTests.cs" company="ModernDiskQueue Contributors">
 // Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
 // </copyright>
+// -----------------------------------------------------------------------
 
 namespace ModernDiskQueue.Tests
 {
     using System;
-    using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Linq;
     using System.Text;
     using System.Threading;
-    using ModernDiskQueue.Tests.Models;
     using NUnit.Framework;
 
     [TestFixture]

@@ -1,6 +1,8 @@
-﻿// <copyright file="DependencyInjectionTests.cs" company="ModernDiskQueue Contributors">
+﻿// -----------------------------------------------------------------------
+// <copyright file="DependencyInjectionTests.cs" company="ModernDiskQueue Contributors">
 // Copyright (c) ModernDiskQueue Contributors. All rights reserved. See LICENSE file in the project root.
 // </copyright>
+// -----------------------------------------------------------------------
 
 namespace ModernDiskQueue.Tests
 {
@@ -9,7 +11,7 @@ namespace ModernDiskQueue.Tests
     using System.Threading.Tasks;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
-    using ModernDiskQueue.DependencyInjection;
+    using ModernDiskQueue;
     using ModernDiskQueue.Tests.Models;
     using NUnit.Framework;
 

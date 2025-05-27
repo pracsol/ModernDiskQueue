@@ -14,23 +14,36 @@ namespace ModernDiskQueue.Benchmarks.Helpers
             {
                 if (!Directory.Exists(path))
                 {
-                    if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Directory {path} does not exist. No cleanup needed.");
+                    if (logLevel != LogLevelForFileManagement.None)
+                    {
+                        Console.WriteLine($"Directory {path} does not exist. No cleanup needed.");
+                    }
+
                     return;
                 }
 
                 var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
-                if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Attempting to delete {files.Length} files manually");
+                if (logLevel != LogLevelForFileManagement.None)
+                {
+                    Console.WriteLine($"Attempting to delete {files.Length} files manually");
+                }
 
                 foreach (var file in files)
                 {
                     try
                     {
                         File.Delete(file);
-                        if (logLevel == LogLevelForFileManagement.All) Console.WriteLine($"Successfully deleted {file}");
+                        if (logLevel == LogLevelForFileManagement.All)
+                        {
+                            Console.WriteLine($"Successfully deleted {file}");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Failed to delete {file}: {ex.Message}");
+                        if (logLevel != LogLevelForFileManagement.None)
+                        {
+                            Console.WriteLine($"Failed to delete {file}: {ex.Message}");
+                        }
                     }
                 }
 
@@ -41,11 +54,17 @@ namespace ModernDiskQueue.Benchmarks.Helpers
                     try
                     {
                         Directory.Delete(dir, true);
-                        if (logLevel == LogLevelForFileManagement.All) Console.WriteLine($"Successfully deleted directory {dir}");
+                        if (logLevel == LogLevelForFileManagement.All)
+                        {
+                            Console.WriteLine($"Successfully deleted directory {dir}");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Failed to delete directory {dir}: {ex.Message}");
+                        if (logLevel != LogLevelForFileManagement.None)
+                        {
+                            Console.WriteLine($"Failed to delete directory {dir}: {ex.Message}");
+                        }
                     }
                 }
 
@@ -53,11 +72,17 @@ namespace ModernDiskQueue.Benchmarks.Helpers
                 try
                 {
                     Directory.Delete(path);
-                    if (logLevel == LogLevelForFileManagement.All) Console.WriteLine($"Successfully deleted main directory {path}");
+                    if (logLevel == LogLevelForFileManagement.All)
+                    {
+                        Console.WriteLine($"Successfully deleted main directory {path}");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    if (logLevel != LogLevelForFileManagement.None) Console.WriteLine($"Failed to delete main directory: {ex.Message}");
+                    if (logLevel != LogLevelForFileManagement.None)
+                    {
+                        Console.WriteLine($"Failed to delete main directory: {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex)

@@ -7,9 +7,7 @@
 namespace ModernDiskQueue.Benchmarks
 {
     using System;
-    using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Globalization;
     using System.IO;
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
@@ -26,6 +24,13 @@ namespace ModernDiskQueue.Benchmarks
     using ModernDiskQueue.Benchmarks.SampleData;
     using ModernDiskQueue.Implementation;
 
+    /// <summary>
+    /// Provides a set of strategies and configurations for benchmarking serialization methods.
+    /// </summary>
+    /// <remarks>This class is designed to facilitate benchmarking of various serialization strategies,
+    /// including XML, JSON, and MessagePack. It supports configuration of parameters, iteration setup, cleanup, and
+    /// execution of serialization tests. The results of the benchmarks, such as file sizes and performance metrics, can
+    /// be recorded for analysis.</remarks>
     [Config(typeof(Config))]
     public partial class SerializerStrategies
     {
@@ -57,7 +62,7 @@ namespace ModernDiskQueue.Benchmarks
         /// <summary>
         /// Counter to track the number of actual workload iterations that have been run.
         /// </summary>
-        int _actualWorkloadIterationCounter = 0;
+        private int _actualWorkloadIterationCounter = 0;
 
         /// <summary>
         /// Reflects whether the current iteration is an actual workload.
@@ -102,6 +107,7 @@ namespace ModernDiskQueue.Benchmarks
         public void IterationSetup()
         {
             const int NumberOfJittingIterations = 1;
+
             // increment the iteration counter
             _iterationCounter++;
 
@@ -113,11 +119,12 @@ namespace ModernDiskQueue.Benchmarks
             // Each "case" in the params will be run as a separate process, so the counters reset.
             _actualWorkloadIterationCounter = _iterationCounter - (NumberOfJittingIterations + Config.WarmupCount);
 
-            _isActualWorkload = (_actualWorkloadIterationCounter > 0 && _actualWorkloadIterationCounter <= Config.IterationCount);
+            _isActualWorkload = _actualWorkloadIterationCounter > 0 && _actualWorkloadIterationCounter <= Config.IterationCount;
 
             Console.WriteLine($"// Is this an actual workload? " + (_isActualWorkload ? $"Yes, number {_actualWorkloadIterationCounter}." : "No."));
 
             Console.WriteLine("// Running...");
+
             // delete any queue artifacts that may exist
             // FileManagement.AttemptManualCleanup(Case.QueuePath + (_iterationCounter -1));
         }
@@ -209,6 +216,7 @@ namespace ModernDiskQueue.Benchmarks
                             await session.FlushAsync();
                         }
                     }
+
                     // Console.WriteLine($"Enqueued {enqueueCount} objects.");
                     enqueueCompletionSource.SetResult(true);
                 }
@@ -242,6 +250,7 @@ namespace ModernDiskQueue.Benchmarks
                         }
                     }
                     while (dequeueCount < targetObjectCount);
+
                     // Console.WriteLine($"Dequeued {dequeueCount} objects");
                     dequeueCompletionSource.SetResult(true);
                 }
@@ -261,7 +270,7 @@ namespace ModernDiskQueue.Benchmarks
 
             try
             {
-                //Console.WriteLine("Starting tasks..");
+                // Console.WriteLine("Starting tasks..");
                 await Task.WhenAll(completionTasks);
             }
             catch (TimeoutException)
@@ -298,8 +307,8 @@ namespace ModernDiskQueue.Benchmarks
                     .WithLaunchCount(LaunchCount)
                     .WithUnrollFactor(UnrollFactor)
                     .WithId("SerializerStrategies"));
-                    //.WithOptions(ConfigOptions.DisableOptimizationsValidator)
 
+                // .WithOptions(ConfigOptions.DisableOptimizationsValidator)
                 AddLogger(ConsoleLogger.Default);
                 AddColumnProvider(DefaultColumnProviders.Instance);
                 AddDiagnoser(ThreadingDiagnoser.Default);
@@ -308,7 +317,8 @@ namespace ModernDiskQueue.Benchmarks
 
                 // AddDiagnoser(new ConcurrencyVisualizerProfiler());
                 AddExporter(MarkdownExporter.Default);
-                //AddExporter(CsvExporter.Default);
+
+                // AddExporter(CsvExporter.Default);
             }
         }
     }
