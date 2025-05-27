@@ -1,16 +1,16 @@
 ﻿
 namespace ModernDiskQueue
 {
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using Microsoft.Extensions.Options;
+    using ModernDiskQueue.Implementation;
     using System;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using Microsoft.Extensions.Options;
-    using ModernDiskQueue.Implementation;
 
     /// <summary>
     /// Factory for creating <see cref="PersistentQueue{T}"/> instances.

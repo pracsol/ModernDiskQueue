@@ -1,18 +1,18 @@
-﻿namespace ModernDiskQueue.DependencyInjection
+﻿namespace ModernDiskQueue
 {
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.Implementation.Interfaces;
     using System;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
-    using Microsoft.Extensions.DependencyInjection;
-    using ModernDiskQueue.Implementation;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using ModernDiskQueue.Implementation.Interfaces;
 
     /// <summary>
     /// Extension methods for <see cref="IServiceCollection"/> to add ModernDiskQueue services.
     /// </summary>
-    public static class ModerDiskQueueServiceCollectionExtensions
+    public static class ModernDiskQueueServiceCollectionExtensions
     {
         /// <summary>
         /// Adds ModernDiskQueue services to the specified <see cref="IServiceCollection"/> with the specified options.

@@ -1,5 +1,5 @@
-﻿using System.Threading.Tasks;
-using System.Threading;
+﻿using System.Threading;
+using System.Threading.Tasks;
 
 namespace ModernDiskQueue
 {
@@ -10,7 +10,7 @@ namespace ModernDiskQueue
     /// If you don't want to define both sync and async (de)serialization methods, consider using <see cref="AsyncSerializationStrategyBase{T}"/> or <see cref="SyncSerializationStrategyBase{T}"/>.
     /// </remarks>
     public interface ISerializationStrategy<T>
-    {        
+    {
         /// <summary>
         /// Asynchronously deserializes byte array into object reference of type T.
         /// </summary>

@@ -9,10 +9,6 @@ namespace ModernDiskQueue.Implementation
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using ModernDiskQueue;
-    using ModernDiskQueue.Implementation.Interfaces;
 
     /// <summary>
     /// A persistent queue implementation.
@@ -1385,7 +1381,7 @@ namespace ModernDiskQueue.Implementation
                         }
 
                         // figure out the varying backoff for retry delay.
-                        int delayMs = Math.Min(100 * (1 << (failCount -1)), 1000) + new Random().Next(50);
+                        int delayMs = Math.Min(100 * (1 << (failCount - 1)), 1000) + new Random().Next(50);
                         await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
                     }
                     else
@@ -1433,11 +1429,11 @@ namespace ModernDiskQueue.Implementation
                     int txCount = 0;
                     while (true)
                     {
-                        txCount++ ;
-						// this code ensures that we read the full transaction
-						// before we start to apply it. The last truncated transaction will be
-						// ignored automatically.
-						var state = AssertTransactionSeparator(binaryReader, txCount, Marker.StartTransaction, () => readingTransaction = true);
+                        txCount++;
+                        // this code ensures that we read the full transaction
+                        // before we start to apply it. The last truncated transaction will be
+                        // ignored automatically.
+                        var state = AssertTransactionSeparator(binaryReader, txCount, Marker.StartTransaction, () => readingTransaction = true);
                         if (state == SeparatorState.Missing)
                         {
                             if (readingTransaction) requireTxLogTrimming = true;
@@ -1456,15 +1452,15 @@ namespace ModernDiskQueue.Implementation
                                 binaryReader.ReadInt32()
                             );
                             txOps.Add(operation);
-							//if we have non enqueue entries, this means 
-							// that we have not closed properly, so we need
-							// to trim the log
-							if (operation.Type != OperationType.Enqueue)
+                            //if we have non enqueue entries, this means 
+                            // that we have not closed properly, so we need
+                            // to trim the log
+                            if (operation.Type != OperationType.Enqueue)
                                 requireTxLogTrimming = true;
                         }
 
-						// check that the end marker is in place
-						state = AssertTransactionSeparator(binaryReader, txCount, Marker.EndTransaction, () => { });
+                        // check that the end marker is in place
+                        state = AssertTransactionSeparator(binaryReader, txCount, Marker.EndTransaction, () => { });
                         if (state == SeparatorState.Missing)
                         {
                             if (readingTransaction) requireTxLogTrimming = true;

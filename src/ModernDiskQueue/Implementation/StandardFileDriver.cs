@@ -1053,7 +1053,7 @@
 
                     if (dirPath != null && !dirExists)
                     {
-                            await CreateDirectoryAsync(dirPath, cancellationToken).ConfigureAwait(false);
+                        await CreateDirectoryAsync(dirPath, cancellationToken).ConfigureAwait(false);
                     }
 
                     // Open stream for writing
