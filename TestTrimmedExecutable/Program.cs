@@ -12,7 +12,6 @@ namespace TestTrimmedExecutable
     using System.Threading.Tasks;
     using Microsoft.Extensions.DependencyInjection;
     using ModernDiskQueue;
-    using ModernDiskQueue.DependencyInjection;
 
     public static class Program
     {
