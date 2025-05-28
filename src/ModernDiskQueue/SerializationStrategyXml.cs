@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("ModernDiskQueue.Benchmarks")]
-namespace ModernDiskQueue.Implementation
+namespace ModernDiskQueue
 {
     using ModernDiskQueue;
     using System;

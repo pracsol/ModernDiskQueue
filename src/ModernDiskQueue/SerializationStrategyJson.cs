@@ -1,5 +1,5 @@
 ﻿
-namespace ModernDiskQueue.Implementation
+namespace ModernDiskQueue
 {
     using ModernDiskQueue;
     using System;
