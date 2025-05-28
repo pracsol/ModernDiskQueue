@@ -37,7 +37,7 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
     - [Flexible Options](#flexible-options)
     - [Be Consistent](#be-consistent)
     - [Data Contracts and Options](#data-contracts-and-options)
-      - [Specifying JSON Options](#specifying-json-options)
+      - [Customizing Options with the Built-In Serializers](#customizing-options-with-the-built-in-serializers)
     - [Examples for Setting Strategies](#examples-for-setting-strategies)
       - [Example of Specifying the Serialization Strategy at Queue Creation](#example-of-specifying-the-serialization-strategy-at-queue-creation)
       - [Example of Specifying the Serialization Strategy at Session Creation](#example-of-specifying-the-serialization-strategy-at-session-creation)
@@ -48,15 +48,15 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
   - [Transactions](#transactions)
     - [ACID](#acid)
     - [Managing Flushing of the Transaction Log](#managing-flushing-of-the-transaction-log)
-    - [Managing Corruption](#managing-corruption)
+    - [Handling Corruption](#handling-corruption)
   - [Global Default Configuration](#global-default-configuration)
     - [Async API](#async-api)
     - [Sync API](#sync-api)
   - [Logging](#logging)
     - [Async API](#async-api)
       - [ILogger Support](#ilogger-support)
-      - [What Gets Logged?](#what-gets-logged)
     - [Sync API](#sync-api)
+    - [What Gets Logged?](#what-gets-logged)
   - [Removing or Resetting Queues](#removing-or-resetting-queues)
     - [Async API](#async-api)
     - [Sync API](#sync-api)
@@ -402,7 +402,7 @@ IPersistentQueue.ParanoidFlushing = true;
 IPersistentQueue.TrimTransactionLogOnDispose = true;
 ```
 
-### Managing Corruption
+### Handling Corruption
 By default, ModernDiskQueue will silently discard transaction blocks that have been truncated; it will throw an `InvalidOperationException`
 when transaction block markers are overwritten (this happens if more than one process is using the queue by mistake. It can also happen with some kinds of disk corruption).
 If you construct your queue with `throwOnConflict: false`, all recoverable transaction errors will be silently truncated. 
@@ -463,7 +463,13 @@ All logging is performed using the logging context you configure in your DI cont
 #### ILogger Support
 The async API uses the `Microsoft.Extensions.Logging.ILogger` interface to log messages. This allows you to use any logging framework that supports `ILogger`, including **Serilog** and **NLog**. The logging context is automatically passed to the MDQ factory when you register it with your DI container.
 
-#### What Gets Logged?
+
+### Sync API
+
+Some internal warnings and non-critical errors are logged through `PersistentQueue.Log`.
+This defaults to stdout, i.e. `System.Console.WriteLine`, but can be replaced with any `Action<string>`. This behavior has not changed from the legacy library.
+
+### What Gets Logged?
 Logging can be an expensive operation so at present the logging has been kept to a minimum. The async API does log more data than the sync API, but any points in the legacy sync API that were logged have been retained in the async API.
 
 | Log Level    | Events |
@@ -474,11 +480,6 @@ Logging can be an expensive operation so at present the logging has been kept to
 | Trace/Verbose |  Queue hard delete start and finish.<br/>Session enqueue and dequeue events.<br/>Cross-process lock file creation attempt, failure and success.<br/>Cross-process lock file release.<br/>Queue disposal.<br/>Factory queue access retries (when locked).<br/>Non-critical errors when locking or unlocking queue.|
 
 \* Only these events get logged by sync API.
-
-### Sync API
-
-Some internal warnings and non-critical errors are logged through `PersistentQueue.Log`.
-This defaults to stdout, i.e. `System.Console.WriteLine`, but can be replaced with any `Action<string>`. This behavior has not changed from the legacy library.
 
 ## Removing or Resetting Queues
 
@@ -848,7 +849,7 @@ If you are migrating from the original DiskQueue library, there is very little c
 * Install the ModernDiskQueue nuget package.
 * Change the `using` statements from `DiskQueue` to `ModernDiskQueue`.
 * ⚠️ If you have defined custom serialization strategies by implementing `ISerializationStrategy<T>`, change these to inherit from `SyncSerializationStrategyBase`.
-* ⚠️ If you are using the implementation interfaces (IFileDriver, IBinaryReader, etc), include the new namespace in your `using` statements. The implementation interfaces have been moved to the `ModernDiskQueue.Implementation.Interfaces` namespace.
+* ⚠️ If you are using the internal implementation interfaces (IFileDriver, IBinaryReader, etc), include the new namespace in your `using` statements. The implementation interfaces have been moved to the `ModernDiskQueue.Implementation.Interfaces` namespace.
 * ⚠️ If you directly reference `DefaultSerializationStrategy<T>`, this class has been replaced with `SerializationStrategyXml<T>`.
 
 Once you have done this, your code should compile and run as before. The sync API has not changed in any significant way.
