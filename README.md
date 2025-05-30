@@ -60,6 +60,9 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
   - [Removing or Resetting Queues](#removing-or-resetting-queues)
     - [Async API](#async-api)
     - [Sync API](#sync-api)
+  - [Data Security](#data-security)
+    - [No Inherent Encryption](#no-inherent-encryption)
+    - [Residual Data](#residual-data)
   - [Performance](#performance)
     - [Serializer Performance](#serializer-performance)
     - [Benchmarking of the Async vs Sync APIs](#benchmarking-of-the-async-vs-sync-apis)
@@ -81,6 +84,7 @@ replacement for DiskQueue, but some minor breaking changes have been introduced 
     - [Publishing With Trimmed Executables (Tree-Shaking)](#publishing-with-trimmed-executables-tree-shaking)
       - [Dependency Errors in Trimmed Applications](#dependency-errors-in-trimmed-applications)
       - [Serialization Issues in Trimmed Applications](#serialization-issues-in-trimmed-applications)
+    - [Source Generation for Serialization](#source-generation-for-serialization)
   - [Migrating from DiskQueue](#migrating-from-diskqueue)
     - [Preserving Your Sync API Implementation](#preserving-your-sync-api-implementation)
     - [Implementing the Async API](#implementing-the-async-api)
@@ -509,10 +513,10 @@ subject.HardDelete(true); // wipe any existing data and recreate containing fold
 
 ## Data Security
 ### No Inherent Encryption
-This library does *not* perform any data encryption. Data is stored on disk exactly as you deliver it. If you need data to be encrypted at rest, you should encrypt it via your own process and pass the encrypted bytes to be enqueued. Possible approaches to this are to use an intermediate process to encrypt the data and pass the byte array to the `IPersistentQueue`, or implement your own `ISerializationStrategy<T>` that encrypts the data before serializing it and decrypts data on the way back out.
+This library does *not* perform any data encryption. Data is stored on disk exactly as you deliver it. If you need data to be encrypted at rest, you should encrypt it via your own process and pass the encrypted bytes to be enqueued. Possible approaches to this are to use an intermediate process to encrypt the data and pass the byte array to the `IPersistentQueue` (out-of-band), or implement your own `ISerializationStrategy<T>` that encrypts the data before serializing it and decrypts data on the way back out (in-band).
 
 ### Residual Data
-Data that has been enqueued is stored on disk in a data file. That indexed data is not removed when it is dequeued. There are performance advantages to this design approach, but it is important to understand the trade-off. If you enqueue sensitive data (e.g. PII), be aware that it will remain on disk until the data file rolls over or `HardDeleteAsync` is invoked to clean up the queue. For this and other reasons, you should probably encrypt sensitive data prior to enqueuing it if you do not have complete control of the host system.
+Data that has been enqueued is stored on disk in a data file. That indexed data is not removed when it is dequeued. There are performance advantages to this design approach, but it is important to understand the trade-off. If you enqueue sensitive data (e.g. PII), be aware that it will remain on disk until the data file rolls over or `HardDeleteAsync` is invoked to clean up the queue. For this and other reasons, you should probably encrypt sensitive data prior to enqueuing it if you do not have complete control of the host system and appropriate mitigating controls (whole disk encryption, access control, etc).
 
 ## Performance
 ### Serializer Performance
@@ -812,6 +816,15 @@ rather than reflection-based serialization on either built-in serializer. The go
 * It's easy.
 * It's far more performant than reflection.
 
+For more info, please see
+- https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/incompatibilities#reflection-based-serializers
+- https://learn.microsoft.com/en-us/dotnet/core/compatibility/serialization/8.0/publishtrimmed
+- https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation
+- https://github.com/i-e-b/DiskQueue/issues/35
+
+
+### Source Generation for Serialization
+
 Source generation is not an option for `DataContractSerializer`, but it is for `System.Text.Json`. The built-in JSON serializer in MDQ can be configured to use source generation without implementing your own `ISerializationStrategy<T>`.
 
 What follows is a very basic conceptual example of implementing source generation. You can see a working example in the unit test `SerializationStrategyJsonTests.StrategyJson_SerializeUnsupportedTypeWithSourceGeneration_SerializationSucceeds`. 
@@ -843,12 +856,6 @@ var jsonStrategy = new SerializationStrategyJson<MyCustomClass>(options);
 
 await using var queue = await _factory.CreateAsync<TestClassSlim>(MyQueueName, jsonStrategy);
 ```
-
-For more info, please see
-- https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/incompatibilities#reflection-based-serializers
-- https://learn.microsoft.com/en-us/dotnet/core/compatibility/serialization/8.0/publishtrimmed
-- https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation
-- https://github.com/i-e-b/DiskQueue/issues/35
 
 ## Migrating from DiskQueue
 If you are migrating from the original DiskQueue library, there is very little change required simply to get your existing code working with the sync API.
