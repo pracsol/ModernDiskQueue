@@ -365,7 +365,8 @@ For more examples of implementing `ISerializationStrategy<T>`, please review the
 #### Why Would You Implement Your Own Serialization Strategy?
 **Driven by Requirements:**
 * If you are already annotating your class definitions with data contract information specific to a serializer (e.g. MessagePack), you can leverage that metadata by implementing an `ISerializationStrategy<T>`. This not only saves time and keeps your class definitions cleaner, but it also provides consistent serialization behavior across your codebase.
-* If you are implementing source-generated serialization, you can use the `ISerializationStrategy<T>` interface to help facilitate this (see more under **Advanced Topics** below).
+* If you are implementing source-generated serialization, you can use the `ISerializationStrategy<T>` interface to facilitate this. However, if using JSON, note that the built-in JSON serializer does allow for source-generated serialization without needing to implement your own strategy (see more under **Advanced Topics** below).
+* If you need data encrypted at rest, `ISerializationStrategy<T>` could be used to implement your own serialization logic that encrypts the data before serializing it and decrypts it on the way back out (see [**Data Security**](#data-security) section below).
 
 **Driven by Design:**
 
@@ -377,7 +378,7 @@ This approach may be appropriate if:
 
 * You have a reliable way to **determine the object type after dequeue ops and deserialize accordingly**.
 
-However, if you're only storing a single complex object type per queue, it’s more elegant to encapsulate your serialization logic within an ISerializationStrategy. This allows you to pass the object itself to MDQ, without explicitly making calls to an intermediate (de)serialization service.
+However, if you're only storing a single complex object type per queue, it may be more elegant to encapsulate your serialization logic within an `ISerializationStrategy`. This allows you to pass an object directly to MDQ, without making explicit calls to an intermediate (de)serialization service.
 
 ## Transactions
 
@@ -505,6 +506,13 @@ subject.HardDelete(true); // wipe any existing data and recreate containing fold
 ```
 
 ⚠️ NOTE: there is a bug in the legacy sync API that happens when `PersistentQueue.DefaultSettings.TrimTransactionLogOnDispose` is set to `true`. The `HardDelete` method successfully removes files and folder, but when the queue object is disposed, a new transaction.log file is written, recreating the folder and transaction file. This will be corrected in a future release, but care has been taken to preserve original sync API in all respects for now.
+
+## Data Security
+### No Inherent Encryption
+This library does *not* perform any data encryption. Data is stored on disk exactly as you deliver it. If you need data to be encrypted at rest, you should encrypt it via your own process and pass the encrypted bytes to be enqueued. Possible approaches to this are to use an intermediate process to encrypt the data and pass the byte array to the `IPersistentQueue`, or implement your own `ISerializationStrategy<T>` that encrypts the data before serializing it and decrypts data on the way back out.
+
+### Residual Data
+Data that has been enqueued is stored on disk in a data file. That indexed data is not removed when it is dequeued. There are performance advantages to this design approach, but it is important to understand the trade-off. If you enqueue sensitive data (e.g. PII), be aware that it will remain on disk until the data file rolls over or `HardDeleteAsync` is invoked to clean up the queue. For this and other reasons, you should probably encrypt sensitive data prior to enqueuing it if you do not have complete control of the host system.
 
 ## Performance
 ### Serializer Performance
