@@ -10,7 +10,7 @@ MDQ is ideal for lightweight, resilient, First-In-First-Out (FIFO) storage of da
 
 | Version       | Changes                     |
 |---------------| ----------------------------|
-|**MDQ&nbsp;v3.***| Added built-in JSON serialization strategy; Improved support for custom serialization strategies.|
+|**MDQ&nbsp;v3.***| Added built-in JSON serialization strategy; improved support for custom serialization strategies.|
 |**MDQ&nbsp;v2.***| Added first-class async support and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two APIs should not be invoked interchangeably.|
 |**MDQ&nbsp;v1.*** | Upgraded the runtime to .NET 8, but otherwise functionally equivalent to the original DiskQueue synchronous library.|
 
@@ -163,7 +163,7 @@ public class MyClass
 * `PersistentQueueFactory.WaitForAsync(..)` is the main entry point. This will attempt to gain an exclusive lock on the given storage location by calling `.CreateAsync(..)` until the specified timeout expires. `CreateAsync` gracefully fails if the queue is locked and contention is detected. On first use, a directory will be created with the required files inside of it.
 * Typed queues are available with `PersistentQueueFactory.CreateAsync<T>(...)` or `PersistentQueueFactory.WaitForAsync<T>(...)`. This will create a strongly-typed queue that will handle the serialization and deserialization of elements in the queue. 
 * This returned queue object can be shared amongst threads. Each thread should call `OpenSessionAsync()` to get its own session object.
-* Generally speaking, ALWAYS wrap your `IPersistentQueue` and `IPersistentQueueSession` in an `await using()` block, or otherwise disposed of properly (i.e. `DisposeAsync()`). Failure to do this will result in runtime errors or lock contention -- you will get errors that the queue is still in use. Be careful about using the simplified `await using` declarations introduced in C# 8.0 (no `{}`) when conducting multiple operations. Generally, you have more control over the scope of the object using the classic `await using [obj] {..}` statements.
+* Generally speaking, ALWAYS wrap your `IPersistentQueue` and `IPersistentQueueSession` in an `await using()` block, or otherwise dispose of instances properly (e.g. by calling `DisposeAsync()`). Failure to do this will result in runtime errors or lock contention -- you will get errors that the queue is still in use. Be careful about using the simplified `await using` declarations introduced in C# 8.0 (no `{}`) when conducting multiple operations. Generally, you have more control over the scope of the object using the classic `await using [obj] {..}` statements.
 > ⚠️DO NOT use the sync and async APIs interchangeably in the same queue lifecycle. The two implementations are not interchangeable and will cause deadlocks or other issues if you try to mix them. The lock awareness mechanisms under the hood are necessarily different for the sync and async APIs. Specifically, when using the async API, use the `PersistentQueueFactory` and its `.CreateAsync()` or `.WaitForAsync()` methods instead of the `PersistentQueue` constructors or the `IPersistentQueue.Create()` or `.WaitFor()` static methods. Every method has an Async API equivalent suffixed with *Async*.
 
 ### Dependency Injection Containers (first supported in v2)
@@ -535,7 +535,7 @@ which represents another level of disk space savings.
 \* This test was run enqueueing the same 20 objects created with the `SampleDataFactory` class in `ModernDiskQueue.Benchmarks.SampleData`. Actual file size depends on what you're enqueuing.
 
 Speed is harder to evaluate using this benchmark unless you measure a lot of iterations to smooth the outliers. 
-The benchmark is not well-designed for testing the serialization library performance specifically, only how the libraries are performing under MDQ's particular workloads. Generally the differences in (de)serialization speed seem statistically irrelevant in the context of MDQ - your disk is probably your biggest bottleneck.
+The benchmark is not well-designed for testing the serialization library performance specifically, only how the libraries are performing under MDQ's particular workloads. Generally, the differences in (de)serialization speed seem statistically irrelevant in the context of MDQ - your disk is probably your biggest bottleneck.
 
 
 ### Benchmarking of the Async vs Sync APIs
@@ -880,7 +880,7 @@ Once you have cloned the code locally, open the `ModernDiskQueue.sln` solution i
 
 The library is located in the project `ModernDiskQueue`. There are several supporting projects within the solution, including:
 * `ModernDiskQueue.Benchmarks` (used for performance tests)
-* `ModernDiskQUeue.Tests` (used for unit tests)
+* `ModernDiskQueue.Tests` (used for unit tests)
 * `TestDummyProcess` (used by test suite)
 * `TestTrimmedExecutable` (used by test suite)
 
