@@ -614,8 +614,8 @@
         /// </summary>
         private bool Move_UnderLock(string oldPath, string newPath, CancellationToken cancellationToken = default)
         {
-            string oldFileName = oldPath[oldPath.LastIndexOf('\\')..];
-            string newFileName = newPath[newPath.LastIndexOf('\\')..];
+            string oldFileName = Path.GetFileName(oldPath);
+            string newFileName = Path.GetFileName(newPath);
             for (var i = 0; i < RetryLimit; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
