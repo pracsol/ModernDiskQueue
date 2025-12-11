@@ -548,7 +548,8 @@ This library does *not* perform any data encryption. Data is stored on disk exac
 If you need data to be encrypted at rest, you should encrypt it via your own process and pass the encrypted bytes to be enqueued. 
 Possible approaches to this are to use an intermediate process to encrypt the data and pass the byte array to the `IPersistentQueue` (out-of-band), 
 or implement your own `ISerializationStrategy<T>` that encapsulates the call to such an encryption service after serializing it and decrypts data on the way back out (in-band). This 
-latter approach makes encrypt/decrypt operations inherent to your queue interactions.
+latter approach makes encrypt/decrypt operations inherent to your queue interactions. You could also provide your own implementation of `IFileDriver` to
+move such operations lower in the stack (see [Advanced Topics](#advanced-topics) section below).
 
 ### Residual Data
 Data that has been enqueued is stored on disk in a data file. That indexed data is not removed when it is dequeued. There are performance advantages to this design approach, but it is important to understand the trade-off. If you enqueue sensitive data (e.g. PII), be aware that it will remain on disk until the data file rolls over or `HardDeleteAsync` is invoked to clean up the queue. For this and other reasons, you should probably encrypt sensitive data prior to enqueuing it if you do not have complete control of the host system and appropriate mitigating controls (whole disk encryption, access control, etc).
@@ -892,6 +893,21 @@ var jsonStrategy = new SerializationStrategyJson<MyCustomClass>(options);
 
 await using var queue = await _factory.CreateAsync<TestClassSlim>(MyQueueName, jsonStrategy);
 ```
+
+### Custom File Drivers (IFileDriver)
+While highly unlikely and fraught with peril, it is possible to implement your own file driver by implementing the `IFileDriver` interface
+and passing an instance of your implementation into the queue factory constructor. This would be done using an overload of `services.AddModernDiskQueue()`.
+
+Why would you want to do this? 
+* The most common reason would be to mock/substitute the file system for unit testing or benchmarking purposes.
+* Earlier we suggested that you might want to implement your own encryption strategy by implementing `ISerializationStrategy<T>`. 
+If you wanted to move encryption further down the stack, you could do so by implementing your own `IFileDriver` that performs encryption and decryption on the fly.
+I'm not saying this is better or worse than implementing encryption in the serialization strategy, just that it's another option.
+* You could add additional logging or metrics around file access for auditing or other compliance requirements.
+* You could implement methods to store data in a different kind of storage system, such as cloud storage or a database.
+* You could implement custom buffering and caching strategies.
+
+Aside from testing and benchmarking these are pretty fringe considerations but the option is there if you need it.
 
 ## Migrating from DiskQueue
 If you are migrating from the original DiskQueue library, there is very little change required simply to get your existing code working with the sync API.
