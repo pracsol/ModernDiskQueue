@@ -182,7 +182,9 @@ public class MyClass
  - Both `IPersistentQueue` and `IPersistentQueueSession` objects should be wrapped in `using()` clauses, or otherwise
    disposed of properly. Failure to do this will result in lock contention -- you will get errors that the queue
    is still in use.
- - There is also a generic-typed `PersistentQueue<T>(...);` which will handle the serialization and deserialization of elements in the queue. Use `new PersistentQueue<T>(...)` in place of `new PersistentQueue(...)` or `PersistentQueue.WaitFor<T>(...)` in place of `PersistentQueue.WaitFor(...)` in any of the examples below.
+ - There is also a generic-typed `PersistentQueue<T>(...);` which will handle the serialization and deserialization of elements in the queue. 
+ Use `new PersistentQueue<T>(...)` in place of `new PersistentQueue(...)` or `PersistentQueue.WaitFor<T>(...)` in place of `PersistentQueue.WaitFor(...)` in any of 
+ the examples below.
  - You can also assign your own `ISerializationStrategy<T>` 
 to your `PersistentQueueSession<T>` if you wish to have more granular control over Serialization/Deserialization, or if you wish to 
 use your own serializer (e.g System.Text.Json). This is done by assigning your implementation of `ISerializationStrategy<T>` to `IPersistentQueueSession<T>.SerializationStrategy`.
@@ -201,7 +203,7 @@ prefer to use the JSON serializer.
 * **Built-In JSON Serializer (v3+)** - The generic queue can optionally use `System.Text.Json` to serialize and deserialize objects. It is also reflection-based and will store data
 in a human-readable format. It represents a >50% reduction in size on disk compared to the XML serializer.
 
-* **BYOS (Bring Your Own Serializer)** - You can specify your own `ISerializationStrategy<T>` for several advantages - you may find it a more elegant/readable way to integrate your own serialization compared
+* **BYOS (Bring Your Own Serializer)** - You can specify your own `ISerializationStrategy<T>` for several advantages - you may find it a more elegant/readable way to encapsulate your own serialization compared
 to the 'blind bytes' approach; it is ideal for implementing source-generated serialization rather than using reflection-based serialization; custom serializers can be used to natively store your data in MessagePack, protoBuf, or any other format you choose.
 
 > ℹ️ The built-in XML Serializer, using `DataContractSerializer`, does not support source-generated serialization. For this reason, amongst others, new projects may prefer the built-in JSON serializer, which does support source-generated serialization.
@@ -374,7 +376,9 @@ For more examples of implementing `ISerializationStrategy<T>`, please review the
 **Driven by Requirements:**
 * If you are already annotating your class definitions with data contract information specific to a serializer (e.g. MessagePack), you can leverage that metadata by implementing an `ISerializationStrategy<T>`. This not only saves time and keeps your class definitions cleaner, but it also provides consistent serialization behavior across your codebase.
 * If you are implementing source-generated serialization, you can use the `ISerializationStrategy<T>` interface to facilitate this. However, if using JSON, note that the built-in JSON serializer does allow for source-generated serialization without needing to implement your own strategy (see more under **Advanced Topics** below).
-* If you need data encrypted at rest, `ISerializationStrategy<T>` could be used to implement your own serialization logic that encrypts the data before serializing it and decrypts it on the way back out (see [**Data Security**](#data-security) section below).
+* If you need data encrypted at rest, `ISerializationStrategy<T>` could be used to implement your own serialization 
+logic that encapulates calls to your encryption service before serializing it and decrypts it on the way back out, making encrypt/decrypt operations
+inherent to your queue interactions (see [**Data Security**](#data-security) section below).
 
 **Driven by Design:**
 
@@ -387,6 +391,9 @@ This approach may be appropriate if:
 * You have a reliable way to **determine the object type after dequeue ops and deserialize accordingly**.
 
 However, if you're only storing a single complex object type per queue, it may be more elegant to encapsulate your serialization logic within an `ISerializationStrategy`. This allows you to pass an object directly to MDQ, without making explicit calls to an intermediate (de)serialization service.
+
+In short, the `ISerializationStrategy<T>` interface provides a clean way to encapsulate custom serialization logic, calls to encryption services, and anything else you want to be 
+'automatic' when interacting with the queue rather than depending on discrete calls to external services.
 
 ## Transactions
 
@@ -433,24 +440,44 @@ By default, the queues are set up to prioritize data integrity over performance.
 In the async api, the global defaults are specified using the Options pattern using the `ModernDiskQueueOptions` class, provided when configuring services. 
 
 > ℹ️ As stated earlier, the default settings favor safety over performance.
+
+Example from appsettings.json or other configuration store outside of compiled code:
+```json
+{
+  "ModernDiskQueue": {
+    "ParanoidFlushing": false,
+    "TrimTransactionLogOnDispose": true,
+    "AllowTruncatedEntries": false,
+    "SetFilePermissions": true,
+    "FileTimeoutMilliseconds": 5000,
+    "ThrowOnConflict": false
+  }
+}
+```
+Then in program.cs, for example, we'd reference that configuration, which will be used by the factory.
 ```csharp
-// Add Options configuration via the registration helper. These are the default
-// settings, and listed here to illustrate how they can be set initially 
-// using ModernDiskQueueOptions.
+services.Configure<ModernDiskQueueOptions>(
+    configuration.GetSection("ModernDiskQueue"));
+
+// Register ModernDiskQueue services (factory uses DI to get the Options)
+services.AddModernDiskQueue();
+```
+The options pattern is highly flexible both in terms of where, how, and how often it gets its data.
+
+An alternative programmatic configuration is shown below, which would allow computed or dynamic values.
+```csharp
 services.AddModernDiskQueue(options =>
 {
-    options.ParanoidFlushing = true;
+    options.ParanoidFlushing = hostEnvironment.IsProduction();
     options.TrimTransactionLogOnDispose = true;
-    options.AllowTruncatedEntries = false;
-    options.SetFilePermissions = false;
-    options.FileTimeoutMilliseconds = 10000;
-    options.ThrowOnConflict = true;
 });
 ```
 
-Each instance of a queue created using the `IPersistentQueueFactory.CreateAsync()` or `IPersistentQueueFactory.WaitForAsync()` methods can have these values set directly on a per-instance basis, which will override the global defaults if you need to affect a specific queue's behavior at runtime. 
+Support for `IOptionsMonitor` has not been implemented since consumers can already override settings on a per-queue-instance basis.
 
-> ℹ️ This behaves differently than the sync API, in that the async API does not envision the *global defaults* being changed at runtime. Rather, change the settings on a queue instance at runtime as needed.
+Specifically, each instance of a queue created using the `IPersistentQueueFactory.CreateAsync()` or `IPersistentQueueFactory.WaitForAsync()` methods can have these Options values set directly on a per-instance basis, which will override the global defaults if you need to affect a specific queue's behavior at runtime. 
+
+> ℹ️ This behaves differently than the sync API -- the async API does not envision the *global defaults* being changed at runtime. Rather, it is expected that one would change the settings on a queue instance at runtime as needed.
 
 ### Sync API
 
@@ -495,9 +522,9 @@ Logging can be an expensive operation so at present the logging has been kept to
 Queues create a directory and set of files for storage. You can remove all files for a queue with the `HardDeleteAsync` method.
 If you give `true` as the reset parameter, the directory will be written again without any of the files.
 
-> ⚠️ WARNING: This WILL delete ANY AND ALL files inside the queue directory. You should not call this method in normal use.
-If you start a queue with the same path as an existing directory, this method will delete the entire directory, not just
-the queue files.
+> ⚠️ WARNING: This WILL delete ANY AND ALL files inside the queue directory. If you create a queue in a folder shared by other data, it will
+delete the entire contents therein, beyond just the queue files. It would be unusual to call this method in normal use as the whole 
+point of a persistent queue is for the data to persist.
 
 ### Async API
 ```csharp
@@ -517,7 +544,11 @@ subject.HardDelete(true); // wipe any existing data and recreate containing fold
 
 ## Data Security
 ### No Inherent Encryption
-This library does *not* perform any data encryption. Data is stored on disk exactly as you deliver it. If you need data to be encrypted at rest, you should encrypt it via your own process and pass the encrypted bytes to be enqueued. Possible approaches to this are to use an intermediate process to encrypt the data and pass the byte array to the `IPersistentQueue` (out-of-band), or implement your own `ISerializationStrategy<T>` that encrypts the data before serializing it and decrypts data on the way back out (in-band).
+This library does *not* perform any data encryption. Data is stored on disk exactly as you deliver it. 
+If you need data to be encrypted at rest, you should encrypt it via your own process and pass the encrypted bytes to be enqueued. 
+Possible approaches to this are to use an intermediate process to encrypt the data and pass the byte array to the `IPersistentQueue` (out-of-band), 
+or implement your own `ISerializationStrategy<T>` that encapsulates the call to such an encryption service after serializing it and decrypts data on the way back out (in-band). This 
+latter approach makes encrypt/decrypt operations inherent to your queue interactions.
 
 ### Residual Data
 Data that has been enqueued is stored on disk in a data file. That indexed data is not removed when it is dequeued. There are performance advantages to this design approach, but it is important to understand the trade-off. If you enqueue sensitive data (e.g. PII), be aware that it will remain on disk until the data file rolls over or `HardDeleteAsync` is invoked to clean up the queue. For this and other reasons, you should probably encrypt sensitive data prior to enqueuing it if you do not have complete control of the host system and appropriate mitigating controls (whole disk encryption, access control, etc).
