@@ -10,6 +10,7 @@ MDQ is ideal for lightweight, resilient, First-In-First-Out (FIFO) storage of da
 
 | Version       | Changes                     |
 |---------------| ----------------------------|
+|**MDQ&nbsp;v4.***| Migrated to .NET 10 LTS.|
 |**MDQ&nbsp;v3.***| Added built-in JSON serialization strategy; improved support for custom serialization strategies.|
 |**MDQ&nbsp;v2.***| Added first-class async support and support for consumer DI containers. This version retains all the existing synchronous functionality, but the two APIs should not be invoked interchangeably.|
 |**MDQ&nbsp;v1.*** | Upgraded the runtime to .NET 8, but otherwise functionally equivalent to the original DiskQueue synchronous library.|
@@ -98,7 +99,7 @@ To install the package from NuGet, use the following command in the Package Mana
 Install-Package ModernDiskQueue
 ```
 
-ModernDiskQueue (MDQ) is written in C# on .NET 8.0.
+ModernDiskQueue (MDQ) is written in C# on .NET 10.0.
 
 ## Requirements and Environment
 
@@ -222,7 +223,10 @@ The built-in serializers do not require any attribute annotation of your classes
 the results of the default behavior. You may want to use attribute annotation to control inclusion, manage naming, serialize private fields, or add version-control to explicit behavior directives. 
 
 > ℹ️ The original DiskQueue library had advised annotating your classes with the `[Serializable]` attribute, but this was a requirement of the deprecated `BinaryFormatter` library and is
-not required by the built-in serializers provided by MDQ.
+not required by the built-in serializers provided by MDQ. `BinaryFormatter` was killed off in .NET 9 as the final stage in their long-term obsoletion plan.
+
+> ℹ️ Be mindful of breaking changes that have taken place between .NET 8 and .NET 10. These have affected default contract behaviors and validation. https://learn.microsoft.com/en-us/dotnet/core/compatibility/serialization/10/property-name-validation
+
 
 #### Customizing Options with the Built-In Serializers
 Specifying the `SerializationStrategy.Json` value when creating a typed queue will use the built-in JSON serializer with **default options**. You can specify your own `JsonSerializerOptions` to customize the serialization behavior. This is done by instantiating the built-in `SerializationStrategyJson<T>` class with the desired options first, and then passing this strategy object into the `CreateAsync<T>` or `WaitForAsync<T>` methods of `IPersistentQueueFactory`. This allows you to 
@@ -798,18 +802,19 @@ Even though the MDQ library has implemented some steps to prevent dependencies f
 Therefore, tree-shaking does require some cooperation between libraries and their consumers. Specifically, your application should include explicit references to the libraries MDQ needs if not already doing so for your own needs. Adding the following lines to your project file should avoid these problems:
 
 ```xml
-    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Logging" Version="10.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Options" Version="10.0.1" />
 ```
 
 #### Serialization Issues in Trimmed Applications
 
-In .NET 8, reflection-based serialization is disabled by default when a project is
+Starting in .NET 8, reflection-based serialization is disabled by default when a project is
 compiled with the `<PublishTrimmed>` attribute set to `true`. 
 
-The default serialization strategy in this library, as in the legacy DiskQueue, is `System.Runtime.Serialization.DataContractSerializer`. .NET 8 uses type adapters that get lost in the trimming process. Getting an error like `No set method for property 'OffsetMinutes' in type 'System.Runtime.Serialization.DateTimeOffsetAdapter'`, even though there most certainly is an internal setter for this property, is a symptom of the tree-shaking.
+The default serialization strategy in this library, as in the legacy DiskQueue, is `System.Runtime.Serialization.DataContractSerializer`. The .NET 8 framework and above uses type adapters that get lost in the trimming process. Getting an error like `No set method for property 'OffsetMinutes' in type 'System.Runtime.Serialization.DateTimeOffsetAdapter'`, even though there most certainly is an internal setter for this property, is a symptom of the tree-shaking.
 
 As a consequence, you are better off using source-generated serialization for JSON
 rather than reflection-based serialization on either built-in serializer. The good news is:
@@ -893,7 +898,7 @@ Simply build the solution again, and now since the `ModernDiskQueue` DLL exists,
 
 ```xml
 <Reference Include="ModernDiskQueue">
-    <HintPath>$(ProjectDir)..\src\ModernDiskQueue\bin\$(Configuration)\net8.0\ModernDiskQueue.dll</HintPath>
+    <HintPath>$(ProjectDir)..\src\ModernDiskQueue\bin\$(Configuration)\net10.0\ModernDiskQueue.dll</HintPath>
 </Reference>
 ```
 Why does it use a plain reference and not a project reference? The effects of a project reference break the trimming scenario for which this executable was designed.

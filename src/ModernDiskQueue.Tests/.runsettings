@@ -1,7 +1,7 @@
   <RunSettings>
     <RunConfiguration>
       <TestSessionTimeout>60000</TestSessionTimeout>
-      <TargetFrameworkVersion>net8.0</TargetFrameworkVersion>
+      <TargetFrameworkVersion>net10.0</TargetFrameworkVersion>
       <ResultsDirectory>TestResults</ResultsDirectory>
       <CollectSourceInformation>true</CollectSourceInformation>
     </RunConfiguration>

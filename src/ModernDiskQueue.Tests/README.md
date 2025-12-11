@@ -40,7 +40,7 @@ DateTimeOffset values. This project gets published by the `ModernDiskQueue.Tests
 with the following action defined in its csproj file:
 ```xml
   <Target Name="PublishTrimmedExecutable" AfterTargets="Build">
-    <Exec Command="dotnet publish $(SolutionDir)TestTrimmedExecutable\TestTrimmedExecutable.csproj -c Release -p:PublishTrimmed=true -o $(ProjectDir)bin\$(Configuration)\net8.0\TrimmedHost" />
+    <Exec Command="dotnet publish $(SolutionDir)TestTrimmedExecutable\TestTrimmedExecutable.csproj -c Release -p:PublishTrimmed=true -o $(ProjectDir)bin\$(Configuration)\net10.0\TrimmedHost" />
   </Target>
 ```
 
