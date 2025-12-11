@@ -1,6 +1,7 @@
 ﻿namespace ModernDiskQueue
 {
     using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.DependencyInjection.Extensions;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Abstractions;
     using ModernDiskQueue.Implementation;
@@ -32,13 +33,14 @@
             this IServiceCollection services,
             Action<ModernDiskQueueOptions>? configure = null)
         {
+            // Ensure IOptions<ModernDiskQueueOptions> is always available with defaults
+            // TryAddSingleton ensures we don't overwrite if consumer already configured via
+            // services.Configure<ModernDiskQueueOptions>() before calling this method
+            services.TryAddSingleton(Microsoft.Extensions.Options.Options.Create(new ModernDiskQueueOptions()));
+
             if (configure != null)
             {
                 services.Configure(configure);
-            }
-            else
-            {
-                services.Configure<ModernDiskQueueOptions>(_ => { });
             }
 
             // Add NullLoggerFactory if ILoggerFactory isn't already registered
@@ -47,9 +49,13 @@
                 services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             }
 
+            // Register IFileDriver - consumers can replace this before calling AddModernDiskQueue
+            // or by calling services.Replace() afterward
+            services.TryAddSingleton<IFileDriver, StandardFileDriver>();
+
             // Register services
             services.AddSingleton<IPersistentQueueFactory, PersistentQueueFactory>();
-            services.AddSingleton<IFileDriver, StandardFileDriver>();
+
             return services;
         }
     }

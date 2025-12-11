@@ -5,6 +5,7 @@ namespace ModernDiskQueue
     using Microsoft.Extensions.Logging.Abstractions;
     using Microsoft.Extensions.Options;
     using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.Implementation.Interfaces;
     using System;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -20,8 +21,7 @@ namespace ModernDiskQueue
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<PersistentQueueFactory> _logger;
         private readonly ModernDiskQueueOptions _options;
-        //private readonly IFileDriver _fileDriver;
-        private readonly Lazy<StandardFileDriver> _lazyFileDriver;
+        private readonly IFileDriver _fileDriver;
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
@@ -30,21 +30,21 @@ namespace ModernDiskQueue
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(StandardFileDriver))]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
         public PersistentQueueFactory()
-            : this(NullLoggerFactory.Instance, new ModernDiskQueueOptions()) { }
+            : this(NullLoggerFactory.Instance, new ModernDiskQueueOptions(), null) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         public PersistentQueueFactory(ILoggerFactory loggerFactory)
-            : this(loggerFactory, Options.Create(new ModernDiskQueueOptions())) { }
+            : this(loggerFactory, Options.Create(new ModernDiskQueueOptions()), null) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="options">Default options.</param>
         public PersistentQueueFactory(ModernDiskQueueOptions options)
-            : this(NullLoggerFactory.Instance, Options.Create(options)) { }
+            : this(NullLoggerFactory.Instance, Options.Create(options), null) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
@@ -52,14 +52,15 @@ namespace ModernDiskQueue
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         /// <param name="options">Default options.</param>
         public PersistentQueueFactory(ILoggerFactory loggerFactory, ModernDiskQueueOptions options)
-            : this(loggerFactory, Options.Create(options)) { }
+            : this(loggerFactory, Options.Create(options), null) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
         /// </summary>
         /// <param name="loggerFactory">Implementation of <see cref="ILoggerFactory"/></param>
         /// <param name="options">Default options.</param>
-        public PersistentQueueFactory(ILoggerFactory loggerFactory, IOptions<ModernDiskQueueOptions> options)
+        /// <param name="fileDriver">Implementation of <see cref="IFileDriver"/>. If null, a <see cref="StandardFileDriver"/> will be used.</param>
+        public PersistentQueueFactory(ILoggerFactory loggerFactory, IOptions<ModernDiskQueueOptions> options, IFileDriver? fileDriver = null)
         {
             if (options == null)
             {
@@ -68,13 +69,8 @@ namespace ModernDiskQueue
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
             _logger = loggerFactory?.CreateLogger<PersistentQueueFactory>() ?? NullLogger<PersistentQueueFactory>.Instance;
             _options = options.Value ?? new();
-            _lazyFileDriver = new Lazy<StandardFileDriver>(() =>
-                new StandardFileDriver(_loggerFactory, options));
-            //_fileDriver = fileDriver ?? throw new ArgumentNullException(nameof(fileDriver));
+            _fileDriver = fileDriver ?? new StandardFileDriver(_loggerFactory, options);
         }
-
-        // Expose the lazily initialized driver through a property
-        private StandardFileDriver FileDriver => _lazyFileDriver.Value;
 
         /// <inheritdoc/>
         public async Task<IPersistentQueue> CreateAsync(string storagePath, CancellationToken cancellationToken = default)
