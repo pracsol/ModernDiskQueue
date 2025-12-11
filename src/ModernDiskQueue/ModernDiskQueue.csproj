@@ -9,7 +9,7 @@
     <PackageTags>net8</PackageTags>
     <PackageTags>queue;disk;persistent;net8;modern</PackageTags>
     <PackageProjectUrl>https://github.com/pracsol/ModernDiskQueue</PackageProjectUrl>
-    <Version>4.0.1</Version>
+    <Version>4.0.0</Version>
     <AssemblyName>ModernDiskQueue</AssemblyName>
     <LangVersion>14</LangVersion>
     <RepositoryUrl>https://github.com/pracsol/ModernDiskQueue</RepositoryUrl>
@@ -49,9 +49,10 @@
     <TrimmerRootDescriptor Include="ILLink.Descriptor.xml" />
   </ItemGroup>
   <ItemGroup>
-    <TrimmerRootAssembly Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
-    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
-    <TrimmerRootAssembly Include="Microsoft.Extensions.Options" Version="8.0.2" />
+	<TrimmerRootAssembly Include="Microsoft.Extensions.Logging" Version="10.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.1" />
+    <TrimmerRootAssembly Include="Microsoft.Extensions.Options" Version="10.0.1" />
   </ItemGroup>
 </Project>

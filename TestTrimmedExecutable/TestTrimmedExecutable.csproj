@@ -9,7 +9,7 @@
     <PublishTrimmed>true</PublishTrimmed>
     <SelfContained>true</SelfContained>
     <TrimMode>full</TrimMode>
-    <Version>2.2.0</Version>
+    <Version>2.0.0</Version>
     <Authors>Stephen Shephard</Authors>
     <Copyright>2025 Stephen Shephard</Copyright>
   </PropertyGroup>
