@@ -33,11 +33,6 @@
             this IServiceCollection services,
             Action<ModernDiskQueueOptions>? configure = null)
         {
-            // Ensure IOptions<ModernDiskQueueOptions> is always available with defaults
-            // TryAddSingleton ensures we don't overwrite if consumer already configured via
-            // services.Configure<ModernDiskQueueOptions>() before calling this method
-            services.TryAddSingleton(Microsoft.Extensions.Options.Options.Create(new ModernDiskQueueOptions()));
-
             if (configure != null)
             {
                 services.Configure(configure);

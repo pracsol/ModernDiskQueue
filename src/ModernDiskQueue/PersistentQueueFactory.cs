@@ -30,7 +30,7 @@ namespace ModernDiskQueue
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(StandardFileDriver))]
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PersistentQueueFactory))]
         public PersistentQueueFactory()
-            : this(NullLoggerFactory.Instance, new ModernDiskQueueOptions(), null) { }
+            : this(NullLoggerFactory.Instance, Options.Create(new ModernDiskQueueOptions()), null) { }
 
         /// <summary>
         /// Create a new instance of <see cref="PersistentQueueFactory"/>.
@@ -83,7 +83,7 @@ namespace ModernDiskQueue
         {
             _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString(throwOnConflict));
             SetGlobalDefaultsFromFactoryOptions(_options);
-            var queue = new PersistentQueueImpl(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, FileDriver);
+            var queue = new PersistentQueueImpl(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, _fileDriver);
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
             return new PersistentQueue(_loggerFactory, queue);
         }
@@ -117,7 +117,7 @@ namespace ModernDiskQueue
         {
             _logger.LogInformation("Thread {ThreadId} creating queue at {storagePath} with options: {Options}", Environment.CurrentManagedThreadId, storagePath, _options.ToString(throwOnConflict));
             SetGlobalDefaultsFromFactoryOptions(_options);
-            var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, FileDriver);
+            var queue = new PersistentQueueImpl<T>(_loggerFactory, storagePath, maxSize, throwOnConflict, true, _options, _fileDriver);
             queue.DefaultSerializationStrategy = defaultSessionStrategy;
             await queue.InitializeAsync(cancellationToken).ConfigureAwait(false);
             return new PersistentQueue<T>(_loggerFactory, queue);
