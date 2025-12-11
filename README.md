@@ -893,7 +893,7 @@ Simply build the solution again, and now since the `ModernDiskQueue` DLL exists,
 
 ```xml
 <Reference Include="ModernDiskQueue">
-    <HintPath>$(ProjectDir)..\src\ModernDiskQueue\bin\$(Configuration)\net8.0\ModernDiskQueue.dll</HintPath>
+    <HintPath>$(ProjectDir)..\src\ModernDiskQueue\bin\$(Configuration)\net10.0\ModernDiskQueue.dll</HintPath>
 </Reference>
 ```
 Why does it use a plain reference and not a project reference? The effects of a project reference break the trimming scenario for which this executable was designed.

@@ -3,10 +3,10 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <Description>Performance benchmarks for ModernDiskQueue.</Description>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Authors>Stephen Shephard</Authors>
     <Copyright>2025 Stephen Shephard</Copyright>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -27,13 +27,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
-    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.14.0" />
-    <PackageReference Include="MessagePack" Version="3.1.3" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
-    <PackageReference Include="Microsoft.VisualStudio.DiagnosticsHub.BenchmarkDotNetDiagnosers" Version="17.14.36021.1" />
-    <PackageReference Include="Roslynator.Analyzers" Version="4.13.1">
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.15.8" />
+    <PackageReference Include="MessagePack" Version="3.1.4" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.1" />
+    <PackageReference Include="Microsoft.VisualStudio.DiagnosticsHub.BenchmarkDotNetDiagnosers" Version="18.3.36726.2" />
+    <PackageReference Include="Roslynator.Analyzers" Version="4.14.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
