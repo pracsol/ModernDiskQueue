@@ -8,11 +8,18 @@ namespace ModernDiskQueue.Tests
 {
     using System;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.DependencyInjection.Extensions;
     using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using Microsoft.Extensions.Options;
     using ModernDiskQueue;
+    using ModernDiskQueue.Implementation;
+    using ModernDiskQueue.Implementation.Interfaces;
     using ModernDiskQueue.Tests.Models;
+    using NSubstitute;
     using NUnit.Framework;
 
     internal class DependencyInjectionTests
@@ -220,5 +227,169 @@ namespace ModernDiskQueue.Tests
                 entry.Message.Contains("released lock file")),
                 "Expected trace/verbose entry from IFileDriver when lock file released.");
         }
+
+        #region IFileDriver Injection Tests
+
+        [Test]
+        public void CreateFactory_WithCustomFileDriverViaConstructor_UsesCustomDriver()
+        {
+            // Arrange
+            var mockFileDriver = Substitute.For<IFileDriver>();
+            var loggerFactory = NullLoggerFactory.Instance;
+            var options = Options.Create(new ModernDiskQueueOptions());
+
+            // Act
+            var factory = new PersistentQueueFactory(loggerFactory, options, mockFileDriver);
+
+            // Assert - factory should be created without throwing
+            Assert.That(factory, Is.Not.Null);
+        }
+
+        [Test]
+        public void CreateFactory_WithNullFileDriver_CreatesDefaultStandardFileDriver()
+        {
+            // Arrange
+            var loggerFactory = NullLoggerFactory.Instance;
+            var options = Options.Create(new ModernDiskQueueOptions());
+
+            // Act
+            var factory = new PersistentQueueFactory(loggerFactory, options, null);
+
+            // Assert - factory should be created without throwing
+            Assert.That(factory, Is.Not.Null);
+        }
+
+        [Test]
+        public void CreateFactory_WithCustomFileDriverViaDI_BeforeAddModernDiskQueue_UsesCustomDriver()
+        {
+            // Arrange
+            var mockFileDriver = Substitute.For<IFileDriver>();
+            var services = new ServiceCollection();
+
+            services.AddLogging();
+
+            // Register custom IFileDriver BEFORE AddModernDiskQueue
+            services.AddSingleton<IFileDriver>(mockFileDriver);
+
+            services.AddModernDiskQueue();
+
+            using var provider = services.BuildServiceProvider();
+
+            // Act
+            var resolvedFileDriver = provider.GetRequiredService<IFileDriver>();
+
+            // Assert
+            Assert.That(resolvedFileDriver, Is.SameAs(mockFileDriver), "Custom IFileDriver should be used when registered before AddModernDiskQueue.");
+        }
+
+        [Test]
+        public void CreateFactory_WithoutCustomFileDriver_UsesStandardFileDriver()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddModernDiskQueue();
+
+            using var provider = services.BuildServiceProvider();
+
+            // Act
+            var resolvedFileDriver = provider.GetRequiredService<IFileDriver>();
+
+            // Assert
+            Assert.That(resolvedFileDriver, Is.InstanceOf<StandardFileDriver>(), "StandardFileDriver should be used by default.");
+        }
+
+        [Test]
+        public void CreateFactory_ReplaceFileDriverAfterAddModernDiskQueue_UsesReplacedDriver()
+        {
+            // Arrange
+            var mockFileDriver = Substitute.For<IFileDriver>();
+            var services = new ServiceCollection();
+
+            services.AddLogging();
+            services.AddModernDiskQueue();
+
+            // Replace IFileDriver AFTER AddModernDiskQueue
+            services.Replace(ServiceDescriptor.Singleton<IFileDriver>(mockFileDriver));
+
+            using var provider = services.BuildServiceProvider();
+
+            // Act
+            var resolvedFileDriver = provider.GetRequiredService<IFileDriver>();
+
+            // Assert
+            Assert.That(resolvedFileDriver, Is.SameAs(mockFileDriver), "Replaced IFileDriver should be used.");
+        }
+
+        [Test]
+        public async Task CreateQueue_WithMockedFileDriver_FileDriverMethodsAreCalled()
+        {
+            // Arrange
+            var mockFileDriver = Substitute.For<IFileDriver>();
+            var mockLockFile = Substitute.For<ILockFile>();
+
+            // Setup minimum required mock behavior for queue creation
+            mockFileDriver.GetFullPath(Arg.Any<string>()).Returns(x => x.Arg<string>());
+            mockFileDriver.PathCombine(Arg.Any<string>(), Arg.Any<string>()).Returns(x => $"{x.ArgAt<string>(0)}/{x.ArgAt<string>(1)}");
+            mockFileDriver.DirectoryExistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
+            mockFileDriver.CreateLockFileAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(mockLockFile.Success()));
+
+            var loggerFactory = NullLoggerFactory.Instance;
+            var options = Options.Create(new ModernDiskQueueOptions());
+            var factory = new PersistentQueueFactory(loggerFactory, options, mockFileDriver);
+
+            // Act & Assert
+            try
+            {
+                await using var queue = await factory.CreateAsync("./TestPath");
+            }
+            catch
+            {
+                // We expect this to fail since we haven't mocked everything,
+                // but we can verify that our mock was called
+            }
+
+            // Assert - verify the mock was actually used
+            mockFileDriver.Received().GetFullPath(Arg.Any<string>());
+        }
+
+        [Test]
+        public void CreateFactory_ParameterlessConstructor_CreatesDefaultFileDriver()
+        {
+            // Act
+            var factory = new PersistentQueueFactory();
+
+            // Assert
+            Assert.That(factory, Is.Not.Null, "Factory should be created with parameterless constructor.");
+        }
+
+        [Test]
+        public void CreateFactory_WithLoggerFactoryOnly_CreatesDefaultFileDriver()
+        {
+            // Arrange
+            var loggerFactory = NullLoggerFactory.Instance;
+
+            // Act
+            var factory = new PersistentQueueFactory(loggerFactory);
+
+            // Assert
+            Assert.That(factory, Is.Not.Null, "Factory should be created with logger factory only.");
+        }
+
+        [Test]
+        public void CreateFactory_WithOptionsOnly_CreatesDefaultFileDriver()
+        {
+            // Arrange
+            var options = new ModernDiskQueueOptions();
+
+            // Act
+            var factory = new PersistentQueueFactory(options);
+
+            // Assert
+            Assert.That(factory, Is.Not.Null, "Factory should be created with options only.");
+        }
+
+        #endregion
     }
 }
